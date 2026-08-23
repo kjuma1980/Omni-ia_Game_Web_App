@@ -799,9 +799,27 @@ const App: React.FC = () => {
 
     const fetchLogs = async () => {
       try {
-        const comfyuiPath = project.apiSettings.comfyuiPath || 'G:\\apps\\all_comfyui_installer\\ComfyUI';
-        const logs = await invoke('get_comfyui_logs', { comfyuiPath }) as string;
-        setConsoleLogs(logs);
+        const isWebMode = (window as any).__OMNI_IS_WEB__ || !(window as any).__TAURI_INTERNALS__;
+        if (!isWebMode && (window as any).__TAURI__ && typeof invoke === 'function') {
+          const comfyuiPath = project.apiSettings.comfyuiPath || 'G:\\apps\\all_comfyui_installer\\ComfyUI';
+          const logs = await invoke('get_comfyui_logs', { comfyuiPath }) as string;
+          setConsoleLogs(logs);
+        } else {
+          // Modo Web App: Consultar logs al servidor Node.js vía OmniDeploy API
+          const deploymentId = project.apiSettings.image?.deploymentId || project.apiSettings.video?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
+          if (!deploymentId) {
+            setConsoleLogs("Pestaña Web activa. Para monitorear logs remotos, asegúrate de configurar el deploymentId en la pestaña de Ajustes.");
+            return;
+          }
+          const res = await fetch(`https://omni-api.fenixdev.cloud/api/omnideploy/control/logs?deploymentId=${encodeURIComponent(deploymentId)}`);
+          const data = await res.json();
+          if (data.ok) {
+            setConsoleLogs(data.logs || "(Sin registros de log aún en el servidor...)");
+            if (data.status === 'running') {
+              setIsLaunching(false);
+            }
+          }
+        }
       } catch (e) {
         setConsoleLogs(`Error leyendo logs: ${e}`);
       }
@@ -810,14 +828,33 @@ const App: React.FC = () => {
     fetchLogs();
     const interval = setInterval(fetchLogs, 1000);
     return () => clearInterval(interval);
-  }, [showConsole, isSettingsOpen, project.apiSettings.comfyuiPath]);
+  }, [showConsole, isSettingsOpen, project.apiSettings]);
 
   const handleLaunchComfyUI = async () => {
     try {
       setShowConsole(true);
       setIsLaunching(true);
-      const comfyuiPath = project.apiSettings.comfyuiPath || 'F:\\Comfyui_362\\App\\OMNI-IA_START - Copy.bat';
-      await invoke('launch_comfyui', { comfyuiPath });
+      const isWebMode = (window as any).__OMNI_IS_WEB__ || !(window as any).__TAURI_INTERNALS__;
+      if (!isWebMode && (window as any).__TAURI__ && typeof invoke === 'function') {
+        const comfyuiPath = project.apiSettings.comfyuiPath || 'F:\\Comfyui_362\\App\\OMNI-IA_START - Copy.bat';
+        await invoke('launch_comfyui', { comfyuiPath });
+      } else {
+        // Modo Web App: Enviar orden de inicio al servidor Node.js vía OmniDeploy
+        const deploymentId = project.apiSettings.image?.deploymentId || project.apiSettings.video?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
+        const apiKey = project.apiSettings.image?.apiKey || project.apiSettings.video?.apiKey || 'master';
+        const res = await fetch('https://omni-api.fenixdev.cloud/api/omnideploy/control/launch-comfy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deploymentId, apiKey }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          setIsLaunching(false);
+          alert(`Error enviando orden de inicio: ${data.error}`);
+        } else {
+          setConsoleLogs(prev => (prev || '') + "\n[OmniDeploy] 🚀 Orden enviada: Lanzando ComfyUI en el agente remoto...");
+        }
+      }
     } catch (e) {
       setIsLaunching(false);
       alert(`Error al lanzar ComfyUI: ${e}`);
@@ -826,14 +863,28 @@ const App: React.FC = () => {
 
   const handleStopComfyUI = async () => {
     try {
-      if (!invoke || typeof invoke !== 'function') {
-        alert("Tauri API no disponible para detener");
-        return;
-      }
       setIsLaunching(false);
-      const comfyuiPath = project.apiSettings.comfyuiPath || 'G:\\apps\\all_comfyui_installer\\ComfyUI';
-      const result = await invoke('stop_comfyui', { comfyuiPath });
-      alert(result);
+      const isWebMode = (window as any).__OMNI_IS_WEB__ || !(window as any).__TAURI_INTERNALS__;
+      if (!isWebMode && (window as any).__TAURI__ && typeof invoke === 'function') {
+        const comfyuiPath = project.apiSettings.comfyuiPath || 'G:\\apps\\all_comfyui_installer\\ComfyUI';
+        const result = await invoke('stop_comfyui', { comfyuiPath });
+        alert(result);
+      } else {
+        // Modo Web App: Enviar orden de detención al servidor Node.js
+        const deploymentId = project.apiSettings.image?.deploymentId || project.apiSettings.video?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
+        const apiKey = project.apiSettings.image?.apiKey || project.apiSettings.video?.apiKey || 'master';
+        const res = await fetch('https://omni-api.fenixdev.cloud/api/omnideploy/control/stop-comfy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deploymentId, apiKey }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          alert(`Error enviando orden de detención: ${data.error}`);
+        } else {
+          alert("Orden de detención enviada a ComfyUI.");
+        }
+      }
     } catch (e) {
       alert(`Error al detener ComfyUI: ${e}`);
     }
@@ -842,9 +893,10 @@ const App: React.FC = () => {
   const handleClearLogs = async () => {
     setConsoleLogs("");
     try {
-      if (!invoke) return;
-      const comfyuiPath = project.apiSettings.comfyuiPath || 'G:\\apps\\all_comfyui_installer\\ComfyUI';
-      await invoke('clear_comfyui_logs', { comfyuiPath });
+      if ((window as any).__TAURI__ && typeof invoke === 'function') {
+        const comfyuiPath = project.apiSettings.comfyuiPath || 'G:\\apps\\all_comfyui_installer\\ComfyUI';
+        await invoke('clear_comfyui_logs', { comfyuiPath });
+      }
     } catch (e) {
       console.error("Error clearing logs:", e);
     }

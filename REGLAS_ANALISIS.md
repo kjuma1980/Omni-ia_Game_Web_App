@@ -47,4 +47,12 @@ Sin autorización expresa, el agente se limita a **leer y analizar** (operacione
 
 ---
 
+## Regla 4 — Exclusividad de la Versión Web App
+
+- El desarrollo se realiza **única y exclusivamente sobre la versión Web (`Omni-ia_Game_Web_App`)**.
+- La versión de escritorio (*"Omni IA Game Versión Educativa"*) **NO se mira, NO se toca y NO se edita**, ni ninguna de sus ramas.
+- El agente `omnideploy-agent` que se utiliza y configura es **única y exclusivamente el que pertenece a esta carpeta web** (`Omni-ia_Game_Web_App/omnideploy-agent`).
+
+---
+
 *Archivo creado a petición expresa del usuario. Cualquier modificación futura de este documento requiere su autorización.*

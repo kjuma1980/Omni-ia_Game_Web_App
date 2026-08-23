@@ -685,17 +685,26 @@ def asegurar_registro(t: TransporteSondeo) -> TransporteSondeo:
     # Espera a la aprobacion sin machacar el servidor.
     avisado = False
     while True:
-        info = t.estado()
-        if info.get("status") == "active":
-            log(f"Aprobado. Despliegue: {info.get('deploymentId')}")
-            return t
-        if info.get("status") == "revoked":
-            log("Este dispositivo esta REVOCADO. Borra agent.json para registrarlo de nuevo.")
-            sys.exit(1)
-        if not avisado:
-            log("Pendiente de aprobacion en el panel. Esperando...")
-            avisado = True
-        time.sleep(10)
+        try:
+            info = t.estado()
+            if info.get("status") == "active":
+                log(f"Aprobado. Despliegue: {info.get('deploymentId')}")
+                return t
+            if info.get("status") == "revoked":
+                log("Este dispositivo esta REVOCADO. Borra agent.json para registrarlo de nuevo.")
+                sys.exit(1)
+            if not avisado:
+                log("Pendiente de aprobacion en el panel. Esperando...")
+                avisado = True
+            time.sleep(10)
+        except ErrorRelay as e:
+            if e.codigo == 401:
+                log("Dispositivo no reconocido en el servidor (token desactualizado). Volviendo a registrar...")
+                estado = {}
+                guardar_estado(estado)
+                t.device_token = None
+                return asegurar_registro(t)
+            raise
 
 
 # Que servicio atiende cada cosa. ComfyUI NO es "el de las imagenes": es un
@@ -710,30 +719,137 @@ SERVICIOS = {
 def informar_capacidades() -> None:
     """
     Dice al arrancar QUE puede atender este equipo y CON QUE.
-
-    Descubrir que Ollama estaba apagado cuando alguien lleva tres minutos
-    esperando su guion es tarde. Ninguna comprobacion aborta el arranque: un
-    equipo que solo genere imagenes es perfectamente valido.
     """
     que_comfy, _ = SERVICIOS["ComfyUI"]
     try:
-        info = comfy("GET", "/object_info/CheckpointLoaderSimple", espera=10)
+        info = comfy("GET", "/object_info/CheckpointLoaderSimple", espera=5)
         n = len(info["CheckpointLoaderSimple"]["input"]["required"]["ckpt_name"][0])
-        log(f"  ComfyUI  {COMFYUI}")
-        log(f"           sirve {que_comfy}")
-        log(f"           {n} checkpoint(s) instalado(s); el workflow decide que sale")
-    except Exception as e:  # noqa: BLE001
-        log(f"  ComfyUI  NO disponible en {COMFYUI} ({str(e)[:80]})")
-        log(f"           sin el no hay {que_comfy}")
+        log(f"  ComfyUI  {COMFYUI} [EN LINEA]")
+        log(f"           sirve {que_comfy} ({n} checkpoints)")
+    except Exception:  # noqa: BLE001
+        log(f"  ComfyUI  {COMFYUI} [LISTO PARA AUTO-LANZAMIENTO REMOTO]")
+        log("           (Apagado actualmente. Se encenderá automáticamente cuando la Web App lo solicite)")
 
     try:
         modelo = elegir_modelo_ollama()
         log(f"  Ollama   {OLLAMA}")
         log(f"           sirve textos: guiones, dialogos y NPCs, con {modelo}")
-    except Exception as e:  # noqa: BLE001
-        log(f"  Ollama   NO disponible en {OLLAMA} ({str(e)[:80]})")
+    except Exception:  # noqa: BLE001
+        log(f"  Ollama   NO disponible en {OLLAMA}")
         log("           sin el no hay textos; iran por servicios en la nube")
 
+
+PROCESO_COMFYUI = None
+LOGS_PENDIENTES = []
+ESTADO_COMFYUI = "stopped"
+
+def capturar_linea_log(linea: str) -> None:
+    if not linea:
+        return
+    l = linea.rstrip()
+    if l:
+        LOGS_PENDIENTES.append(f"[{time.strftime('%H:%M:%S')}] {l}")
+        if len(LOGS_PENDIENTES) > 500:
+            LOGS_PENDIENTES.pop(0)
+
+def esta_comfyui_activo() -> bool:
+    try:
+        comfy("GET", "/system_stats", espera=3)
+        return True
+    except Exception:
+        return False
+
+def lanzar_comfyui_local() -> bool:
+    global PROCESO_COMFYUI, ESTADO_COMFYUI
+    if esta_comfyui_activo():
+        capturar_linea_log("ComfyUI ya está activo en http://127.0.0.1:8188")
+        ESTADO_COMFYUI = "running"
+        return True
+
+    ESTADO_COMFYUI = "launching"
+    cmd = os.environ.get("OMNI_COMFYUI_LAUNCH_CMD", "").strip()
+    if not cmd:
+        candidatos = [
+            r"F:\Comfyui_362\App\OMNI-IA_START - Copy.bat",
+            r"G:\apps\all_comfyui_installer\ComfyUI\run_nvidia_gpu.bat",
+            r"C:\ComfyUI\run_nvidia_gpu.bat",
+        ]
+        for c in candidatos:
+            if os.path.exists(c):
+                cmd = c
+                break
+
+    if not cmd:
+        capturar_linea_log("Falta OMNI_COMFYUI_LAUNCH_CMD en agent.env. No se encontró script por defecto.")
+        ESTADO_COMFYUI = "stopped"
+        return False
+
+    capturar_linea_log(f"Lanzando ComfyUI localmente: {cmd}")
+    try:
+        import subprocess
+        import threading
+        PROCESO_COMFYUI = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+
+        def capturar_salida():
+            if PROCESO_COMFYUI and PROCESO_COMFYUI.stdout:
+                for linea in PROCESO_COMFYUI.stdout:
+                    capturar_linea_log(linea)
+
+        t_hilo = threading.Thread(target=capturar_salida, daemon=True)
+        t_hilo.start()
+        ESTADO_COMFYUI = "running"
+        return True
+    except Exception as e:
+        capturar_linea_log(f"Error al ejecutar script de ComfyUI: {e}")
+        ESTADO_COMFYUI = "stopped"
+        return False
+
+def detener_comfyui_local() -> None:
+    global PROCESO_COMFYUI, ESTADO_COMFYUI
+    capturar_linea_log("Solicitud de apagado de ComfyUI local...")
+    if PROCESO_COMFYUI:
+        try:
+            PROCESO_COMFYUI.terminate()
+        except Exception:
+            pass
+        PROCESO_COMFYUI = None
+    try:
+        import subprocess
+        subprocess.run("taskkill /F /IM python.exe /FI \"WINDOWTITLE eq ComfyUI*\"", shell=True, capture_output=True)
+    except Exception:
+        pass
+    ESTADO_COMFYUI = "stopped"
+    capturar_linea_log("ComfyUI detenido.")
+
+def sincronizar_logs_y_control(t: TransporteSondeo) -> None:
+    global LOGS_PENDIENTES, ESTADO_COMFYUI
+    activo = esta_comfyui_activo()
+    actual_status = "running" if activo else ("launching" if ESTADO_COMFYUI == "launching" else "stopped")
+    ESTADO_COMFYUI = actual_status
+
+    a_enviar = list(LOGS_PENDIENTES)
+    LOGS_PENDIENTES.clear()
+
+    try:
+        resp = t.enviar_logs(a_enviar, status=actual_status)
+        cmd = resp.get("controlCommand")
+        if cmd == "START_COMFY":
+            capturar_linea_log("Recibida orden remota START_COMFY desde el servidor.")
+            lanzar_comfyui_local()
+        elif cmd == "STOP_COMFY":
+            capturar_linea_log("Recibida orden remota STOP_COMFY desde el servidor.")
+            detener_comfyui_local()
+    except Exception:  # noqa: BLE001
+        pass
 
 def main() -> None:
     log(f"Agente OmniDeploy — relay {RELAY}")
@@ -749,6 +865,7 @@ def main() -> None:
     espera = ESPERA_MIN
     while True:
         try:
+            sincronizar_logs_y_control(t)
             trabajo = t.obtener_trabajo()
             espera = ESPERA_MIN  # hubo respuesta: se reinicia el retroceso
 

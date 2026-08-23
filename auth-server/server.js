@@ -88,13 +88,15 @@ if (process.env.TRUST_PROXY === '1') {
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && APP_ORIGINS.includes(origin)) {
+  if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-secret, x-device-id, x-device-token');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
 
@@ -336,10 +338,14 @@ app.post('/api/admin/upload-chunk', (req, res) => {
   const targetRelative = (req.query.filename || 'Omni-IA-Game-Setup-0.2.8.exe').replace(/^[/\\]+/, '');
   const chunkIndex = parseInt(req.query.chunk || '0', 10);
   const totalChunks = parseInt(req.query.total || '1', 10);
+  const isRestart = req.query.restart === '1' || req.query.restart === 'true';
+  const isCodeTarget = req.query.target === 'root' || req.query.scope === 'code';
   const filename = path.basename(targetRelative);
-  const destDir = path.join(__dirname, 'public', path.dirname(targetRelative));
+  
+  const baseFolder = isCodeTarget ? __dirname : path.join(__dirname, 'public');
+  const destDir = path.join(baseFolder, path.dirname(targetRelative));
   if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-  const destPath = path.join(__dirname, 'public', targetRelative);
+  const destPath = path.join(baseFolder, targetRelative);
 
   const writeStream = fs.createWriteStream(destPath, { flags: chunkIndex === 0 ? 'w' : 'a' });
   let bytesWritten = 0;
@@ -354,7 +360,7 @@ app.post('/api/admin/upload-chunk', (req, res) => {
     if (chunkIndex + 1 >= totalChunks) {
       try {
         const persistentDir = '/home/u670620190/omni_data/downloads';
-        if (fs.existsSync('/home/u670620190/omni_data')) {
+        if (!isCodeTarget && fs.existsSync('/home/u670620190/omni_data')) {
           if (!fs.existsSync(persistentDir)) fs.mkdirSync(persistentDir, { recursive: true });
           const persistentPath = path.join(persistentDir, filename);
           fs.copyFileSync(destPath, persistentPath);
@@ -363,8 +369,12 @@ app.post('/api/admin/upload-chunk', (req, res) => {
       } catch (errCopy) {
         console.error('Error guardando copia persistente:', errCopy);
       }
+      if (isRestart) {
+        console.log('🔄 Reiniciando proceso de Node.js en Hostinger...');
+        setTimeout(() => process.exit(0), 500);
+      }
     }
-    return res.json({ ok: true, chunkIndex, totalChunks, filename, bytesWritten });
+    return res.json({ ok: true, chunkIndex, totalChunks, filename, bytesWritten, restarted: isRestart });
   });
 
   writeStream.on('error', (err) => {

@@ -77,9 +77,14 @@ async function uploadFileChunked(filePath, remoteFilename) {
 
 async function run() {
   const rootDir = process.cwd();
+  const zipPath = path.join(rootDir, 'omni_auth_code_deploy.zip');
   const exePath = path.join(rootDir, 'auth-server', 'public', 'downloads', 'Omni-IA-Game-Setup-0.2.8.exe');
   const sigPath = path.join(rootDir, 'auth-server', 'public', 'downloads', 'Omni-IA-Game-Setup-0.2.8.exe.sig');
   const updatesPath = path.join(rootDir, 'auth-server', 'public', 'updates.json');
+
+  if (fs.existsSync(zipPath)) {
+    await uploadFileChunked(zipPath, 'omni_auth_code_deploy.zip');
+  }
 
   if (fs.existsSync(sigPath)) {
     await uploadFileChunked(sigPath, 'Omni-IA-Game-Setup-0.2.8.exe.sig');

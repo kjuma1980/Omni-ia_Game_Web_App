@@ -126,3 +126,15 @@ class TransporteSondeo:
         )
         if codigo != 200:
             raise ErrorRelay(datos.get("error", f"HTTP {codigo}"), codigo)
+
+    def enviar_logs(self, logs: list[str], status: str = "running") -> dict[str, Any]:
+        """Transmite logs recientes al relay y recibe comandos de control pendientes."""
+        codigo, datos = self._peticion(
+            "POST", "/api/omnideploy/agent/logs",
+            {"logs": logs, "status": status},
+            espera=15,
+        )
+        if codigo != 200:
+            raise ErrorRelay(datos.get("error", f"HTTP {codigo}"), codigo)
+        return datos
+
