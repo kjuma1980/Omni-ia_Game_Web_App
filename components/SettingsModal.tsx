@@ -85,7 +85,9 @@ const PREDEFINED_CODE_MODELS: Record<string, string[]> = {
   openai: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'o4-mini', 'o3-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
   deepseek: ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat', 'deepseek-coder'],
   qwen: ['qwen3.7-max', 'qwen3.7-plus', 'qwen3-coder-plus', 'qwen-max', 'qwen-plus', 'qwen-coder-plus'],
-  kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k']
+  kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+  openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
+  cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner']
 };
 
 const PREDEFINED_NPC_MODELS: Record<string, string[]> = {
@@ -94,7 +96,9 @@ const PREDEFINED_NPC_MODELS: Record<string, string[]> = {
   openai: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'o4-mini', 'o3-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
   deepseek: ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat'],
   qwen: ['qwen3.7-max', 'qwen3.7-plus', 'qwen-max', 'qwen-plus'],
-  kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k']
+  kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+  openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
+  cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner']
 };
 
 const PREDEFINED_TEXT_MODELS: Record<string, string[]> = {
@@ -103,7 +107,9 @@ const PREDEFINED_TEXT_MODELS: Record<string, string[]> = {
   openai: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'o4-mini', 'o3-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
   deepseek: ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat'],
   qwen: ['qwen3.7-max', 'qwen3.7-plus', 'qwen-max', 'qwen-plus'],
-  kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k']
+  kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+  openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
+  cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner']
 };
 
 const PREDEFINED_IMAGE_MODELS: Record<string, string[]> = {
@@ -2593,7 +2599,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label className="flex items-center justify-between mb-4 cursor-pointer">
                     <span className="font-bold text-slate-200">Proveedor de Texto & Lógica</span>
                     <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 flex-wrap gap-1">
-                      {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'ollama', 'omnideploy', 'lm-studio', 'llama-server', 'other'].map((p) => (
+                      {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi', 'ollama', 'omnideploy', 'lm-studio', 'llama-server', 'other'].map((p) => (
                         <button
                           key={p}
                           onClick={() => {
@@ -2675,8 +2681,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     </Tooltip>
                   )}
 
-                  {/* Cloud providers (Gemini/Anthropic/OpenAI/DeepSeek/Qwen/Kimi): selector de modelos */}
-                  {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi'].includes(settings.text.provider) && (() => {
+                  {/* Cloud providers (Gemini/Anthropic/OpenAI/DeepSeek/Qwen/Kimi/OpenRouter/CometAPI): selector de modelos */}
+                  {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi'].includes(settings.text.provider) && (() => {
                     const provider = settings.text.provider;
                     const predefined = PREDEFINED_TEXT_MODELS[provider] || [];
                     const currentModel = settings.text.model || '';
@@ -3010,7 +3016,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div>
                           <label className="block text-xs text-slate-500 uppercase mb-2">Proveedor</label>
                           <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 flex-wrap gap-1">
-                            {['gemini', 'anthropic', 'openai', 'deepseek', 'ollama', 'lm-studio', 'llama-server', 'other'].map((p) => (
+                            {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi', 'ollama', 'omnideploy', 'lm-studio', 'llama-server', 'other'].map((p) => (
                               <button
                                 key={p}
                                 onClick={() => {
@@ -3037,7 +3043,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         {/* LLAMA-SERVER (LLAMA.CPP NATIVO) */}
                         {settings.promptEngineer?.provider === 'llama-server' && renderLlamaCppPanel('pe')}
 
-                        {settings.promptEngineer?.provider !== 'ollama' && settings.promptEngineer?.provider !== 'lm-studio' && settings.promptEngineer?.provider !== 'llama-server' && (
+                        {settings.promptEngineer?.provider !== 'ollama' && settings.promptEngineer?.provider !== 'lm-studio' && settings.promptEngineer?.provider !== 'llama-server' && (settings.promptEngineer?.provider as string) !== 'omnideploy' && (
                           <div>
                             <label className="block text-xs text-slate-500 uppercase mb-1">API Key</label>
                             <input
@@ -3094,7 +3100,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                           </>
                         )}
 
-                        {(['anthropic', 'openai', 'deepseek'].includes(settings.promptEngineer?.provider || '')) && (
+                        {(['anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi'].includes(settings.promptEngineer?.provider || '')) && (
                           <div className="p-3 bg-amber-900/20 border border-amber-500/30 rounded text-xs text-amber-200">
                             <p className="font-bold mb-1 flex items-center gap-2"><Cloud className="w-3 h-3" /> {(settings.promptEngineer?.provider || '').toUpperCase()} Cloud</p>
                             <p className="text-[10px] text-slate-400">Solo necesitas la API Key. Se usará el modelo por defecto del proveedor.</p>
@@ -3116,7 +3122,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label className="flex items-center justify-between mb-4 cursor-pointer">
                     <span className="font-bold text-slate-200">Proveedor de Inteligencia NPCs (LLM)</span>
                     <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 flex-wrap gap-1">
-                      {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'ollama', 'omnideploy', 'lm-studio', 'llama-server', 'other'].map((p) => (
+                      {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi', 'ollama', 'omnideploy', 'lm-studio', 'llama-server', 'other'].map((p) => (
                         <button
                           key={p}
                           onClick={() => {
@@ -3194,8 +3200,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     </Tooltip>
                   )}
 
-                  {/* Cloud providers (Gemini/Anthropic/OpenAI/DeepSeek/Qwen/Kimi): model selection */}
-                  {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi'].includes(settings.npcs?.provider || '') && (() => {
+                  {/* Cloud providers (Gemini/Anthropic/OpenAI/DeepSeek/Qwen/Kimi/OpenRouter/CometAPI): model selection */}
+                  {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi'].includes(settings.npcs?.provider || '') && (() => {
                     const provider = settings.npcs?.provider || 'gemini';
                     const predefined = PREDEFINED_NPC_MODELS[provider] || [];
                     const fetched = fetchedNpcCloudModels[provider] || [];
@@ -3440,7 +3446,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label className="flex items-center justify-between mb-4 cursor-pointer">
                     <span className="font-bold text-slate-200">Proveedor de IA para Scripts (Código)</span>
                     <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 flex-wrap gap-1">
-                      {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'ollama', 'omnideploy', 'lm-studio', 'llama-server', 'other'].map((p) => (
+                      {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi', 'ollama', 'omnideploy', 'lm-studio', 'llama-server', 'other'].map((p) => (
                         <button
                           key={p}
                           type="button"
@@ -3520,7 +3526,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   )}
 
                   {/* Cloud providers: model configuration */}
-                  {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi'].includes(settings.code?.provider || '') && (() => {
+                  {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi'].includes(settings.code?.provider || '') && (() => {
                     const provider = settings.code?.provider || 'gemini';
                     const predefined = PREDEFINED_CODE_MODELS[provider] || [];
                     const fetched = fetchedCodeCloudModels[provider] || [];

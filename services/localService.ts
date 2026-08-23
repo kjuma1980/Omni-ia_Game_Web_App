@@ -36,15 +36,30 @@ const fetchJsonSecure = async (
         payload: body,
         headers
       });
+      let resStr: any;
       if (!signal) {
-        const resStr = await invokePromise;
-        return JSON.parse(resStr as string);
+        resStr = await invokePromise;
+      } else {
+        const abortPromise = new Promise((_, reject) => {
+          signal.addEventListener('abort', () => reject(new DOMException('Aborted by user', 'AbortError')), { once: true });
+        });
+        resStr = await Promise.race([invokePromise, abortPromise]);
       }
-      const abortPromise = new Promise((_, reject) => {
-        signal.addEventListener('abort', () => reject(new DOMException('Aborted by user', 'AbortError')), { once: true });
-      });
-      const resStr = await Promise.race([invokePromise, abortPromise]);
-      return JSON.parse(resStr as string);
+      let parsedData: any;
+      if (typeof resStr === 'object' && resStr !== null) {
+        parsedData = resStr;
+      } else {
+        try {
+          parsedData = JSON.parse(resStr as string);
+        } catch {
+          throw new Error(`Respuesta no válida del proveedor (${url}): ${String(resStr).substring(0, 250)}`);
+        }
+      }
+      if (parsedData?.error) {
+        const errMsg = typeof parsedData.error === 'string' ? parsedData.error : (parsedData.error.message || JSON.stringify(parsedData.error));
+        throw new Error(errMsg);
+      }
+      return parsedData;
     } catch (e: any) {
       if (e?.name === 'AbortError' || String(e).includes('Aborted')) {
         throw new DOMException('Aborted by user', 'AbortError');
@@ -60,8 +75,13 @@ const fetchJsonSecure = async (
     signal
   });
   if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`HTTP ${response.status}: ${err.substring(0, 200)}`);
+    const err = await response.text().catch(() => '');
+    let errJson: any;
+    try {
+      errJson = JSON.parse(err);
+    } catch {}
+    const errMsg = errJson?.error?.message || errJson?.error || err.substring(0, 250) || 'Sin respuesta';
+    throw new Error(`HTTP ${response.status} (${response.statusText || 'Error'}): ${errMsg}`);
   }
   return response.json();
 };
@@ -466,12 +486,12 @@ export const generateAnthropicCompletion = async (prompt: string, system: string
   return data.content?.map((b: any) => b.text).join('\n') || 'No response from Anthropic.';
 };
 
-// OpenAI / DeepSeek Chat Completions API (compatible format)
+// OpenAI / DeepSeek / OpenRouter / CometAPI Chat Completions API (compatible format)
 export const generateOpenAICompletion = async (
   prompt: string, 
   system: string, 
   apiKey: string, 
-  provider: 'openai' | 'deepseek' | 'qwen' | 'kimi',
+  provider: 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'openrouter' | 'cometapi',
   isExpansion: boolean = false,
   modelOverride?: string,
   signal?: AbortSignal
@@ -482,6 +502,10 @@ export const generateOpenAICompletion = async (
 
   let baseUrl = '';
   let model = modelOverride || '';
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`
+  };
 
   if (provider === 'openai') {
     baseUrl = 'https://api.openai.com/v1/chat/completions';
@@ -495,17 +519,22 @@ export const generateOpenAICompletion = async (
   } else if (provider === 'kimi') {
     baseUrl = 'https://api.moonshot.cn/v1/chat/completions';
     if (!model) model = 'kimi-k2.6';
+  } else if (provider === 'openrouter') {
+    baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+    if (!model) model = 'openrouter/auto';
+    headers['HTTP-Referer'] = 'https://fenixdev.cloud';
+    headers['X-Title'] = 'Omni-IA Game';
+  } else if (provider === 'cometapi') {
+    baseUrl = 'https://api.cometapi.com/v1/chat/completions';
+    if (!model) model = 'gpt-4o';
   } else {
     throw new Error(`Proveedor ${provider} no soportado en generateOpenAICompletion.`);
   }
 
-  // SEGURIDAD: vía proxy Rust en Tauri (la key no viaja desde el webview); fetch directo solo en dev-web
+  // SEGURIDAD: vía proxy Rust en Tauri / webBridge proxy_request
   const data = await fetchJsonSecure(
     baseUrl,
-    {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
+    headers,
     {
       model: model,
       max_tokens: 8192,
@@ -516,7 +545,7 @@ export const generateOpenAICompletion = async (
     },
     signal
   );
-  return data.choices?.[0]?.message?.content || `No response from ${provider}.`;
+  return data.choices?.[0]?.message?.content || data.choices?.[0]?.delta?.content || `No response from ${provider}.`;
 };
 
 // Generic OpenAI-compatible endpoint (for "other" providers)
@@ -530,13 +559,17 @@ export const generateGenericCompletion = async (
 ): Promise<string> => {
   if (!baseUrl) throw new Error('Se requiere una URL de servidor para el proveedor personalizado.');
 
-  const cleanUrl = baseUrl.replace(/\/$/, '');
-  const endpoint = cleanUrl.includes('/v1/') ? cleanUrl : `${cleanUrl}/v1/chat/completions`;
+  const cleanUrl = baseUrl.trim().replace(/\/$/, '');
+  const endpoint = cleanUrl.endsWith('/chat/completions')
+    ? cleanUrl
+    : cleanUrl.includes('/v1')
+      ? `${cleanUrl}/chat/completions`
+      : `${cleanUrl}/v1/chat/completions`;
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
-  // SEGURIDAD: vía proxy Rust en Tauri (la key no viaja desde el webview); fetch directo solo en dev-web
+  // SEGURIDAD: vía proxy Rust en Tauri / webBridge proxy_request
   const data = await fetchJsonSecure(endpoint, headers, {
     model: 'default',
     max_tokens: 8192,
@@ -545,7 +578,7 @@ export const generateGenericCompletion = async (
       { role: 'user', content: prompt }
     ]
   }, signal);
-  return data.choices?.[0]?.message?.content || data.response || 'No response from custom provider.';
+  return data.choices?.[0]?.message?.content || data.choices?.[0]?.delta?.content || data.response || 'No response from custom provider.';
 };
 
 export const generateLocalAudio = async (

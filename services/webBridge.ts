@@ -258,9 +258,19 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
           const mime = url.includes('.jpg') || url.includes('.jpeg') ? 'image/jpeg' : 'image/png';
           return `data:${mime};base64,${b64}`;
         }
-        return await directRes.text();
+        const textResult = await directRes.text();
+        if (!directRes.ok) {
+          let errObj: any;
+          try {
+            errObj = JSON.parse(textResult);
+          } catch {
+            errObj = { error: { message: `HTTP ${directRes.status} (${directRes.statusText || 'Error'}): ${textResult.substring(0, 250) || 'El proveedor no respondió'}` } };
+          }
+          return JSON.stringify(errObj);
+        }
+        return textResult;
       } catch (e: any) {
-        return JSON.stringify({ status: 'success', active: true, data: [] });
+        return JSON.stringify({ error: { message: `Error de conexión proxy (${e?.message || String(e)})` } });
       }
     }
 

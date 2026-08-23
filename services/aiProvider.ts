@@ -293,7 +293,7 @@ Escribe TODO el GDD completo, extenso, narrativamente fascinante e inmersivo 100
       binaryPath: settings?.llamaCpp?.binaryPath,
       customArgs: settings?.llamaCpp?.customArgs
     }, signal);
-  } else if (provider === 'anthropic' || provider === 'openai' || provider === 'deepseek' || provider === 'qwen' || provider === 'kimi') {
+  } else if (provider === 'anthropic' || provider === 'openai' || provider === 'deepseek' || provider === 'qwen' || provider === 'kimi' || provider === 'openrouter' || provider === 'cometapi') {
     if (!apiKey) throw new Error(`Se requiere una API Key para ${provider}.`);
 
     const isTranslation = prompt.toLowerCase().includes('translate the following') || 
