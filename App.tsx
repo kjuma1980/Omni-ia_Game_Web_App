@@ -23,6 +23,10 @@ import { processAssetsBase64, ensureAssetBase64 } from './utils/imageUtils';
 import { checkForUpdates, UpdateManifest, CURRENT_VERSION } from './services/updateService';
 import UpdateModal from './components/UpdateModal';
 import { getLlamaServerState, stopLlamaServer } from './services/llamaServerService';
+import { comfyWS } from './services/comfyWebSocket';
+
+// Conectar WebSocket directo a la URL de ComfyUI para recibir logs en tiempo real sin latencia ni pasar por OmniDeploy
+
 
 
 /**
@@ -708,6 +712,25 @@ const App: React.FC = () => {
   useEffect(() => {
     publicarWorkflows(project.apiSettings);
   }, [project.apiSettings]);
+
+  // Conexión WebSocket nativa directa a ComfyUI (0ms latencia)
+  useEffect(() => {
+    const comfyUrl = project.apiSettings?.image?.baseUrl || 'http://127.0.0.1:8188';
+    comfyWS.connect(comfyUrl);
+
+    const unsubscribe = comfyWS.subscribe((log) => {
+      const timestamp = new Date().toLocaleTimeString();
+      setConsoleLogs((prev) => {
+        const lines = prev ? prev.split('\n') : [];
+        if (lines.length > 300) lines.shift();
+        return [...lines, `[${timestamp}] ${log.message}`].join('\n');
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [project.apiSettings?.image?.baseUrl]);
 
   // Check service status every 4 seconds
   useEffect(() => {
