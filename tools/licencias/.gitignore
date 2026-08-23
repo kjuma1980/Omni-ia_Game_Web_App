@@ -1,0 +1,8 @@
+# Lo que produce el generador NO se versiona.
+#
+# Una licencia emitida es una credencial de un cliente y, en las que se firman
+# sin conexion, la cola guarda la clave entera a la espera de subirla. Nada de
+# esto puede acabar en el repositorio.
+licencias_pendientes/
+licencia_*.txt
+*.pem

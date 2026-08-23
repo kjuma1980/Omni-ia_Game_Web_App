@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Sin rootDir explicito, incluir `prisma/` en el tsconfig base empuja la
+    // raiz al directorio del proyecto y la salida acaba en dist/src/main.js,
+    // que no es lo que arranca `npm run start:prod`.
+    "rootDir": "./src",
+    // `nest build` borra dist en cada compilacion; con compilacion incremental
+    // el .tsbuildinfo sobrevive a ese borrado y tsc concluye que no hay nada
+    // que emitir, dejando dist vacio y exit code 0.
+    "incremental": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "test", "dist", "prisma", "**/*spec.ts"]
+}

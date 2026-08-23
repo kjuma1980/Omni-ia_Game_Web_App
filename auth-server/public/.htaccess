@@ -1,0 +1,13 @@
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /
+
+# Desactivar la redireccion automatica 301 de carpetas de Apache
+DirectorySlash Off
+
+# 1. Redirigir /admin a /admin.html
+RewriteRule ^admin/?$ /admin.html [L,QSA]
+
+# 2. Redirigir /api/updates/check (con o sin slash al final) a /updates.json
+RewriteRule ^api/updates/check/?$ /updates.json [L,QSA]
+</IfModule>

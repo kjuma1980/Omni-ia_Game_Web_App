@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Omni-IA Game — Panel de Administración</title>
+<link rel="icon" type="image/png" href="/favicon.png" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 60px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+  header h1 { font-size: 20px; letter-spacing: 0.5px; }
+  header h1 span { color: #a78bfa; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: #7c3aed; color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #6d28d9; }
+  .btn-danger { background: #991b1b; color: #fff; }
+  .btn-danger:hover:not(:disabled) { background: #7f1d1d; }
+  .btn-ghost { background: #1e293b; color: #cbd5e1; }
+  .btn-ghost:hover:not(:disabled) { background: #334155; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .card h2 { font-size: 15px; margin-bottom: 14px; color: #f1f5f9; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .card h2 small { color: #94a3b8; font-weight: 400; font-size: 12px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab { background: #1e293b; border: 1px solid #334155; color: #94a3b8; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .tab.active { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; padding: 8px 10px; border-bottom: 1px solid #334155; }
+  td { padding: 9px 10px; border-bottom: 1px solid #1e293b; vertical-align: middle; word-break: break-all; }
+  tr:hover td { background: #24324a; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .badge.active { background: #14532d; color: #86efac; }
+  .badge.pending { background: #78350f; color: #fcd34d; }
+  .badge.revoked { background: #7f1d1d; color: #fca5a5; }
+  .badge.admin { background: #4c1d95; color: #ddd6fe; }
+  .badge.user { background: #1e3a8a; color: #bfdbfe; }
+  .mono { font-family: Consolas, monospace; font-size: 12px; }
+  .actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .login { max-width: 400px; margin: 80px auto; }
+  .login h1 { text-align: center; font-size: 20px; margin-bottom: 20px; }
+  .login h1 span { color: #a78bfa; }
+  input, select { width: 100%; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 12px; }
+  input:focus, select:focus { outline: none; border-color: #7c3aed; }
+  label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 5px; text-transform: uppercase; letter-spacing: .5px; }
+  .msg { border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 12px; }
+  .msg.ok { background: #14532d; color: #86efac; }
+  .msg.err { background: #7f1d1d; color: #fca5a5; }
+  .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 160px; }
+  .hidden { display: none; }
+  .muted { color: #64748b; font-size: 12px; }
+  footer { text-align: center; color: #475569; font-size: 12px; margin-top: 30px; }
+</style>
+</head>
+<body>
+<div id="loginView" class="login">
+  <h1>OMNI-IA <span>GAME</span> — ADMIN</h1>
+  <div class="card">
+    <form id="loginForm">
+      <label>Correo electrónico</label>
+      <input type="email" id="loginEmail" autocomplete="username" required />
+      <label>Contraseña</label>
+      <input type="password" id="loginPassword" autocomplete="current-password" required />
+      <div id="loginMsg" class="msg hidden"></div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">ENTRAR</button>
+    </form>
+  </div>
+</div>
+
+<div id="appView" class="hidden">
+  <div class="wrap">
+    <header>
+      <h1>OMNI-IA <span>GAME</span> — PANEL DE ADMINISTRACIÓN</h1>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span class="muted" id="whoami"></span>
+        <button class="btn btn-ghost btn-sm" id="logoutBtn">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="users">Usuarios</button>
+      <button class="tab" data-tab="licenses">Licencias</button>
+      <button class="tab" data-tab="generate">Generar</button>
+      <button class="tab" data-tab="password">Contraseña</button>
+      <button class="tab" data-tab="devices">Dispositivos</button>
+      <button class="tab" data-tab="audit">Auditoría</button>
+    </div>
+
+    <div id="tab-users" class="card">
+      <h2>
+        Usuarios registrados
+        <button class="btn btn-danger btn-sm" id="clearUsersBtn">BORRAR TODOS LOS USUARIOS</button>
+      </h2>
+      <div id="usersMsg" class="msg hidden"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input type="text" id="userSearch" placeholder="Buscar por correo, nombre, país…" style="margin:0;" />
+        <button class="btn btn-ghost" id="userSearchBtn">Buscar</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>ID</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Nombre</th><th>Ubicación</th><th>Perfil</th><th>Registrado</th><th></th></tr></thead>
+          <tbody id="usersBody"><tr><td colspan="9" class="muted">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="tab-licenses" class="card hidden">
+      <h2>
+        Licencias registradas
+        <button class="btn btn-danger btn-sm" id="clearLicensesBtn">BORRAR TODAS LAS LICENCIAS</button>
+      </h2>
+      <div id="licMsg" class="msg hidden"></div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Licencia</th><th>HWID</th><th>Cap.</th><th>Emitida</th><th>Activada</th><th>Cobro</th><th>Expira</th><th>Restante</th><th>Estado</th><th>Contacto</th><th>Últ. aviso</th><th></th></tr></thead>
+          <tbody id="licBody"><tr><td colspan="9" class="muted">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="tab-generate" class="card hidden">
+      <h2>Generar licencia nueva</h2>
+      <div id="genMsg" class="msg hidden"></div>
+      <form id="genForm">
+        <label>Hardware ID del cliente</label>
+        <input type="text" id="genHwid" placeholder="OMNI-HW-XXXX-XXXX-XXXX" required />
+        <div class="row">
+          <div>
+            <label>Duración</label>
+            <select id="genDuration" required></select>
+          </div>
+          <div>
+            <label>Nivel de acceso</label>
+            <select id="genCap">
+              <option value="full">FULL (Animación + NPCs + Suite 3D)</option>
+              <option value="dev_portal">DEV PORTAL (sin esos tres módulos)</option>
+              <option value="none">NINGUNO (solo los módulos marcados abajo)</option>
+            </select>
+          </div>
+        </div>
+        <div id="genDiasFila" class="row hidden">
+          <div>
+            <label>Días exactos</label>
+            <input type="number" id="genDias" min="1" max="36500" placeholder="45" />
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <p style="font-size:12px;opacity:.7;margin:0 0 10px;">
+              Cualquier número entre 1 y 36500. El límite de uso se calcula solo.
+            </p>
+          </div>
+        </div>
+
+        <label>Módulos adicionales (se venden por separado)</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;cursor:pointer;">
+          <input type="checkbox" id="genModCreador2d" style="width:auto;margin:0;" />
+          Creador de Mundos 2D / 2.5D
+        </label>
+        <p style="font-size:12px;opacity:.7;margin:4px 0 12px;">
+          Independiente del nivel de acceso: se puede conceder solo este módulo
+          eligiendo <strong>DEV PORTAL</strong> arriba y marcando esta casilla.
+        </p>
+        <label>Correo de contacto del cliente (opcional)</label>
+        <input type="email" id="genEmail" placeholder="cliente@correo.com" />
+        <label>Notas (opcional)</label>
+        <input type="text" id="genNotes" placeholder="Escuela, grado, observaciones…" />
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;" id="genBtn">GENERAR Y REGISTRAR LICENCIA</button>
+      </form>
+      <div id="genResult" class="hidden" style="margin-top:14px;">
+        <label>Código de licencia (copiar y entregar al cliente)</label>
+        <textarea id="genToken" readonly rows="3" style="font-family:monospace;font-size:11px;word-break:break-all;margin:0;"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn btn-primary btn-sm" id="genCopyBtn">COPIAR</button>
+          <button class="btn btn-ghost btn-sm" id="genNewBtn">GENERAR OTRA</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-password" class="card hidden">
+      <h2>Cambiar contraseña del administrador</h2>
+      <div id="pwMsg" class="msg hidden"></div>
+      <form id="pwForm" autocomplete="off">
+        <label>Contraseña actual</label>
+        <input type="password" id="pwCurrent" autocomplete="current-password" required />
+        <label>Nueva contraseña</label>
+        <input type="password" id="pwNew" autocomplete="new-password" minlength="8" required />
+        <label>Confirmar nueva contraseña</label>
+        <input type="password" id="pwConfirm" autocomplete="new-password" minlength="8" required />
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;" id="pwBtn">CAMBIAR CONTRASEÑA</button>
+      </form>
+    </div>
+
+    <div id="tab-devices" class="card hidden">
+      <h2>
+        Dispositivos OmniDeploy
+        <button class="btn btn-sm" id="devReload">ACTUALIZAR</button>
+      </h2>
+      <div id="devMsg" class="msg hidden"></div>
+      <p style="font-size:12px;opacity:.75;margin:0 0 12px;">
+        Equipos que ofrecen su GPU. Un agente que se registra queda
+        <strong>pendiente</strong> y no recibe trabajo hasta que lo apruebes aquí.
+        Al aprobarlo se emiten su <em>Deployment ID</em> y su <em>API Key</em>:
+        la clave se muestra <strong>una sola vez</strong>.
+      </p>
+      <div id="devCreds" class="hidden" style="margin-bottom:14px;">
+        <label>Credenciales recién emitidas — cópialas ahora</label>
+        <textarea id="devCredsText" rows="3" readonly
+          style="width:100%;font-family:monospace;font-size:12px;"></textarea>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Equipo</th><th>Estado</th><th>En línea</th><th>Deployment ID</th><th>Últ. sondeo</th><th></th></tr></thead>
+          <tbody id="devBody"><tr><td colspan="6" class="muted">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+
+      <hr style="border:none;border-top:1px solid #1f2937;margin:26px 0 18px;" />
+
+      <h2 style="margin-top:0;">Clientes con acceso</h2>
+      <p style="font-size:12px;opacity:.75;margin:0 0 12px;">
+        <strong>Una clave por cliente</strong>, para poder retirar el acceso a uno sin
+        tocar a los demás y saber quién consume la GPU. Todos comparten la cola del
+        mismo equipo, porque comparten la tarjeta.
+      </p>
+
+      <form id="cliForm" style="display:grid;gap:10px;margin-bottom:16px;">
+        <div class="row">
+          <div>
+            <label>Equipo que va a usar</label>
+            <select id="cliDeployment" required></select>
+          </div>
+          <div>
+            <label>Nombre del cliente</label>
+            <input type="text" id="cliLabel" placeholder="Colegio San José" required />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Correo de contacto</label>
+            <input type="email" id="cliEmail" placeholder="cliente@correo.com" />
+          </div>
+          <div>
+            <!-- Sin este campo la caducidad existia en la base pero no habia
+                 forma de asignarla: toda clave nacia sin vencimiento. -->
+            <label>Vigencia</label>
+            <select id="cliDuracion"></select>
+          </div>
+        </div>
+        <div class="row">
+          <div id="cliDiasFila" class="hidden">
+            <label>Días a medida (1 - 36500)</label>
+            <input type="number" id="cliDias" min="1" max="36500" placeholder="45" />
+          </div>
+          <div>
+            <label>Notas (opcional)</label>
+            <input type="text" id="cliNotes" placeholder="Prueba de 15 días, sprites 2D…" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <p class="muted" style="font-size:11px;margin-top:2px;">
+              El plazo empieza en el <strong>primer uso</strong>, no hoy. Si pones un correo,
+              las credenciales se le envían automáticamente.
+            </p>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="justify-content:center;" id="cliBtn">
+          EMITIR CLAVE PARA ESTE CLIENTE
+        </button>
+      </form>
+
+      <div id="cliMsg" class="msg hidden"></div>
+      <div id="cliCreds" class="hidden" style="margin-bottom:16px;">
+        <label>Credenciales del cliente — cópialas ahora</label>
+        <textarea id="cliCredsText" rows="4" readonly
+          style="width:100%;font-family:monospace;font-size:12px;"></textarea>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Cliente</th><th>Equipo</th><th>Estado</th><th>Emitida</th><th>Vigencia</th><th>Trabajos</th><th>Último uso</th><th>Contacto</th><th></th></tr></thead>
+          <tbody id="cliBody"><tr><td colspan="9" class="muted">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- Historial de uso. Se abre pulsando el numero de trabajos de un
+           cliente: ese numero era un total ciego, se sabia cuantos pero no de
+           que ni cuando. -->
+      <div id="usoPanel" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid #2a2a3e;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div>
+            <h3 id="usoTitulo" style="margin:0 0 4px;">Uso</h3>
+            <div id="usoSub" class="muted" style="font-size:12px;"></div>
+          </div>
+          <button class="btn btn-sm" onclick="document.getElementById('usoPanel').style.display='none'">CERRAR</button>
+        </div>
+
+        <h4 style="margin:16px 0 6px;font-size:13px;">Resumen por servicio</h4>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Servicio</th><th>Veces</th><th>Correctos</th><th>Último</th></tr></thead>
+            <tbody id="usoResumen"></tbody>
+          </table>
+        </div>
+
+        <h4 style="margin:16px 0 6px;font-size:13px;">Detalle</h4>
+        <div style="overflow-x:auto;max-height:340px;overflow-y:auto;">
+          <table>
+            <thead><tr><th>Fecha y hora</th><th>Servicio</th><th>Estado</th><th>GPU</th><th>Error</th></tr></thead>
+            <tbody id="usoDetalle"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-audit" class="card hidden">
+      <h2>Registro de auditoría</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Fecha</th><th>Acción</th><th>Admin</th><th>Detalles</th></tr></thead>
+          <tbody id="auditBody"><tr><td colspan="4" class="muted">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer>Omni-IA Game — Versión Educativa · Servidor de cuentas y licencias</footer>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let token = localStorage.getItem('omni_admin_token') || '';
+let activeTab = 'users';
+
+function fmtDate(ms) {
+  if (!ms) return '—';
+  return new Date(ms).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Error del servidor (${res.status})`);
+  return data;
+}
+
+function showMsg(el, text, ok = true) {
+  el.textContent = text;
+  el.className = `msg ${ok ? 'ok' : 'err'}`;
+  el.classList.remove('hidden');
+}
+
+function hideMsg(el) { el.classList.add('hidden'); }
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
+  ['users', 'licenses', 'generate', 'password', 'devices', 'audit'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== tab));
+  if (tab === 'users') loadUsers();
+  if (tab === 'licenses') loadLicenses();
+  if (tab === 'generate') loadDurations();
+  if (tab === 'devices') { loadDevices(); loadClients(); loadDuracionesCliente(); }
+  if (tab === 'audit') loadAudit();
+}
+
+// --- Dispositivos OmniDeploy ------------------------------------------------
+
+function edadTexto(ms) {
+  if (!ms) return 'nunca';
+  const s = Math.round((Date.now() - ms) / 1000);
+  if (s < 60) return `hace ${s} s`;
+  if (s < 3600) return `hace ${Math.round(s / 60)} min`;
+  return `hace ${Math.round(s / 3600)} h`;
+}
+
+/**
+ * Fecha y hora exactas. `edadTexto` sola no sirve para un control real: "hace
+ * 1 h" no dice de que dia, y para auditar hace falta el momento.
+ */
+function fechaHora(ms) {
+  if (!ms) return '—';
+  const d = new Date(ms);
+  return d.toLocaleString('es-CO', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+}
+
+/**
+ * Historial de uso de un cliente: QUE servicio uso y CUANDO.
+ *
+ * Se abre desde el numero de trabajos. Antes ese numero era un total ciego: se
+ * sabia cuantos, no de que.
+ */
+async function verUso(clientId) {
+  try {
+    const d = await api('GET', `/api/admin/omnideploy/clients/${encodeURIComponent(clientId)}/uso`);
+    const c = d.client || {};
+    const resumen = (d.resumen || [])
+      .map((r) => `<tr>
+          <td><strong>${esc(r.servicio || 'desconocido')}</strong></td>
+          <td>${r.veces}</td>
+          <td>${r.correctos}</td>
+          <td class="muted" style="font-size:11px;">${fechaHora(r.ultimo)}</td>
+        </tr>`)
+      .join('') || '<tr><td colspan="4" class="muted">Sin uso todavía.</td></tr>';
+
+    const detalle = (d.trabajos || [])
+      .map((t) => `<tr>
+          <td class="muted" style="font-size:11px;white-space:nowrap;">${fechaHora(t.cuando)}</td>
+          <td>${esc(t.servicio)}</td>
+          <td><span class="badge ${t.estado === 'success' ? 'active' : 'revoked'}">${esc(t.estado)}</span></td>
+          <td class="muted">${t.segundos != null ? t.segundos + ' s' : '—'}</td>
+          <td class="muted" style="font-size:11px;">${esc(t.error || '')}</td>
+        </tr>`)
+      .join('') || '<tr><td colspan="5" class="muted">Sin trabajos.</td></tr>';
+
+    $('usoTitulo').textContent = `Uso de ${c.label || clientId}`;
+    $('usoSub').innerHTML =
+      `Clave emitida el <strong>${fechaHora(c.issued_at)}</strong>` +
+      (c.duration_days
+        ? ` · vigencia <strong>${c.duration_days} días</strong>` +
+          (c.activated_at
+            ? ` · estrenada el <strong>${fechaHora(c.activated_at)}</strong> · caduca el <strong>${esc(c.expires_at || '—')}</strong>`
+            : ' · <em>sin estrenar</em>')
+        : ' · <strong>sin caducidad</strong>');
+    $('usoResumen').innerHTML = resumen;
+    $('usoDetalle').innerHTML = detalle;
+    $('usoPanel').style.display = 'block';
+    $('usoPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (err) {
+    showMsg($('cliMsg'), err.message, false);
+  }
+}
+
+async function loadDevices() {
+  hideMsg($('devMsg'));
+  try {
+    const data = await api('GET', '/api/admin/omnideploy/devices');
+    const filas = data.devices || [];
+    if (!filas.length) {
+      $('devBody').innerHTML =
+        '<tr><td colspan="6" class="muted">Ningún equipo registrado todavía. ' +
+        'Arranca el agente en el PC que va a prestar su GPU.</td></tr>';
+      return;
+    }
+    $('devBody').innerHTML = filas.map((d) => {
+      // El punto verde solo mira `online`, que el relay calcula por el ultimo
+      // sondeo: un equipo aprobado pero apagado NO puede generar, y verlo de un
+      // vistazo evita el "he pagado y no funciona".
+      const luz = d.online
+        ? '<span style="color:#22c55e;">● en línea</span>'
+        : '<span class="muted">○ apagado</span>';
+      const badge = d.status === 'active' ? 'active' : (d.status === 'revoked' ? 'revoked' : 'pending');
+      const acciones = d.status === 'pending'
+        ? `<button class="btn btn-sm" onclick="authorizeDevice('${esc(d.device_id)}')">APROBAR</button>`
+        : (d.status === 'active'
+            ? `<button class="btn btn-danger btn-sm" onclick="revokeDevice('${esc(d.device_id)}')">REVOCAR</button>`
+            : '<span class="muted">—</span>');
+      return `<tr>
+        <td>${esc(d.friendly_name || 'Sin nombre')}</td>
+        <td><span class="badge ${badge}">${esc(d.status)}</span></td>
+        <td>${luz}</td>
+        <td><code style="font-size:11px;">${esc(d.deployment_id || '—')}</code></td>
+        <td class="muted">${edadTexto(d.last_seen_at)}</td>
+        <td>${acciones}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    showMsg($('devMsg'), err.message, false);
+    $('devBody').innerHTML = '<tr><td colspan="6" class="muted">No se pudo cargar.</td></tr>';
+  }
+}
+
+async function authorizeDevice(id) {
+  hideMsg($('devMsg'));
+  try {
+    const d = await api('POST', `/api/admin/omnideploy/devices/${id}/authorize`, {});
+    // La API Key NO se puede volver a consultar: el servidor solo guarda su
+    // hash. Se deja a la vista hasta que el admin cambie de pestana.
+    $('devCredsText').value =
+      `Deployment ID: ${d.deploymentId}\nAPI Key: ${d.apiKey}\n\n` +
+      'Entrega estos dos datos al usuario. La API Key no se vuelve a mostrar.';
+    $('devCreds').classList.remove('hidden');
+    showMsg($('devMsg'), 'Equipo aprobado. Copia la API Key ahora: no se vuelve a mostrar.');
+    loadDevices();
+  } catch (err) {
+    showMsg($('devMsg'), err.message, false);
+  }
+}
+
+async function loadClients() {
+  hideMsg($('cliMsg'));
+  try {
+    // El desplegable solo ofrece equipos ACTIVOS: emitir una clave para uno
+    // pendiente o revocado produce credenciales que parecen validas y no lo son.
+    const devs = (await api('GET', '/api/admin/omnideploy/devices')).devices || [];
+    const activos = devs.filter((d) => d.status === 'active');
+    $('cliDeployment').innerHTML = activos.length
+      ? activos.map((d) => `<option value="${esc(d.deployment_id)}">${esc(d.friendly_name)} — ${esc(d.deployment_id)}</option>`).join('')
+      : '<option value="">No hay ningún equipo aprobado todavía</option>';
+    $('cliBtn').disabled = !activos.length;
+
+    const data = await api('GET', '/api/admin/omnideploy/clients');
+    const filas = data.clients || [];
+    if (!filas.length) {
+      $('cliBody').innerHTML = '<tr><td colspan="9" class="muted">Ningún cliente con acceso todavía.</td></tr>';
+      return;
+    }
+    $('cliBody').innerHTML = filas.map((c) => {
+      const badge = c.status === 'active' ? 'active' : 'revoked';
+      const accion = c.status === 'active'
+        ? `<button class="btn btn-danger btn-sm" onclick="revokeClient('${esc(c.client_id)}')">REVOCAR</button>`
+        : '<span class="muted">—</span>';
+      // La vigencia se lee de un vistazo: sin caducidad, cuantos dias quedan,
+      // o CADUCADA. Antes no habia ni columna.
+      let vigencia = '<span class="muted">Sin caducidad</span>';
+      if (c.duration_days) {
+        if (!c.activated_at) {
+          vigencia = `<span class="muted">${c.duration_days} d, sin estrenar</span>`;
+        } else if ((c.days_left ?? 0) <= 0) {
+          vigencia = '<span class="badge revoked">CADUCADA</span>';
+        } else {
+          vigencia = `${c.days_left} d <span class="muted">(hasta ${esc(c.expires_at)})</span>`;
+        }
+      }
+      return `<tr>
+        <td>${esc(c.label || 'Sin nombre')}</td>
+        <td><code style="font-size:11px;">${esc(c.deployment_id)}</code></td>
+        <td><span class="badge ${badge}">${esc(c.status)}</span></td>
+        <td class="muted" style="font-size:11px;">${fechaHora(c.issued_at)}</td>
+        <td style="font-size:12px;">${vigencia}</td>
+        <td><button class="btn btn-sm" onclick="verUso('${esc(c.client_id)}')" title="Ver qué servicios ha usado">${c.jobs_count ?? 0}</button></td>
+        <td class="muted" style="font-size:11px;">${fechaHora(c.last_used_at)}<br/><span style="opacity:.6">${edadTexto(c.last_used_at)}</span></td>
+        <td class="muted">${esc(c.contact_email || '—')}</td>
+        <td>${accion}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    showMsg($('cliMsg'), err.message, false);
+  }
+}
+
+/**
+ * Duraciones de la clave: LAS MISMAS que las licencias.
+ *
+ * Se piden al servidor en vez de escribirlas aqui, para que no haya dos listas
+ * que mantener. La opcion "a medida" abre el campo de dias, igual que en el
+ * formulario de licencias.
+ */
+async function loadDuracionesCliente() {
+  const sel = $('cliDuracion');
+  if (sel.options.length) return;
+  let opciones = '';
+  try {
+    const data = await api('GET', '/api/admin/license-durations');
+    opciones = Object.entries(data.durations)
+      .map(([k, d]) => `<option value="${k}">${esc(d.label)}</option>`)
+      .join('');
+  } catch {
+    opciones = `
+      <option value="1">1 día</option>
+      <option value="2">3 meses</option>
+      <option value="3">6 meses</option>
+      <option value="4">12 meses</option>
+      <option value="5">Perpetua (sin caducidad)</option>`;
+  }
+  sel.innerHTML = opciones + OPCION_A_MEDIDA;
+  sel.onchange = () => {
+    $('cliDiasFila').classList.toggle('hidden', sel.value !== 'custom');
+  };
+}
+
+async function crearCliente(e) {
+  e.preventDefault();
+  hideMsg($('cliMsg'));
+  $('cliBtn').disabled = true;
+  $('cliBtn').textContent = 'EMITIENDO…';
+  try {
+    const d = await api('POST', '/api/admin/omnideploy/clients', {
+      deploymentId: $('cliDeployment').value,
+      label: $('cliLabel').value.trim(),
+      contactEmail: $('cliEmail').value.trim().toLowerCase() || null,
+      // Se manda la misma clave que las licencias -'1'..'5' o 'custom'-, y el
+      // servidor la resuelve con `resolveDuration`. Repetir aqui la tabla de
+      // duraciones seria un segundo sitio donde mantenerla, y divergiria.
+      duration: $('cliDuracion').value === 'custom' ? `d${$('cliDias').value}` : $('cliDuracion').value,
+      notes: $('cliNotes').value.trim() || null,
+    });
+    // La API Key no se puede volver a consultar: el servidor solo guarda su hash.
+    $('cliCredsText').value =
+      `Cliente: ${d.label}\nDeployment ID: ${d.deploymentId}\nAPI Key: ${d.apiKey}\n\n` +
+      'Entrega estos dos datos al cliente. La API Key no se vuelve a mostrar.';
+    $('cliCreds').classList.remove('hidden');
+    showMsg($('cliMsg'), `Clave emitida para "${d.label}". Cópiala ahora: no se vuelve a mostrar.`);
+    $('cliForm').reset();
+    loadClients();
+  } catch (err) {
+    showMsg($('cliMsg'), err.message, false);
+  } finally {
+    $('cliBtn').disabled = false;
+    $('cliBtn').textContent = 'EMITIR CLAVE PARA ESTE CLIENTE';
+  }
+}
+
+async function revokeClient(id) {
+  if (!confirm('¿Retirar el acceso a este cliente? Su clave dejará de funcionar; los demás no se ven afectados.')) return;
+  hideMsg($('cliMsg'));
+  try {
+    await api('POST', `/api/admin/omnideploy/clients/${id}/revoke`, {});
+    showMsg($('cliMsg'), 'Acceso retirado.');
+    loadClients();
+  } catch (err) {
+    showMsg($('cliMsg'), err.message, false);
+  }
+}
+
+async function revokeDevice(id) {
+  if (!confirm('¿Revocar este equipo? Dejará de recibir trabajos y sus credenciales quedarán inservibles.')) return;
+  hideMsg($('devMsg'));
+  try {
+    await api('POST', `/api/admin/omnideploy/devices/${id}/revoke`, {});
+    showMsg($('devMsg'), 'Equipo revocado.');
+    loadDevices();
+  } catch (err) {
+    showMsg($('devMsg'), err.message, false);
+  }
+}
+
+const OPCION_A_MEDIDA = '<option value="custom">A medida (indicar días)…</option>';
+
+async function loadDurations() {
+  if ($('genDuration').options.length) return;
+  try {
+    const data = await api('GET', '/api/admin/license-durations');
+    $('genDuration').innerHTML = Object.entries(data.durations)
+      .map(([k, d]) => `<option value="${k}">${esc(d.label)}</option>`)
+      .join('') + OPCION_A_MEDIDA;
+  } catch (err) {
+    $('genDuration').innerHTML = `
+      <option value="1">1 día (1,440 min uptime)</option>
+      <option value="2">3 meses (129,600 min uptime)</option>
+      <option value="3">6 meses (259,200 min uptime)</option>
+      <option value="4">12 meses (518,400 min uptime)</option>
+      <option value="5">Perpetua (ilimitada)</option>` + OPCION_A_MEDIDA;
+  }
+  // El campo de días solo aparece al elegir "a medida", para no añadir una
+  // casilla más al formulario en el caso normal, que son los cinco escalones.
+  $('genDuration').onchange = () => {
+    $('genDiasFila').classList.toggle('hidden', $('genDuration').value !== 'custom');
+  };
+}
+
+async function doGenerate(e) {
+  e.preventDefault();
+  hideMsg($('genMsg'));
+  $('genBtn').disabled = true;
+  $('genBtn').textContent = 'GENERANDO…';
+  try {
+    // Con "a medida" se manda el número de días como duración: el servidor
+    // acepta tanto los cinco escalones como un número suelto.
+    let duracion = $('genDuration').value;
+    if (duracion === 'custom') {
+      const dias = parseInt($('genDias').value, 10);
+      if (!Number.isInteger(dias) || dias < 1 || dias > 36500) {
+        throw new Error('Indica los días: un número entero entre 1 y 36500.');
+      }
+      // Prefijo `d`: sin el, un 2 se leeria como el escalon trimestral y no
+      // habria forma de emitir una licencia de 2 dias.
+      duracion = 'd' + dias;
+    }
+
+    const data = await api('POST', '/api/admin/licenses/generate', {
+      hwid: $('genHwid').value.trim().toUpperCase(),
+      duration: duracion,
+      capability: $('genCap').value,
+      // Modulos sueltos. Se manda siempre, aunque vaya vacio: el servidor solo
+      // escribe el campo en el payload firmado si trae algo, de modo que una
+      // licencia sin modulos sale identica a las emitidas antes de existir esto.
+      mods: $('genModCreador2d').checked ? ['creador2d'] : [],
+      contact_email: $('genEmail').value.trim().toLowerCase() || null,
+      notes: $('genNotes').value.trim() || null,
+    });
+    showMsg($('genMsg'), 'Licencia generada y registrada en el servidor. Entrégala al cliente.');
+    $('genToken').value = data.token;
+    $('genResult').classList.remove('hidden');
+    loadLicenses();
+  } catch (err) {
+    showMsg($('genMsg'), err.message, false);
+  } finally {
+    $('genBtn').disabled = false;
+    $('genBtn').textContent = 'GENERAR Y REGISTRAR LICENCIA';
+  }
+}
+
+function resetGenerate() {
+  hideMsg($('genMsg'));
+  $('genForm').reset();
+  $('genResult').classList.add('hidden');
+}
+
+function copyToken() {
+  const ta = $('genToken');
+  ta.select();
+  ta.setSelectionRange(0, 999999);
+  if (navigator.clipboard) navigator.clipboard.writeText(ta.value).catch(() => {});
+  showMsg($('genMsg'), 'Código copiado al portapapeles.');
+}
+
+async function loadUsers() {
+  const q = $('userSearch').value.trim();
+  const body = $('usersBody');
+  body.innerHTML = '<tr><td colspan="9" class="muted">Cargando…</td></tr>';
+  try {
+    const data = await api('GET', `/api/admin/users?limit=200${q ? '&search=' + encodeURIComponent(q) : ''}`);
+    if (!data.users.length) {
+      body.innerHTML = '<tr><td colspan="9" class="muted">No hay usuarios registrados.</td></tr>';
+      return;
+    }
+    body.innerHTML = data.users.map((u) => `
+      <tr>
+        <td>${u.id}</td>
+        <td class="mono">${esc(u.email)}</td>
+        <td><span class="badge ${u.role}">${u.role}</span></td>
+        <td><span class="badge ${u.status}">${u.status}</span></td>
+        <td>${esc([u.first_name, u.last_name].filter(Boolean).join(' ') || '—')}</td>
+        <td class="muted">${esc([u.city, u.state, u.country].filter(Boolean).join(', ') || '—')}</td>
+        <td>${u.completed_registration ? 'Completo' : 'Pendiente'}</td>
+        <td class="muted">${fmtDate(u.created_at)}</td>
+        <td><div class="actions">
+          <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${esc(u.email)}')">Borrar</button>
+        </div></td>
+      </tr>`).join('');
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="9" class="muted">${esc(err.message)}</td></tr>`;
+  }
+}
+
+async function deleteUser(id, email) {
+  if (!confirm(`¿Eliminar el usuario ${email}?`)) return;
+  try {
+    await api('DELETE', `/api/admin/users/${id}`);
+    showMsg($('usersMsg'), `Usuario ${email} eliminado.`);
+    loadUsers();
+  } catch (err) {
+    showMsg($('usersMsg'), err.message, false);
+  }
+}
+
+let currentLicensesCache = [];
+
+async function loadLicenses() {
+  const body = $('licBody');
+  body.innerHTML = '<tr><td colspan="9" class="muted">Cargando…</td></tr>';
+  try {
+    const data = await api('GET', '/api/admin/licenses?limit=200');
+    currentLicensesCache = data.licenses || [];
+    if (!data.licenses.length) {
+      body.innerHTML = '<tr><td colspan="12" class="muted">No hay licencias registradas.</td></tr>';
+      return;
+    }
+    body.innerHTML = data.licenses.map((l) => {
+      // La fecha que vale es la sellada AL ACTIVAR. `expires_at` es la de
+      // emision y solo se muestra mientras la licencia no se haya estrenado.
+      const fin = l.effective_expires_at || l.expires_at;
+      const porUso = l.billing_mode === 'usage';
+      let restante = '<span class="muted">—</span>';
+      if (!l.activated_at) {
+        restante = '<span class="muted">sin estrenar</span>';
+      } else if (fin === 'UNLIMITED') {
+        restante = 'perpetua';
+      } else if (porUso) {
+        const quedan = Math.max(0, (l.uptime_limit || 0) - (l.uptime_used || 0));
+        restante = quedan > 0
+          ? `${Math.floor(quedan / 60)} h ${quedan % 60} min de uso`
+          : '<span class="badge revoked">USO AGOTADO</span>';
+      } else {
+        const dias = Math.round(
+          (Date.parse(fin + 'T00:00:00Z') - Date.parse(new Date().toISOString().slice(0, 10) + 'T00:00:00Z')) / 86400000,
+        );
+        restante = dias > 0 ? `${dias} días` : '<span class="badge revoked">EXPIRADA</span>';
+      }
+      const tiene2D = (l.mods && l.mods.includes('creador2d')) || l.capability === 'full';
+      return `
+      <tr>
+        <td class="mono">${esc(l.license_key)}</td>
+        <td class="mono muted">${esc(l.hwid)}</td>
+        <td>
+          <span class="badge active">${l.capability}</span>
+          ${tiene2D ? '<span class="badge" style="background:#0284c7;color:#e0f2fe;font-size:10px;margin-left:4px;">Creador 2D</span>' : ''}
+        </td>
+        <td class="muted" style="font-size:11px;">${fechaHora(l.registered_at)}</td>
+        <td class="muted" style="font-size:11px;">${l.activated_at ? fechaHora(l.activated_at) : '<em>sin estrenar</em>'}</td>
+        <td class="muted" style="font-size:11px;">${porUso ? 'por uso' : 'calendario'}</td>
+        <td>${esc(fin)}</td>
+        <td style="font-size:12px;">${restante}</td>
+        <td><span class="badge ${l.status}">${l.status}</span></td>
+        <td class="mono muted">${esc(l.contact_email || '—')}</td>
+        <td class="muted">${fmtDate(l.last_reminded_at)}</td>
+        <td><div class="actions">
+          <button class="btn btn-primary btn-sm" onclick="renewLic('${esc(l.license_key)}')">Renovar</button>
+          ${l.status === 'active' ? `<button class="btn btn-ghost btn-sm" onclick="revokeLic('${esc(l.license_key)}')">Revocar</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteLic('${esc(l.license_key)}')">Borrar</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="9" class="muted">${esc(err.message)}</td></tr>`;
+  }
+}
+
+let currentRenewKey = null;
+
+function renewLic(key) {
+  currentRenewKey = key;
+  const row = (currentLicensesCache || []).find(l => l.license_key === key);
+  
+  const hwidText = row ? row.hwid : '';
+  if ($('renewHwidInput')) {
+    $('renewHwidInput').value = hwidText;
+  }
+  
+  // Comprobar si la licencia previa tenia Creador 2D o capability full
+  const hasCreador2D = row ? ((row.mods && row.mods.includes('creador2d')) || row.capability === 'full') : true;
+  $('renewCreador2dCheck').checked = hasCreador2D;
+  
+  $('renewModal').style.display = 'flex';
+}
+
+function closeRenewModal() {
+  $('renewModal').style.display = 'none';
+  currentRenewKey = null;
+}
+
+async function submitRenew() {
+  if (!currentRenewKey) return;
+  
+  let dur = $('renewDurationSelect').value;
+  if (dur === 'custom') {
+    const dias = parseInt($('renewCustomDaysInput').value, 10);
+    if (!dias || dias < 1) {
+      alert('Por favor ingresa un número de días válido.');
+      return;
+    }
+    dur = `d${dias}`;
+  }
+  
+  const includeCreador2D = $('renewCreador2dCheck').checked;
+  const newHwid = ($('renewHwidInput') ? $('renewHwidInput').value : '').trim();
+  
+  $('btnConfirmRenew').disabled = true;
+  $('btnConfirmRenew').textContent = 'Renovando...';
+  
+  try {
+    await api('POST', `/api/admin/licenses/renew`, {
+      license_key: currentRenewKey,
+      hwid: newHwid,
+      duration: dur,
+      include_creador_2d: includeCreador2D,
+      mods: includeCreador2D ? ['creador2d'] : []
+    });
+    
+    closeRenewModal();
+    showMsg($('licMsg'), '¡Licencia renovada exitosamente!');
+    loadLicenses();
+  } catch (err) {
+    showMsg($('licMsg'), err.message, false);
+  } finally {
+    $('btnConfirmRenew').disabled = false;
+    $('btnConfirmRenew').textContent = 'Confirmar Renovación';
+  }
+}
+
+async function revokeLic(key) {
+  if (!confirm(`¿Revocar la licencia ${key}?`)) return;
+  try {
+    await api('POST', `/api/admin/licenses/${encodeURIComponent(key)}/revoke`);
+    showMsg($('licMsg'), 'Licencia revocada.');
+    loadLicenses();
+  } catch (err) {
+    showMsg($('licMsg'), err.message, false);
+  }
+}
+
+async function deleteLic(key) {
+  if (!confirm(`¿Eliminar la licencia ${key}?`)) return;
+  try {
+    await api('DELETE', `/api/admin/licenses/${encodeURIComponent(key)}`);
+    showMsg($('licMsg'), 'Licencia eliminada.');
+    loadLicenses();
+  } catch (err) {
+    showMsg($('licMsg'), err.message, false);
+  }
+}
+
+async function loadAudit() {
+  const body = $('auditBody');
+  body.innerHTML = '<tr><td colspan="4" class="muted">Cargando…</td></tr>';
+  try {
+    const data = await api('GET', '/api/admin/audit?limit=200');
+    if (!data.entries.length) {
+      body.innerHTML = '<tr><td colspan="4" class="muted">Sin registros.</td></tr>';
+      return;
+    }
+    body.innerHTML = data.entries.map((a) => `
+      <tr>
+        <td class="muted">${fmtDate(a.created_at)}</td>
+        <td class="mono">${esc(a.action)}</td>
+        <td class="muted">${esc(a.admin_email || '—')}</td>
+        <td class="muted">${esc(a.details || '')}</td>
+      </tr>`).join('');
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="4" class="muted">${esc(err.message)}</td></tr>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideMsg($('loginMsg'));
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: $('loginEmail').value.trim().toLowerCase(), password: $('loginPassword').value }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Credenciales incorrectas.');
+      const me = await fetch('/api/me', { headers: { Authorization: `Bearer ${data.token}` } }).then((r) => r.json());
+      if (!me.ok || me.user.role !== 'admin') throw new Error('Esta cuenta no tiene permisos de administrador.');
+      token = data.token;
+      localStorage.setItem('omni_admin_token', token);
+      $('whoami').textContent = me.user.email;
+      $('loginView').classList.add('hidden');
+      $('appView').classList.remove('hidden');
+      switchTab('users');
+    } catch (err) {
+      showMsg($('loginMsg'), err.message, false);
+    }
+  });
+
+  $('logoutBtn').addEventListener('click', () => {
+    token = '';
+    localStorage.removeItem('omni_admin_token');
+    $('appView').classList.add('hidden');
+    $('loginView').classList.remove('hidden');
+  });
+
+  $('userSearchBtn').addEventListener('click', loadUsers);
+  $('userSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadUsers(); });
+
+  $('clearUsersBtn').addEventListener('click', async () => {
+    if (!confirm('¿BORRAR TODOS los usuarios registrados? Esta acción es irreversible.')) return;
+    try {
+      const r = await api('POST', '/api/admin/users/clear');
+      showMsg($('usersMsg'), r.message);
+      loadUsers();
+    } catch (err) {
+      showMsg($('usersMsg'), err.message, false);
+    }
+  });
+
+  $('clearLicensesBtn').addEventListener('click', async () => {
+    if (!confirm('¿BORRAR TODAS las licencias registradas? Esta acción es irreversible.')) return;
+    try {
+      const r = await api('POST', '/api/admin/licenses/clear');
+      showMsg($('licMsg'), r.message);
+      loadLicenses();
+    } catch (err) {
+      showMsg($('licMsg'), err.message, false);
+    }
+  });
+
+  $('genForm').addEventListener('submit', doGenerate);
+  $('devReload').addEventListener('click', () => { loadDevices(); loadClients(); });
+  $('cliForm').addEventListener('submit', crearCliente);
+  $('genCopyBtn').addEventListener('click', copyToken);
+  $('genNewBtn').addEventListener('click', resetGenerate);
+
+  $('pwForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideMsg($('pwMsg'));
+    const current = $('pwCurrent').value;
+    const next = $('pwNew').value;
+    const confirm = $('pwConfirm').value;
+    if (next.length < 8) return showMsg($('pwMsg'), 'La nueva contraseña debe tener al menos 8 caracteres.', false);
+    if (next !== confirm) return showMsg($('pwMsg'), 'La confirmación no coincide con la nueva contraseña.', false);
+    if (next === current) return showMsg($('pwMsg'), 'La nueva contraseña debe ser distinta de la actual.', false);
+    $('pwBtn').disabled = true;
+    $('pwBtn').textContent = 'GUARDANDO…';
+    try {
+      const r = await api('POST', '/api/admin/change-password', { current_password: current, new_password: next });
+      showMsg($('pwMsg'), r.message);
+      $('pwForm').reset();
+    } catch (err) {
+      showMsg($('pwMsg'), err.message, false);
+    } finally {
+      $('pwBtn').disabled = false;
+      $('pwBtn').textContent = 'CAMBIAR CONTRASEÑA';
+    }
+  });
+
+  if (token) {
+    api('GET', '/api/me').then((me) => {
+      if (me.ok && me.user.role === 'admin') {
+        $('whoami').textContent = me.user.email;
+        $('loginView').classList.add('hidden');
+        $('appView').classList.remove('hidden');
+        switchTab('users');
+      } else {
+        token = '';
+        localStorage.removeItem('omni_admin_token');
+      }
+    }).catch(() => {
+      token = '';
+      localStorage.removeItem('omni_admin_token');
+    });
+  }
+});
+</script>
+<!-- Modal de Renovación de Licencia -->
+<div id="renewModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.85);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;width:100%;max-width:480px;padding:24px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.5);color:#f8fafc;">
+    <h3 style="margin:0 0 12px;font-size:18px;color:#818cf8;display:flex;align-items:center;gap:8px;">
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      Renovar Licencia
+    </h3>
+    <label style="display:block;font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">Hardware ID (HWID del equipo):</label>
+    <input type="text" id="renewHwidInput" placeholder="Ej: OMNI-HW-1F31-FEC3-..." style="width:100%;background:#0f172a;border:1px solid #475569;border-radius:6px;padding:10px;color:#f8fafc;font-size:13px;margin-bottom:16px;font-family:monospace;" />
+    
+    <label style="display:block;font-size:12px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">Selecciona la nueva duración:</label>
+    <select id="renewDurationSelect" style="width:100%;background:#0f172a;border:1px solid #475569;border-radius:6px;padding:10px;color:#f8fafc;font-size:13px;margin-bottom:16px;">
+      <option value="5" selected>Perpetua (sin caducidad)</option>
+      <option value="4">12 meses (365 días)</option>
+      <option value="3">6 meses (180 días)</option>
+      <option value="2">3 meses (90 días)</option>
+      <option value="1">1 día (demo de uso)</option>
+      <option value="custom">Días a medida...</option>
+    </select>
+    
+    <div id="renewCustomDaysContainer" class="hidden" style="margin-bottom:16px;">
+      <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:4px;">Número de días (ej: 45):</label>
+      <input type="number" id="renewCustomDaysInput" min="1" max="36500" value="45" style="width:100%;background:#0f172a;border:1px solid #475569;border-radius:6px;padding:8px;color:#f8fafc;font-size:13px;" />
+    </div>
+    
+    <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;margin-bottom:20px;">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600;color:#38bdf8;">
+        <input type="checkbox" id="renewCreador2dCheck" checked style="width:18px;height:18px;accent-color:#38bdf8;cursor:pointer;" />
+        Incluir Módulo Creador 2D
+      </label>
+      <p style="margin:4px 0 0 28px;font-size:11px;color:#64748b;">Habilita el diseñador y generador de escenarios 2D por bloques en la licencia renovada.</p>
+    </div>
+    
+    <div style="display:flex;justify-content:flex-end;gap:10px;">
+      <button class="btn btn-ghost btn-sm" onclick="closeRenewModal()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" id="btnConfirmRenew" onclick="submitRenew()">Confirmar Renovación</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

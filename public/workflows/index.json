@@ -1,0 +1,44 @@
+{
+  "workflows": [
+    {
+      "file": "flux-spritesheet.json",
+      "name": "Flux spritesheet",
+      "nodes": 11,
+      "model": "flux1-dev-fp8.safetensors",
+      "loras": [
+        "flux-spritesheet-lora.safetensors"
+      ],
+      "hasNegativeBranch": false
+    },
+    {
+      "file": "sdxl-pixelart.json",
+      "name": "Sdxl pixelart",
+      "nodes": 8,
+      "model": "dreamshaperXL_lightningDPMSDE.safetensors",
+      "loras": [
+        "pixel-art-xl-v1.1.safetensors"
+      ],
+      "hasNegativeBranch": true
+    },
+    {
+      "file": "turnaround-charturner.json",
+      "name": "Turnaround charturner",
+      "nodes": 8,
+      "model": "revAnimated_v2Rebirth.safetensors",
+      "loras": [
+        "charTurnBetaLora.safetensors"
+      ],
+      "hasNegativeBranch": true
+    },
+    {
+      "file": "zimage-pixelart.json",
+      "name": "Zimage pixelart",
+      "nodes": 11,
+      "model": "z_image_turbo_bf16.safetensors",
+      "loras": [
+        "pixel_art_style_z_image_turbo.safetensors"
+      ],
+      "hasNegativeBranch": false
+    }
+  ]
+}

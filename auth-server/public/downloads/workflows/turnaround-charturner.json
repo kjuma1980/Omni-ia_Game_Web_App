@@ -1,0 +1,120 @@
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Modelo base"
+    },
+    "inputs": {
+      "ckpt_name": "revAnimated_v2Rebirth.safetensors"
+    }
+  },
+  "2": {
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "LoRA: charTurnBetaLora.safetensors"
+    },
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "clip": [
+        "1",
+        1
+      ],
+      "lora_name": "charTurnBetaLora.safetensors",
+      "strength_model": 0.6,
+      "strength_clip": 0.6
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "PROMPT"
+    },
+    "inputs": {
+      "clip": [
+        "2",
+        1
+      ],
+      "text": "a fierce tyrannosaurus rex dinosaur, olive-green scaly hide, battle scars across its torso, massive serrated teeth, amber eyes, thick tail, small forelimbs, (character turnaround sheet:1.2), (front view, side view, back view:1.2), the same dinosaur in every view, plain white background, even flat lighting"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "NEGATIVE"
+    },
+    "inputs": {
+      "clip": [
+        "2",
+        1
+      ],
+      "text": "human, woman, man, humanoid, person, clothing, uniform, blurry, photo, different characters, inconsistent design"
+    }
+  },
+  "5": {
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Tamano"
+    },
+    "inputs": {
+      "width": 1024,
+      "height": 512,
+      "batch_size": 1
+    }
+  },
+  "6": {
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Muestreo"
+    },
+    "inputs": {
+      "model": [
+        "2",
+        0
+      ],
+      "positive": [
+        "3",
+        0
+      ],
+      "negative": [
+        "4",
+        0
+      ],
+      "latent_image": [
+        "5",
+        0
+      ],
+      "seed": 42,
+      "steps": 30,
+      "cfg": 7.0,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 1
+    }
+  },
+  "7": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "6",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "8": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "7",
+        0
+      ],
+      "filename_prefix": "omni_turnaround"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0.0",
+  "FriendlyName": "Creador 2D",
+  "Description": "Descarga y ensambla mundos creados con el Creador de Mundos 2D/2.5D de Omni IA Game.",
+  "Category": "Level Design",
+  "CreatedBy": "Omni IA Game",
+  "CanContainContent": false,
+  "IsBetaVersion": false,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "Creador2D",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}

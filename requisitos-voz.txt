@@ -1,0 +1,11 @@
+# Dependencias del servidor de voz local (Edge TTS).
+#
+# Se instalan solas la primera vez que se usa la voz local: el usuario final no
+# tiene que escribir ningun comando. Viajan como recurso del instalador para que
+# la instalacion no dependa de que el equipo tenga nada preparado.
+#
+# edge-tts habla con el servicio de sintesis de Microsoft, el mismo que usa el
+# navegador Edge para "leer en voz alta". No necesita cuenta ni clave.
+edge-tts>=6.1.0
+flask>=3.0.0
+flask-cors>=4.0.0

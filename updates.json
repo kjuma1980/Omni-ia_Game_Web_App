@@ -1,0 +1,14 @@
+{
+  "version": "0.2.8",
+  "notes": "Actualización oficial v0.2.8 (21 de Agosto, 2026):\n- ⚡ Deslimitación Universal de Tokens en Ollama: Generación continua sin cortes ni topes de tokens (num_predict ilimitado y contexto 32K).\n- 📜 Narrativa y GDD Completo: Expansión IA de 7 secciones en español e inglés sin truncamiento de texto.\n- ✨ Refinamiento con IA sin Restricciones: Optimización fluida y completa para semillas de guión y prompts.\n- 🚀 OmniDeploy Host Workflows: Priorización dinámica de workflows configurados localmente para ejecuciones remotas P2P.",
+  "pub_date": "2026-08-21T20:30:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "",
+      "url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.8.exe"
+    }
+  },
+  "title": "¡Omni IA Game v0.2.8 Disponible!",
+  "subtitle": "Novedades y optimizaciones de la versión 0.2.8 (21 de Agosto, 2026)",
+  "logo_url": "https://fenixdev.cloud/omni_ia_logo.jpg"
+}

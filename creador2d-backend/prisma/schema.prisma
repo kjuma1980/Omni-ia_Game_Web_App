@@ -1,0 +1,458 @@
+// ---------------------------------------------------------------------------
+//  Creador de Mundos 2D / 2.5D  —  Submódulo de Omni IA Game
+//  Base de datos: PostgreSQL local  (BD: Creador_2d)
+// ---------------------------------------------------------------------------
+//  Decisiones de modelado
+//  * La CAPA VISUAL (tiles) y la MATRIZ LOGICA DE COLISIONES viven en columnas
+//    separadas del mismo chunk. Los motores de juego solo necesitan descargar
+//    `collision` para resolver fisicas; el editor necesita ambas.
+//  * Los chunks son la unidad de persistencia y de transporte por WebSocket.
+//    Un mundo "infinito" es simplemente un conjunto disperso de chunks.
+//  * Ningun proveedor de IA escribe aqui directamente: las propuestas se
+//    guardan en `AiSuggestion` y requieren validacion + aceptacion humana.
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------ IDENTIDAD ----------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  role         String     @default("CREATOR")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  worlds        World[]         @relation("WorldOwner")
+  memberships   WorldMember[]
+  profile       PlayerProfile?
+  aiSuggestions AiSuggestion[]
+
+  @@map("users")
+}
+
+/// Tokens de refresco rotativos. Se guarda unicamente el hash Argon2id.
+/// `familyId` permite detectar reutilizacion de un token ya rotado y revocar
+/// toda la familia (defensa contra robo de refresh token).
+model RefreshToken {
+  id           String    @id @default(uuid())
+  userId       String   
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String
+  familyId     String   
+  userAgent    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?  
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+// ------------------------------- BLOQUES -----------------------------------
+
+/// Catalogo de bloques. Los graficos son descriptores procedurales originales
+/// (paleta + patron), nunca binarios con copyright de terceros.
+model BlockDefinition {
+  id             String      @id @default(uuid())
+  key            String      @unique
+  name           String
+  description    String?
+  /// Tipos de mundo en los que este bloque puede colocarse.
+  /// Tipos de mundo en los que aparece el bloque, como JSON: ["SIDE_PLATFORMER"].
+  /// SQLite no admite listas escalares, asi que se guarda serializado. Ver
+  /// `src/json-list.ts`, que es el UNICO sitio donde se lee y se escribe.
+  worldTypes     String        @default("[]")
+  layer          String
+  /// Mascara binaria de colision (ver COLLISION_FLAGS en el frontend/plugins).
+  collisionFlags Int         @default(0)
+  biome          String      @default("generic")
+  /// Descriptor procedural: { pattern, colors[], accent, noise, ... }
+  visual         Json
+  /// Desplazamiento del origen de Y-sort respecto al borde inferior del tile.
+  ySortOffset    Int         @default(0)
+  /// Altura visual en tiles (props 2.5D como arboles ocupan 2 tiles de alto).
+  heightInTiles  Int         @default(1)
+  /// Familia funcional; ordena la paleta y guia a los plugins.
+  category       String @default("TERRAIN")
+  /// GRID se adhiere a la rejilla; FREE se arrastra libremente.
+  placement      String @default("GRID")
+  /// Etiquetas de busqueda: "agrietado", "ruina", "madera", "nieve"...
+  /// Serializadas como JSON por la misma razon que `worldTypes`.
+  tags           String        @default("[]")
+  /// Variante dentro de una misma familia (5 texturas de muro, por ejemplo).
+  variant        Int           @default(1)
+  /// El bloque se anima en el motor (agua, lava, antorchas).
+  animated       Boolean       @default(false)
+  /// Puede enlazarse con un interior (puertas, bocas de cueva, pozos).
+  entrance       Boolean       @default(false)
+  breakable      Boolean     @default(true)
+  /// Bloques fabricables: requieren receta y no aparecen en la paleta base.
+  craftable      Boolean     @default(false)
+  /// [{ "key": "wood", "qty": 2 }]
+  recipe         Json?
+  /// Cantidad devuelta al inventario al romper el bloque.
+  dropQuantity   Int         @default(1)
+  /// Tamano con el que aparece al soltarlo, en fracciones de baldosa. Una cama
+  /// no mide lo mismo que una vela; pedir al usuario que redimensione cada
+  /// pieza tras colocarla seria trabajo inutil.
+  defaultScale   Float       @default(1)
+  /// Como se dibuja: PROCEDURAL usa el patron o la silueta de `visual`; el
+  /// resto usa la imagen de `imageData`.
+  origin         String @default("PROCEDURAL")
+  /// Sprite propio en data URL, para los bloques creados desde el generador de
+  /// Omni IA Game. Nulo en todo el catalogo procedural.
+  imageData      String?
+  isSystem       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  inventoryItems InventoryItem[]
+  placedObjects  PlacedObject[]
+  fluidSettings  FluidSetting[]
+
+  @@index([layer])
+  @@index([biome])
+  @@index([category])
+  @@map("block_definitions")
+}
+
+// -------------------------------- MUNDOS -----------------------------------
+
+model World {
+  id          String    @id @default(uuid())
+  slug        String    @unique
+  name        String
+  description String?
+  type        String
+  /// Lado del tile en pixeles. Base del snapping magnetico.
+  tileSize    Int       @default(32)
+  /// Lado del chunk en tiles (16 o 32, validado en la capa de servicio).
+  chunkSize   Int       @default(16)
+  biome       String    @default("grassland")
+  seed        Int       @default(0)
+  /// Color de fondo del lienzo (hex) — parte del estilo visual propio.
+  background  String    @default("#0b1120")
+  /// Gravedad logica exportada a los motores (solo informativa para runners
+  /// y plataformas; el editor no simula fisicas).
+  gravity     Float     @default(9.8)
+  /// Inclinacion de la rejilla en grados. Un countryside visto desde arriba no
+  /// es plano: la carretera se aleja en fuga. 0 = rejilla ortogonal.
+  gridAngle   Float     @default(0)
+  /// Carriles del runner y ancho de cada uno en baldosas. Solo se usan en
+  /// COUNTRYSIDE_RUNNER; en el resto de tipos quedan como metadato inerte.
+  laneCount   Int       @default(3)
+  laneWidth   Int       @default(2)
+  version     Int       @default(1)
+  publishedAt DateTime?
+  ownerId     String   
+  owner       User      @relation("WorldOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  /// Un interior (cueva, casa, castillo) es a su vez un mundo, enlazado al
+  /// mundo exterior por la celda donde esta su entrada. Reutilizar el mismo
+  /// modelo evita duplicar toda la maquinaria de chunks y exportacion.
+  isInterior     Boolean @default(false)
+  parentWorldId  String?
+  parentWorld    World?  @relation("WorldInteriors", fields: [parentWorldId], references: [id], onDelete: Cascade)
+  interiors      World[] @relation("WorldInteriors")
+  /// Celda del mundo padre en la que se entra a este interior.
+  entranceTileX  Int?
+  entranceTileY  Int?
+
+  chunks         Chunk[]
+  members        WorldMember[]
+  aiSuggestions  AiSuggestion[]
+  parallaxLayers ParallaxLayer[]
+  weather        WeatherSetting?
+  fluidSettings  FluidSetting[]
+  placedObjects  PlacedObject[]
+
+  @@index([ownerId])
+  @@index([type])
+  @@index([parentWorldId])
+  @@map("worlds")
+}
+
+/// ---------------------------------------------------------------------------
+///  Fondos y parallax
+/// ---------------------------------------------------------------------------
+/// Cada mundo puede apilar varias capas de fondo que se desplazan a distinta
+/// velocidad que la camara. La imagen puede ser procedural, subida o generada
+/// por IA; el editor solo guarda la referencia y los parametros de movimiento.
+model ParallaxLayer {
+  id        String       @id @default(uuid())
+  worldId   String      
+  world     World        @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  kind      String
+  /// Orden dentro de la misma familia; menor se dibuja antes (mas al fondo).
+  order     Int          @default(0)
+  name      String
+  /// Data URL o ruta de la imagen. Vacio = se dibuja de forma procedural.
+  imageUrl  String?
+  /// Prompt con el que se genero, para poder reproducirla o reajustarla.
+  prompt    String?
+  origin    String  @default("PROCEDURAL")
+  /// Factor de parallax: 0 = fijo con la camara, 1 = se mueve con el mundo.
+  speedX    Float        @default(0.2)
+  speedY    Float        @default(0.1)
+  opacity   Float        @default(1)
+  /// Tinte multiplicativo para integrar la capa con la paleta del bioma.
+  tint      String       @default("#ffffff")
+  /// Repetir horizontalmente: imprescindible en runners y scroll lateral.
+  repeatX   Boolean      @default(true)
+  repeatY   Boolean      @default(false)
+  /// Desplazamiento vertical en pixeles respecto al horizonte.
+  offsetY   Int          @default(0)
+  visible   Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([worldId, kind])
+  @@map("parallax_layers")
+}
+
+/// ---------------------------------------------------------------------------
+///  Clima
+/// ---------------------------------------------------------------------------
+/// Un mundo tiene como mucho una configuracion de clima. Al exportar, estos
+/// valores se traducen al script nativo de cada motor.
+model WeatherSetting {
+  id            String        @id @default(uuid())
+  worldId       String        @unique
+  world         World         @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  type          String   @default("NONE")
+  /// 0 = apenas perceptible, 1 = tormenta.
+  intensity     Float         @default(0.5)
+  windDirection String @default("DOWN")
+  /// 0 = sin viento, 1 = vendaval.
+  windStrength  Float         @default(0.3)
+  /// Densidad de niebla o neblina, independiente de la precipitacion.
+  fogDensity    Float         @default(0)
+  /// Color de la particula o del velo de niebla.
+  tint          String        @default("#9fb4c7")
+  /// Particulas por segundo a intensidad 1; los motores lo escalan.
+  emissionRate  Int           @default(400)
+  /// Relampagos. Es independiente del tipo para poder anadir tormenta electrica
+  /// a una ventisca o a una lluvia de ceniza volcanica, no solo a la lluvia.
+  lightning     Boolean       @default(false)
+  /// Segundos medios entre destellos; cada destello se dispara con jitter.
+  lightningEvery Float        @default(7)
+  /// Color del destello que ilumina la escena.
+  lightningTint String        @default("#dbe9ff")
+  enabled       Boolean       @default(false)
+  updatedAt     DateTime      @updatedAt
+
+  @@map("weather_settings")
+}
+
+/// ---------------------------------------------------------------------------
+///  Fluidos animados
+/// ---------------------------------------------------------------------------
+/// Configuracion de animacion por tipo de fluido dentro de un mundo: hacia
+/// donde corre el agua, si la lava burbujea y a que velocidad.
+model FluidSetting {
+  id         String          @id @default(uuid())
+  worldId    String         
+  world      World           @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  blockKey   String
+  blockDef   BlockDefinition @relation(fields: [blockKey], references: [key], onDelete: Cascade)
+  flow       String       @default("STILL")
+  /// Velocidad de desplazamiento de la textura, en tiles por segundo.
+  speed      Float           @default(0.4)
+  /// Amplitud de la ondulacion vertical.
+  waveHeight Float           @default(0.15)
+  /// Burbujas ascendentes: propio de la lava, opcional en el agua.
+  bubbles    Boolean         @default(false)
+  bubbleRate Int             @default(6)
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([worldId, blockKey])
+  @@index([worldId])
+  @@map("fluid_settings")
+}
+
+/// ---------------------------------------------------------------------------
+///  Objetos de colocacion libre
+/// ---------------------------------------------------------------------------
+/// Mobiliario y adornos que no se adhieren a la rejilla: se arrastran y se
+/// sueltan en cualquier punto. Viven aparte de los chunks porque su posicion es
+/// continua, no discreta, y no participan de la matriz de colisiones.
+model PlacedObject {
+  id       String          @id @default(uuid())
+  worldId  String         
+  world    World           @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  blockKey String
+  blockDef BlockDefinition @relation(fields: [blockKey], references: [key], onDelete: Cascade)
+  /// Posicion en pixeles del mundo (no en tiles): colocacion continua.
+  x        Float
+  y        Float
+  rotation Float           @default(0)
+  scale    Float           @default(1)
+  flipX    Boolean         @default(false)
+  layer    String       @default("WALL")
+  /// Ajuste fino del orden 2.5D respecto a su posicion.
+  zOffset  Int             @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([worldId])
+  @@map("placed_objects")
+}
+
+model WorldMember {
+  id       String          @id @default(uuid())
+  worldId  String         
+  world    World           @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  userId   String         
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String @default("EDITOR")
+  joinedAt DateTime        @default(now())
+
+  @@unique([worldId, userId])
+  @@index([userId])
+  @@map("world_members")
+}
+
+/// Un chunk es una rejilla cuadrada de `world.chunkSize` tiles de lado.
+///
+///  * `palette`  : string[]  — claves de bloque usadas por este chunk.
+///  * `layers`   : { GROUND: number[], PIT: number[], WALL: number[],
+///                   OVERLAY: number[] } — indices densos hacia `palette`,
+///                   -1 = celda vacia. Longitud = chunkSize^2 por capa.
+///  * `collision`: Bytes — 1 byte por celda con la mascara de banderas. Es la
+///                 matriz logica invisible que consumen los motores de juego.
+model Chunk {
+  id        String   @id @default(uuid())
+  worldId   String  
+  world     World    @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  cx        Int
+  cy        Int
+  palette   Json
+  layers    Json
+  collision Bytes
+  /// Se incrementa en cada escritura; los clientes lo usan para descartar
+  /// eventos de socket desordenados.
+  revision  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([worldId, cx, cy])
+  @@index([worldId])
+  @@map("chunks")
+}
+
+// ----------------------------- GAMIFICACION --------------------------------
+
+/// Datos sensibles de progresion. La IA NUNCA puede escribir en estas tablas:
+/// el guard `AiWriteProtectionGuard` lo bloquea a nivel de peticion.
+model PlayerProfile {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points     Int      @default(0)
+  experience Int      @default(0)
+  level      Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  inventory    InventoryItem[]
+  achievements UnlockedAchievement[]
+
+  @@map("player_profiles")
+}
+
+model InventoryItem {
+  id          String          @id @default(uuid())
+  profileId   String         
+  profile     PlayerProfile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  blockKey    String
+  blockDef    BlockDefinition @relation(fields: [blockKey], references: [key], onDelete: Cascade)
+  quantity    Int             @default(0)
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([profileId, blockKey])
+  @@map("inventory_items")
+}
+
+model Achievement {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  name        String
+  description String
+  points      Int      @default(10)
+  /// { "type": "PLACE_BLOCKS", "threshold": 100 }
+  criteria    Json
+  createdAt   DateTime @default(now())
+
+  unlocked UnlockedAchievement[]
+
+  @@map("achievements")
+}
+
+model UnlockedAchievement {
+  id            String        @id @default(uuid())
+  profileId     String       
+  profile       PlayerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  achievementId String       
+  achievement   Achievement   @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  unlockedAt    DateTime      @default(now())
+
+  @@unique([profileId, achievementId])
+  @@map("unlocked_achievements")
+}
+
+// --------------------------------- IA --------------------------------------
+
+/// Propuesta generada por un proveedor de IA. Se persiste como DATO INERTE:
+/// hasta que un usuario con permiso de edicion la acepta, no toca ningun chunk.
+model AiSuggestion {
+  id         String             @id @default(uuid())
+  worldId    String            
+  world      World              @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  userId     String            
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider   String
+  prompt     String
+  /// Operaciones propuestas ya validadas contra el catalogo de bloques.
+  operations Json
+  status     String @default("PENDING")
+  error      String?
+  createdAt  DateTime           @default(now())
+  resolvedAt DateTime?
+
+  @@index([worldId])
+  @@index([status])
+  @@map("ai_suggestions")
+}
+
+// ------------------------------- AUDITORIA ---------------------------------
+
+model AuditLog {
+  id        String     @id @default(uuid())
+  actorType String
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  payload   Json?
+  createdAt DateTime   @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

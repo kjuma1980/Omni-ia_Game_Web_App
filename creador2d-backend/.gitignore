@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+coverage/
+.tsbuildinfo
+*.tsbuildinfo
+
+# Base SQLite local. Contiene el catalogo sembrado y los mundos del usuario:
+# es dato, no codigo, y cada equipo genera el suyo con `npm run setup`.
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-shm
+prisma/*.db-wal
+
+# Respaldos de la migracion a SQLite. El esquema y el .env de PostgreSQL siguen
+# en el historial de git; estas copias son solo para consultarlas a mano.
+*.postgres.bak
+standalone/

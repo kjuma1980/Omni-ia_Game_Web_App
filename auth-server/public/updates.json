@@ -1,0 +1,132 @@
+{
+  "enabled": true,
+  "latest_version": "0.2.8",
+  "min_supported_version": "0.1.0",
+  "title": "¡Actualización Disponible para Omni-IA Game v0.2.8!",
+  "subtitle": "Descubre las mejoras, optimizaciones y novedades de la versión 0.2.8.",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSjk0aE8rODBPUXJ3Y2xVWjMwSFp1TDQwbm1yV2RzejVmaVRtK2Z0R0tDM25OaktFdWVQNGVOMDdUY241R1RYdWhkSFZpS25ROTBPbDd3dDJ6WTh6WmJFMWx1M3o0endRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MzYyNzIxCWZpbGU6T21uaSBJQSBHYW1lXzAuMi44X3g2NC1zZXR1cC5leGUKYUU1THMzMDlpZDRMcGRTY1VXbS84OGJldDQ5MFhZbmhZdExLU2c2dTJnUllQMWRZTUpjY3BRQ2N0VUZJRWRzblQxTTN6WDZCUThqRUdHTnJua0YzRGc9PQo=",
+      "url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.8.exe"
+    }
+  },
+  "notes": [
+    "⚡ Deslimitación Universal de Tokens en Ollama: Generación continua sin cortes ni topes de tokens (num_predict ilimitado y contexto 32K).",
+    "📜 Narrativa y GDD Completo: Expansión IA de 7 secciones en español e inglés sin truncamiento de texto.",
+    "✨ Refinamiento con IA sin Restricciones: Optimización fluida y completa para semillas de guión y prompts.",
+    "🚀 Instalador Automático In-App: Descarga nativa y ejecución en segundo plano sin dependencias del navegador."
+  ],
+  "history": [
+    {
+      "version": "0.2.8",
+      "date": "2026-08-21",
+      "title": "Versión 0.2.8 · Deslimitación de Tokens en Ollama, Narrativa & Refinamiento Completo",
+      "download_url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.8.exe",
+      "highlights": [
+        "⚡ Deslimitación Universal de Tokens en Ollama: Generación continua sin cortes ni topes de tokens (num_predict ilimitado y contexto 32K).",
+        "📜 Narrativa y GDD Completo: Expansión IA de 7 secciones en español e inglés sin truncamiento de texto.",
+        "✨ Refinamiento con IA sin Restricciones: Optimización fluida y completa para semillas de guión y prompts.",
+        "🚀 Instalador Automático In-App: Descarga nativa y ejecución en segundo plano sin dependencias del navegador."
+      ]
+    },
+    {
+      "version": "0.2.7",
+      "date": "2026-08-20",
+      "title": "Versión 0.2.7 · Poses Anatómicas en V, Orquestador VRAM & Workflows Aislados",
+      "download_url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.7.exe",
+      "highlights": [
+        "🥋 Directivas de Poses Anatómicas Refinadas: Optimización de pose Idle en V relajada evitando extremidades horizontales y duplicación de brazos.",
+        "🧠 Orquestador de Memoria VRAM/RAM Inteligente: Liberación automática de memoria tras inferencias y prevención de saturación en modelos locales.",
+        "🎯 ControlNet & Workflows por Acción Aislados: Integración y compatibilidad total con grafos específicos de animación y poses OpenPose.",
+        "💾 Arquitectura de Paginación SWAP 215GB: Soporte dedicado de alta velocidad en SSD para generación masiva de activos 3D y sprites."
+      ]
+    },
+    {
+      "version": "0.2.6",
+      "date": "2026-08-20",
+      "title": "Versión 0.2.6 · Master Prompts Duales, Sanitizador Negativo & SWAP 215GB",
+      "download_url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.6.exe",
+      "highlights": [
+        "🎨 Master Prompts Duales: Generación inmersiva con fondos libres contextualmente iluminados y modo estudio blanco puro/chroma key para sprites limpios.",
+        "🧹 Sanitizador y Deduplicador de Negativos: Eliminación estricta de términos contradictorios, artefactos de estudio y bucles de poses.",
+        "💾 Arquitectura de Memoria Virtual Dedicada: Soporte optimizado de 64 GB a 215 GB de SWAP en SSD P: para modelos masivos locales de IA.",
+        "💡 Tooltips Universales: Ayudas visuales contextuales enriquecidas integradas en todos los controles nuevos de la aplicación."
+      ]
+    },
+    {
+      "version": "0.2.5",
+      "date": "2026-08-19",
+      "title": "Versión 0.2.5 · Auto-Actualizador Tauri v2, Registro & Modelos Zero-Config",
+      "download_url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.5.exe",
+      "highlights": [
+        "⚡ Sistema Oficial de Auto-Actualización: Descarga e instalación en caliente con verificación criptográfica Minisign y reinicio automático.",
+        "🎯 Selección múltiple e interactiva de áreas de interés y plataformas en el paso 3 del registro de cuenta.",
+        "🤖 Descarga automatizada de modelo GGUF para Llama-Server sin necesidad de token ni cuentas externas.",
+        "🚀 Mejoras de estabilidad y optimización de entorno en el instalador oficial de Omni IA Game."
+      ]
+    },
+    {
+      "version": "0.2.4",
+      "date": "2026-08-18",
+      "title": "Versión 0.2.4 · Motor Universal ComfyUI TTS & Inyección VibeVoice",
+      "download_url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.4.exe",
+      "highlights": [
+        "Arquitectura universal de 4 capas para síntesis de voz en ComfyUI.",
+        "Compatibilidad con VibeVoice, Kokoro, F5-TTS, CosyVoice y PrimitiveStringMultiline.",
+        "Restauración del mapeo de audios de referencia a VibeVoice_Library.",
+        "Rastreo automático de enlaces de nodos sin alterar parámetros de modelo.",
+        "Aislamiento completo e independiente para Edge TTS local."
+      ]
+    },
+    {
+      "version": "0.2.3",
+      "date": "2026-08-15",
+      "title": "Versión 0.2.3 · Mascota Fényx, Lápiz Mágico & Blindaje Llama-Server",
+      "download_url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.3.exe",
+      "highlights": [
+        "Mascota Oficial Fényx integrada con mini-juego interactivo en Canvas.",
+        "Efecto de lápiz mágico con partículas estelares en refinadores de IA.",
+        "Detección y listado amigable de modelos GGUF locales.",
+        "Presupuesto de 8192 tokens para evitar textos cortados.",
+        "Blindaje de base de datos en despliegues a Hostinger."
+      ]
+    },
+    {
+      "version": "0.2.2",
+      "date": "2026-08-14",
+      "title": "Versión 0.2.2 · Aceleración CUDA Bundled & Parser Resiliente",
+      "download_url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.2.exe",
+      "highlights": [
+        "Inclusión de binarios y DLLs CUDA 12 integradas con cero configuración.",
+        "Parser JSON ultra-resiliente con auto-reparación para respuestas de LLMs.",
+        "Sistema de activación instantánea de licencias y validación en vivo.",
+        "Telemetría en tiempo real de GPU VRAM y uso de memoria."
+      ]
+    },
+    {
+      "version": "0.2.1",
+      "date": "2026-08-13",
+      "title": "Versión 0.2.1 · OmniDeploy P2P & FaceDetailer Automático",
+      "download_url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.1.exe",
+      "highlights": [
+        "Módulo OmniDeploy para enlace seguro P2P con GPUs remotas.",
+        "Integración de FaceDetailer para regeneración facial de alta definición en sprites.",
+        "Contador de tiempo de sesión en vivo y persistencia de autenticación."
+      ]
+    },
+    {
+      "version": "0.2.0",
+      "date": "2026-08-10",
+      "title": "Versión 0.2.0 · Lanzamiento de la Suite Omni-IA Game",
+      "download_url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.0.exe",
+      "highlights": [
+        "Suite todo-en-uno: WorldForge 2D, Sprite Studio, 3D Forge y NPCs Vivos.",
+        "Integración con Blender API y generación de tilemaps para Godot/Unity.",
+        "Matting inteligente RMBG-1.4 para recorte transparente de sprites."
+      ]
+    }
+  ],
+  "logo_url": "https://fenixdev.cloud/mascot.jpg",
+  "download_url": "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.8.exe",
+  "pub_date": "2026-08-21T20:30:00.000Z"
+}
