@@ -3312,12 +3312,12 @@ Generate the professional prompts in JSON format:`;
     } else if (provider === 'anthropic') {
       if (!apiKey) throw new Error("Se requiere API Key para Anthropic.");
       rawResponse = await generateAnthropicCompletion(userMessage, systemPrompt, apiKey, false, model, signal);
-    } else if (provider === 'openai' || provider === 'deepseek' || provider === 'qwen' || provider === 'kimi') {
+    } else if (provider === 'openai' || provider === 'deepseek' || provider === 'qwen' || provider === 'kimi' || provider === 'openrouter' || provider === 'cometapi') {
       if (!apiKey) throw new Error(`Se requiere API Key para ${String(provider).toUpperCase()}.`);
       rawResponse = await generateOpenAICompletion(userMessage, systemPrompt, apiKey, provider as any, false, model, signal);
     } else if (provider === 'other') {
       if (!baseUrl) throw new Error("Se requiere URL del servidor para provider 'other'.");
-      rawResponse = await generateGenericCompletion(baseUrl, userMessage, systemPrompt, apiKey, false, signal);
+      rawResponse = await generateGenericCompletion(baseUrl, userMessage, systemPrompt, apiKey, false, signal, model);
     } else {
       throw new Error(`Provider "${provider}" no soportado para Prompt Engineer.`);
     }

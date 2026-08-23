@@ -555,7 +555,8 @@ export const generateGenericCompletion = async (
   system: string, 
   apiKey?: string,
   isExpansion: boolean = false,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  modelOverride?: string
 ): Promise<string> => {
   if (!baseUrl) throw new Error('Se requiere una URL de servidor para el proveedor personalizado.');
 
@@ -569,9 +570,11 @@ export const generateGenericCompletion = async (
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
+  const selectedModel = modelOverride && modelOverride.trim() !== '' ? modelOverride : 'gpt-4o-mini';
+
   // SEGURIDAD: vía proxy Rust en Tauri / webBridge proxy_request
   const data = await fetchJsonSecure(endpoint, headers, {
-    model: 'default',
+    model: selectedModel,
     max_tokens: 8192,
     messages: [
       { role: 'system', content: system },
