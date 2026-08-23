@@ -218,7 +218,7 @@ app.get(['/', '/index.html'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get(['/downloads', '/downloads/', '/downloads/index.html'], (req, res) => {
+app.get(['/downloads', '/downloads/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'downloads', 'portal.html'));
 });
 
@@ -226,7 +226,9 @@ app.get(['/admin', '/admin.html'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.get('/app*', (req, res) => {
+app.use('/app', express.static(path.join(__dirname, 'public', 'downloads'), { index: false }));
+
+app.get(['/app', '/app/', '/app/*'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'downloads', 'index.html'));
 });
 
