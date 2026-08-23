@@ -218,6 +218,10 @@ app.get(['/', '/index.html'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.get(['/downloads', '/downloads/', '/downloads/index.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'downloads', 'portal.html'));
+});
+
 app.get(['/admin', '/admin.html'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
@@ -301,7 +305,7 @@ app.use('/downloads', (req, res, next) => {
   const cleanPath = req.path.replace(/^[/\\]+/, '');
   // La app web y sus chunks JS/CSS viven en public/downloads del paquete desplegado.
   // omni_data solo custodia instaladores (.exe, .sig, .zip) para sobrevivir a despliegues.
-  if (cleanPath.endsWith('.html') || cleanPath.startsWith('assets/')) {
+  if (cleanPath.endsWith('.html') || cleanPath.startsWith('assets/') || cleanPath.startsWith('scripts/')) {
     return next();
   }
   const persistentFile = path.join(persistentDir, cleanPath);
