@@ -1290,13 +1290,14 @@ const App: React.FC = () => {
 
           // Restaurar automaticamente los mundos de Creador 2D desde el archivo unico de proyecto
           if (Array.isArray(data.creador2dWorlds) && data.creador2dWorlds.length > 0) {
-            try {
-              const client = getServices().client;
-              for (const worldExport of data.creador2dWorlds) {
+            const client = getServices().client;
+            for (const worldExport of data.creador2dWorlds) {
+              if (!worldExport) continue;
+              try {
                 await client.importWorld(worldExport);
+              } catch (err) {
+                console.warn('Advertencia restaurando mundo 2D individual:', err);
               }
-            } catch (err) {
-              console.error('Error restaurando mundos 2D:', err);
             }
           }
 

@@ -246,6 +246,59 @@ export class Creador2DClient {
       } as any);
     }
 
+    if (cleanPath === '/worlds/import' && method === 'POST') {
+      const STORAGE_KEY = 'omni_web_creador2d_worlds';
+      let worlds: any[] = [];
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        worlds = raw ? JSON.parse(raw) : [];
+      } catch {
+        worlds = [];
+      }
+
+      let payload: any = {};
+      try {
+        payload = init.body ? JSON.parse(init.body as string) : {};
+      } catch {
+        payload = {};
+      }
+
+      const worldData = payload.world || payload;
+      const importedId = worldData.id || ('world-imported-' + Date.now());
+      const newWorld = {
+        id: importedId,
+        slug: worldData.slug || 'mundo-' + importedId,
+        name: worldData.name || 'Mundo Importado 2D',
+        description: worldData.description || '',
+        type: worldData.type || 'TOP_DOWN_CENITAL',
+        tileSize: worldData.tileSize || 32,
+        chunkSize: worldData.chunkSize || 16,
+        biome: worldData.biome || 'grassy_plains',
+        seed: worldData.seed || 12345,
+        background: worldData.background || '#1a1e29',
+        gravity: worldData.gravity || 9.8,
+        gridAngle: worldData.gridAngle || 0,
+        laneCount: worldData.laneCount || 3,
+        laneWidth: worldData.laneWidth || 2,
+        version: worldData.version || 1,
+        ownerId: worldData.ownerId || 'web-user-1',
+        createdAt: worldData.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isInterior: worldData.isInterior || false,
+        _count: { chunks: Array.isArray(worldData.chunks) ? worldData.chunks.length : 0 }
+      };
+
+      const existingIdx = worlds.findIndex((w: any) => w.id === importedId);
+      if (existingIdx >= 0) {
+        worlds[existingIdx] = newWorld;
+      } else {
+        worlds.push(newWorld);
+      }
+
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(worlds)); } catch {}
+      return schema.parse({ id: importedId } as any);
+    }
+
     if (cleanPath === '/worlds') {
       const STORAGE_KEY = 'omni_web_creador2d_worlds';
       let worlds: any[] = [];
@@ -260,15 +313,24 @@ export class Creador2DClient {
         worlds = [
           {
             id: 'world-web-demo',
+            slug: 'mundo-web-demo',
             name: 'Mundo Demo 2D (Web)',
             description: 'Mundo interactivo 2D creado en la versión Web Universal',
             type: 'TOP_DOWN_CENITAL',
             tileSize: 32,
             chunkSize: 16,
             biome: 'grassy_plains',
+            seed: 12345,
             background: '#1a1e29',
+            gravity: 9.8,
+            gridAngle: 0,
+            laneCount: 3,
+            laneWidth: 2,
+            version: 1,
+            ownerId: 'web-user-1',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
+            isInterior: false,
             _count: { chunks: 1 }
           }
         ];
@@ -283,15 +345,24 @@ export class Creador2DClient {
         const body = init.body ? JSON.parse(init.body as string) : {};
         const newWorld = {
           id: 'world-web-' + Date.now(),
+          slug: body.slug || 'mundo-web-' + Date.now(),
           name: body.name || 'Nuevo Mundo Web',
           description: body.description || '',
           type: body.type || 'TOP_DOWN_CENITAL',
           tileSize: body.tileSize || 32,
           chunkSize: body.chunkSize || 16,
           biome: body.biome || 'grassy_plains',
+          seed: body.seed || 12345,
           background: body.background || '#1a1e29',
+          gravity: body.gravity || 9.8,
+          gridAngle: body.gridAngle || 0,
+          laneCount: body.laneCount || 3,
+          laneWidth: body.laneWidth || 2,
+          version: 1,
+          ownerId: 'web-user-1',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          isInterior: false,
           _count: { chunks: 0 }
         };
         worlds.push(newWorld);
@@ -313,17 +384,33 @@ export class Creador2DClient {
       }
       const existingWorld = worlds.find((w: any) => w.id === worldId) || {
         id: worldId,
+        slug: 'mundo-' + worldId,
         name: 'Mundo 2D Web',
         description: 'Mundo 2D Web',
         type: 'TOP_DOWN_CENITAL',
         tileSize: 32,
         chunkSize: 16,
         biome: 'grassy_plains',
+        seed: 12345,
         background: '#1a1e29',
+        gravity: 9.8,
+        gridAngle: 0,
+        laneCount: 3,
+        laneWidth: 2,
+        version: 1,
+        ownerId: 'web-user-1',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        isInterior: false,
         _count: { chunks: 0 }
       };
+
+      if (cleanPath.endsWith('/export')) {
+        return schema.parse({
+          world: existingWorld,
+          chunks: []
+        } as any);
+      }
 
       if (cleanPath.endsWith('/chunks/viewport')) {
         return schema.parse({
