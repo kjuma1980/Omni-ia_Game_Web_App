@@ -352,11 +352,12 @@ function listAudit(limit) {
 
 function registerLicense({ licenseKey, hwid, capability, durationDays, expiresAt, uptimeLimit, contactEmail, notes, billingMode }) {
   const now = Date.now();
+  const maxDev = capability === 'full' ? 2 : 1;
   db.prepare(`
     INSERT INTO licenses (
       license_key, hwid, capability, duration_days, expires_at, uptime_limit,
-      status, contact_email, notes, registered_at, updated_at, billing_mode
-    ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)
+      status, contact_email, notes, registered_at, updated_at, billing_mode, max_devices
+    ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
     ON CONFLICT(license_key) DO UPDATE SET
       hwid = excluded.hwid,
       capability = excluded.capability,
@@ -367,13 +368,13 @@ function registerLicense({ licenseKey, hwid, capability, durationDays, expiresAt
       contact_email = excluded.contact_email,
       notes = excluded.notes,
       updated_at = excluded.updated_at,
-      billing_mode = excluded.billing_mode
+      billing_mode = excluded.billing_mode,
+      max_devices = excluded.max_devices
   `).run(
     licenseKey, hwid, capability, durationDays || null, expiresAt, uptimeLimit || 0,
     contactEmail || null, notes || null, now, now,
-    // 'usage' son las demos, que se cobran por tiempo REALMENTE usado. Todo lo
-    // demas corre por calendario desde la activacion.
-    billingMode === 'usage' ? 'usage' : 'calendar'
+    billingMode === 'usage' ? 'usage' : 'calendar',
+    maxDev
   );
   return findLicenseByKey(licenseKey);
 }

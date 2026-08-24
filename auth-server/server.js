@@ -1130,9 +1130,11 @@ app.post('/api/admin/licenses/generate', optionalAuth, rateLimit(60 * 1000, 30),
   const destino = contactEmail || (cliente ? cliente.email : null);
   if (destino) {
     const modoCobro = String(req.body.billing_mode || '').toLowerCase() === 'usage' ? 'usage' : 'calendar';
+    const esLicenciaWeb = targetType === 'web' || hwid.startsWith('WEB-');
+    const asunto = esLicenciaWeb ? 'Omni-IA Game — Tu licencia Web está lista' : 'Omni-IA Game — Tu licencia de Escritorio está lista';
     sendLicenseEmail(
       destino,
-      'Omni-IA Game — Tu licencia está lista',
+      asunto,
       buildIssueHtml({
         nombreCliente: cliente ? (cliente.first_name || null) : null,
         cuenta: cliente ? cliente.email : destino,
@@ -1146,6 +1148,7 @@ app.post('/api/admin/licenses/generate', optionalAuth, rateLimit(60 * 1000, 30),
         emitidaEn: new Date().toLocaleString('es-CO', { dateStyle: 'long', timeStyle: 'short' }),
         modulos: (mods && mods.length) ? mods.join(', ') : null,
         appDomain: (process.env.APP_DOMAIN || '').replace(/^https?:\/\//, ''),
+        targetType: targetType || (esLicenciaWeb ? 'web' : 'hwid'),
       }),
     )
       .then(() => logAudit(null, null, 'license.issue_email_sent', { to: destino, hwid }))

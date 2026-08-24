@@ -139,6 +139,7 @@ async function sendPasswordResetCode(to, code) {
 async function sendLicenseEmail(to, subject, html) {
   const info = await transporter.sendMail({
     from: `"${MAIL_FROM_NAME}" <${MAIL_FROM_LICENSES}>`,
+    sender: SMTP_USER,
     to,
     subject,
     html,
@@ -250,25 +251,24 @@ function envoltorio(titulo, subtitulo, cuerpo) {
 
 /**
  * Correo de EMISION de una licencia.
- *
- * Se manda al crearla, con lo que el cliente necesita para saber que compro y
- * hasta cuando: producto, duracion, como se cuenta el tiempo y cuando empieza.
- *
- * Dice explicitamente que el reloj arranca en la PRIMERA ACTIVACION y no al
- * emitirla. Es el cambio de fondo del sistema y, sin explicarlo, un cliente que
- * recibe hoy una licencia de 30 dias y la instala la semana que viene creeria
- * que ha perdido siete.
  */
 function buildIssueHtml({
   nombreCliente, cuenta, producto, licenseKey, hwid,
-  duracionEtiqueta, modoCobro, emitidaEn, modulos, appDomain,
+  duracionEtiqueta, modoCobro, emitidaEn, modulos, appDomain, targetType,
 }) {
   const porUso = modoCobro === 'usage';
+  const esWeb = targetType === 'web' || (hwid && hwid.startsWith('WEB-'));
+  const tipoPlataforma = esWeb ? 'Aplicación Web (Cuenta por Correo)' : 'Aplicación de Escritorio (Hardware ID)';
+  const instruccionUso = esWeb
+    ? `Inicia sesión en la versión Web (https://${appDomain || 'fenixdev.cloud'}/app/) con tu cuenta y tus funciones premium se activarán automáticamente.`
+    : `Pégala en Omni-IA Game Versión Escritorio en Configuración › Licencia, o inicia sesión con tu cuenta en el programa.`;
+
   const cuerpo = `
     <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px;">
       ${nombreCliente ? `Hola ${nombreCliente}, t` : 'T'}u licencia de Omni-IA Game ya est&aacute; emitida.
     </p>
     <table style="width:100%;border-collapse:collapse;background:#f8fafc;border-radius:8px;overflow:hidden;">
+      ${fila('Plataforma / Tipo', tipoPlataforma)}
       ${fila('Producto', producto)}
       ${fila('M&oacute;dulos', modulos)}
       ${fila('Duraci&oacute;n', duracionEtiqueta)}
@@ -290,10 +290,12 @@ function buildIssueHtml({
       ${licenseKey}
     </div>
     <p style="color:#475569;font-size:13px;line-height:1.6;margin:20px 0 0;">
-      P&eacute;gala en Omni-IA Game, en Configuraci&oacute;n &rsaquo; Licencia.
-      ${appDomain ? `M&aacute;s informaci&oacute;n en <a href="https://${appDomain}" style="color:#7c3aed;">${appDomain}</a>.` : ''}
+      ${instruccionUso}
+      ${appDomain ? `<br/>M&aacute;s informaci&oacute;n en <a href="https://${appDomain}" style="color:#7c3aed;">${appDomain}</a>.` : ''}
     </p>`;
-  return envoltorio('Licencia emitida', 'Emisi&oacute;n de Licencia', cuerpo);
+  const tituloHeader = esWeb ? 'Licencia Web Emitida' : 'Licencia de Escritorio Emitida';
+  const subtituloHeader = esWeb ? 'Emisi&oacute;n de Licencia Web App' : 'Emisi&oacute;n de Licencia Escritorio';
+  return envoltorio(tituloHeader, subtituloHeader, cuerpo);
 }
 
 /**
