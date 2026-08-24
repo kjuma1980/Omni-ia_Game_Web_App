@@ -109,6 +109,7 @@ async function sendVerificationCode(to, code) {
   const text = `Omni-IA Game — Código de Confirmación\n\nTu código de activación es: ${code}\n\nExpira en 15 minutos.`;
   const info = await transporter.sendMail({
     from: `"${MAIL_FROM_NAME}" <${MAIL_FROM}>`,
+    sender: SMTP_USER,
     to,
     subject: 'Omni-IA Game — Código de confirmación',
     text,
@@ -128,6 +129,7 @@ async function sendPasswordResetCode(to, code) {
   const text = `Omni-IA Game — Restablecimiento de Contraseña\n\nTu código de seguridad para restablecer tu contraseña es: ${code}\n\nEste código expira en 15 minutos.\n\nSi no solicitaste este cambio, ignora este mensaje.`;
   const info = await transporter.sendMail({
     from: `"${MAIL_FROM_NAME}" <${MAIL_FROM}>`,
+    sender: SMTP_USER,
     to,
     subject: 'Omni-IA Game — Código de recuperación de contraseña',
     text,

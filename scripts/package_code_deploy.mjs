@@ -21,8 +21,6 @@ fs.mkdirSync(stageDir, { recursive: true });
 
 const PROTECTED_ITEMS = new Set([
   'node_modules',
-  '.env',
-  '.env.production',
   '.env.local',
   'data.db',
   'data.db-wal',
