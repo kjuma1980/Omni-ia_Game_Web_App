@@ -28,21 +28,41 @@ from pathlib import Path
 
 from transporte import ErrorRelay, TransporteSondeo
 
-AQUI = Path(__file__).resolve().parent
+if getattr(sys, 'frozen', False):
+    AQUI = Path(sys.executable).resolve().parent
+else:
+    AQUI = Path(__file__).resolve().parent
+
 ESTADO = AQUI / "agent.json"
 
 
 def cargar_env() -> None:
-    """Lee `agent.env` sin dependencias. Las variables ya definidas ganan."""
+    """Lee `agent.env` y el Registro de Windows (`HKCU\\Software\\OmniIAGame\\OmniDeploy`)."""
     fichero = AQUI / "agent.env"
-    if not fichero.exists():
-        return
-    for linea in fichero.read_text(encoding="utf-8").splitlines():
-        linea = linea.strip()
-        if not linea or linea.startswith("#") or "=" not in linea:
-            continue
-        clave, valor = linea.split("=", 1)
-        os.environ.setdefault(clave.strip(), valor.strip())
+    if fichero.exists():
+        try:
+            for linea in fichero.read_text(encoding="utf-8").splitlines():
+                linea = linea.strip()
+                if not linea or linea.startswith("#") or "=" not in linea:
+                    continue
+                clave, valor = linea.split("=", 1)
+                os.environ.setdefault(clave.strip(), valor.strip())
+        except Exception:
+            pass
+
+    if sys.platform == "win32":
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\OmniIAGame\OmniDeploy") as key:
+                for var_name in ["OMNI_RELAY_URL", "OMNI_MASTER_KEY", "OMNI_COMFYUI_URL", "OMNI_COMFYUI_LAUNCH_CMD", "OMNI_FRIENDLY_NAME", "OMNI_OLLAMA_URL"]:
+                    try:
+                        val, _ = winreg.QueryValueEx(key, var_name)
+                        if val:
+                            os.environ.setdefault(var_name, str(val))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
 
 cargar_env()
