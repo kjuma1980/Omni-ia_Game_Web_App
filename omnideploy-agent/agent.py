@@ -921,7 +921,64 @@ def sincronizar_logs_y_control(t: TransporteSondeo) -> None:
     except Exception:  # noqa: BLE001
         pass
 
+def verificar_y_preguntar_autostart() -> None:
+    """Pregunta al usuario (mediante MessageBox nativo de Windows) si desea agregar el Agente OmniDeploy al Inicio de Windows."""
+    if sys.platform != "win32":
+        return
+    estado = leer_estado()
+    if estado.get("autostart_configured"):
+        return
+
+    try:
+        import ctypes
+        appdata = os.environ.get("APPDATA", "")
+        if not appdata:
+            return
+        
+        startup_dir = Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+        shortcut_path = startup_dir / "Agente OmniDeploy.lnk"
+        
+        # MB_YESNO = 0x4, MB_ICONQUESTION = 0x20, MB_TOPMOST = 0x40000
+        res = ctypes.windll.user32.MessageBoxW(
+            0,
+            "¿Deseas agregar el Agente OmniDeploy al Inicio de Windows para que arranque automáticamente al encender el equipo?\n\n"
+            "• SÍ: Se iniciará automáticamente en segundo plano cada vez que inicies sesión.\n"
+            "• NO: No se agregará al Inicio y solo se ejecutará cuando lo abras manualmente.",
+            "Agente OmniDeploy — Inicio con Windows",
+            0x00000004 | 0x00000020 | 0x00040000
+        )
+        
+        # IDYES = 6, IDNO = 7
+        if res == 6:  # Presiono SI
+            if getattr(sys, 'frozen', False):
+                target_exec = sys.executable
+                work_dir = Path(sys.executable).resolve().parent
+            else:
+                target_exec = sys.executable
+                work_dir = AQUI
+            
+            cmd = (
+                f'powershell -NoProfile -NonInteractive -Command "'
+                f'$s = (New-Object -ComObject WScript.Shell).CreateShortcut(\'{shortcut_path}\'); '
+                f'$s.TargetPath = \'{target_exec}\'; '
+                f'$s.WorkingDirectory = \'{work_dir}\'; '
+                f'$s.Description = \'Agente OmniDeploy de Omni IA Game\'; '
+                f'$s.Save()"'
+            )
+            os.system(cmd)
+            log("Inicio automático con Windows ACTIVADO.")
+            estado["autostart_enabled"] = True
+        else:
+            log("Inicio automático con Windows OMITIDO por el usuario.")
+            estado["autostart_enabled"] = False
+            
+        estado["autostart_configured"] = True
+        guardar_estado(estado)
+    except Exception as e:
+        log(f"No se pudo consultar el inicio de Windows: {e}")
+
 def main() -> None:
+    verificar_y_preguntar_autostart()
     log(f"Agente OmniDeploy — relay {RELAY}")
     informar_capacidades()
     t = TransporteSondeo(RELAY)
