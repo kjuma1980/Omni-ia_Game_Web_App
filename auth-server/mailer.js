@@ -1,11 +1,11 @@
 const path = require('path');
 const nodemailer = require('nodemailer');
 
-const SMTP_HOST = process.env.SMTP_HOST;
+const SMTP_HOST = process.env.SMTP_HOST || 'smtp.hostinger.com';
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10);
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER;
+const SMTP_USER = process.env.SMTP_USER || 'omniia.edu@fenixdev.cloud';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const MAIL_FROM = process.env.MAIL_FROM || 'omniia.edu@fenixdev.cloud';
 const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || 'Omni-IA Game';
 const MAIL_FROM_LICENSES = process.env.MAIL_FROM_LICENSES || 'omniia.edu.licencias@fenixdev.cloud';
 const LOGO_PATH = path.join(__dirname, 'assets', 'logo.png');

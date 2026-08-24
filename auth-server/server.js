@@ -275,28 +275,13 @@ app.post('/api/register', rateLimit(60 * 60 * 1000, 5), async (req, res) => {
     const codeHash = crypto.createHash('sha256').update(code).digest('hex');
     setUserCode({ email, codeHash, expiresAt: Date.now() + CODE_TTL_MS });
 
-    const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
-    if (!smtpConfigured) {
-      console.log(`[register][dev] SMTP no configurado. Código para ${email}: ${code}`);
-      return res.json({
-        ok: true,
-        message: 'Modo pruebas: no hay SMTP configurado. Revisa la consola del servidor.',
-        dev_code: code,
-      });
-    }
-
     try {
       await sendVerificationCode(email, code);
+      res.json({ ok: true, message: 'Revisa tu correo: enviamos un código de confirmación de 6 dígitos.' });
     } catch (smtpErr) {
-      console.error('[register] SMTP falló, entregando código por consola:', smtpErr.message);
-      return res.json({
-        ok: true,
-        message: 'No se pudo enviar el correo (SMTP). Revisa la consola del servidor.',
-        dev_code: code,
-      });
+      console.error('[register] Error de envío SMTP:', smtpErr.message || smtpErr);
+      res.status(500).json({ ok: false, error: 'No se pudo enviar el correo de confirmación. Intenta de nuevo.' });
     }
-
-    res.json({ ok: true, message: 'Revisa tu correo: enviamos un código de confirmación.' });
   } catch (err) {
     console.error('[register]', err);
     res.status(500).json({ ok: false, error: 'No se pudo enviar el código. Intenta de nuevo.' });
