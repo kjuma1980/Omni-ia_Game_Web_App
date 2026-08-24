@@ -6397,13 +6397,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                           const authToken = localStorage.getItem('omni_auth_token') || sessionStorage.getItem('omni_auth_token') || '';
 
                           if (authToken) {
-                            const res = await fetch(`${authServerUrl.replace(/\/$/, '')}/api/me/license`, {
+                            let res = await fetch(`${authServerUrl.replace(/\/$/, '')}/api/me/license`, {
                               method: 'DELETE',
                               headers: {
                                 'Authorization': `Bearer ${authToken}`,
                                 'Content-Type': 'application/json'
                               }
                             });
+                            if (!res.ok) {
+                              res = await fetch(`${authServerUrl.replace(/\/$/, '')}/api/me/license/delete`, {
+                                method: 'POST',
+                                headers: {
+                                  'Authorization': `Bearer ${authToken}`,
+                                  'Content-Type': 'application/json'
+                                }
+                              });
+                            }
                             const data = await res.json().catch(() => ({}));
                             if (!res.ok) {
                               throw new Error(data.error || 'Error al eliminar la licencia en el servidor');

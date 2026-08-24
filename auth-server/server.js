@@ -640,19 +640,22 @@ app.get('/api/me', authRequired, (req, res) => {
   });
 });
 
-app.delete('/api/me/license', authRequired, rateLimit(60 * 1000, 20), (req, res) => {
+const handleUserLicenseDelete = (req, res) => {
   try {
     const user = req.user;
     const revokedLic = revokeUserLicense(user.id, user.email);
-    if (revokedLic) {
-      logAudit(user.id, user.email, 'license.user_deleted', { license_key: revokedLic.license_key.slice(0, 24) + '…' });
+    if (revokedLic && revokedLic.license_key) {
+      logAudit(user.id, user.email, 'license.user_deleted', { license_key: String(revokedLic.license_key).slice(0, 24) + '…' });
     }
-    res.json({ ok: true, message: 'Licencia eliminada y desvinculada exitosamente.' });
+    return res.json({ ok: true, message: 'Licencia eliminada y desvinculada exitosamente.' });
   } catch (err) {
     console.error('[delete /api/me/license]', err);
-    res.status(500).json({ ok: false, error: err.message || 'Error al eliminar la licencia.' });
+    return res.status(500).json({ ok: false, error: String(err.message || err) });
   }
-});
+};
+
+app.delete('/api/me/license', authRequired, rateLimit(60 * 1000, 20), handleUserLicenseDelete);
+app.post('/api/me/license/delete', authRequired, rateLimit(60 * 1000, 20), handleUserLicenseDelete);
 
 app.post('/api/me/profile', authRequired, rateLimit(60 * 60 * 1000, 20), (req, res) => {
   const user = findUserByEmail(req.user.email);
