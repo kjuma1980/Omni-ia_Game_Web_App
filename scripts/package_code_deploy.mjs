@@ -10,6 +10,18 @@ const zipFile = path.join(rootDir, 'omni_auth_code_deploy.zip');
 
 console.log('🚀 Preparando paquete de código y landing page (sin .exe grande)...');
 
+// Pre-flight check: verificar que auth-server/.env existe y contiene SMTP_PASS configurado
+const envPath = path.join(authServerDir, '.env');
+if (!fs.existsSync(envPath)) {
+  console.error('❌ ERROR CRÍTICO: No existe auth-server/.env. Abortando empaquetado para proteger la configuración del servidor.');
+  process.exit(1);
+}
+const envText = fs.readFileSync(envPath, 'utf-8');
+if (!envText.includes('SMTP_PASS=') || envText.includes('SMTP_PASS=""') || envText.includes('SMTP_PASS=\n')) {
+  console.error('❌ ERROR CRÍTICO: SMTP_PASS no está configurado en auth-server/.env. Abortando empaquetado.');
+  process.exit(1);
+}
+
 if (fs.existsSync(stageDir)) {
   fs.rmSync(stageDir, { recursive: true, force: true });
 }

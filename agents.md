@@ -24,6 +24,14 @@
 >    - El usuario haya probado la solución o dado su aprobación explícita con un "sí" o "despliega".
 > 3. **PROBABILIDAD CERO DE ASUMIR ÉXITO POR SOLO EDITAR O COMPILAR**: La edición o compilación limpia de un archivo no equivale a éxito. Todo binario o ejecutable compilado debe probarse localmente mediante su ejecución real en la terminal antes de informar cualquier resultado.
 
+## 0.3 PROTOCOLO INMUTABLE DE DESPLIEGUE Y PROTECCIÓN DE CONFIGURACIONES (.ENV Y SMTP)
+> [!CAUTION]
+> **REGLA ABSOLUTA DE PROTECCIÓN DE CORREOS Y CONFIGURACIÓN DEL SERVIDOR**
+> 1. **INCLUSIÓN OBLIGATORIA DEL ARCHIVO `.env` COMPLETO**: Queda estrictamente prohibido excluir o borrar `auth-server/.env` del paquete `.zip` de despliegue para Hostinger (`omni_auth_code_deploy.zip`).
+> 2. **CHECK PRE-DESPLIEGUE AUTOMÁTICO**: El script `package_code_deploy.mjs` abortará inmediatamente cualquier empaquetado si falta el archivo `.env` o si la variable `SMTP_PASS` está vacía.
+> 3. **VERIFICACIÓN EMPÍRICA POST-DESPLIEGUE DE CORREOS**: Tras realizar cualquier despliegue a Hostinger (`fenixdev.cloud`), se debe ejecutar una prueba E2E enviando un correo de registro y un correo de licencia a `celltell2@gmail.com` y verificar un `STATUS 200` (`ok: true`). No se declarará concluido ningún despliegue sin esta verificación exitosa en vivo.
+> 4. **INTEGRIDAD DE CUENTAS Y BASE DE DATOS**: La base de datos persistente en `/home/u670620190/omni_data/data.db` y el usuario administrador jamás se alteran ni reinician.
+
 Este documento define los agentes para la evolución de OMNI-IA GAME hacia un sistema híbrido masivo.
 
 ## 1. Omni-Director (Orquestador)
