@@ -659,6 +659,16 @@ function linkLicenseToUser(licenseKey, userId) {
     .run(userId, Date.now(), licenseKey);
 }
 
+function revokeUserLicense(userId, email) {
+  const lic = findActiveLicenseForUser(userId, email);
+  if (lic) {
+    db.prepare("UPDATE licenses SET status = 'revoked', user_id = NULL, updated_at = ? WHERE id = ?")
+      .run(Date.now(), lic.id);
+    return lic;
+  }
+  return null;
+}
+
 function listDevices(licenseKey, { includeReleased = false } = {}) {
   const sql = includeReleased
     ? 'SELECT * FROM license_devices WHERE license_key = ? ORDER BY id'
@@ -764,6 +774,7 @@ module.exports = {
   findLicenseByUserId,
   findActiveLicenseForUser,
   linkLicenseToUser,
+  revokeUserLicense,
   listDevices,
   findDevice,
   touchDevice,

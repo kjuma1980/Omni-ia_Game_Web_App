@@ -34,6 +34,7 @@ const {
   renewLicense,
   findLicenseByHwid,
   findActiveLicenseForUser,
+  revokeUserLicense,
 } = require('./db');
 const { validateProfile, EMAIL_RE } = require('./validation');
 const { sendVerificationCode, sendPasswordResetCode, sendLicenseEmail, buildIssueHtml, buildRenewalHtml, buildOmniDeployKeyHtml } = require('./mailer');
@@ -642,16 +643,14 @@ app.get('/api/me', authRequired, (req, res) => {
 app.delete('/api/me/license', authRequired, rateLimit(60 * 1000, 20), (req, res) => {
   try {
     const user = req.user;
-    const activeLic = findActiveLicenseForUser(user.id, user.email);
-    if (activeLic) {
-      db.prepare("UPDATE licenses SET status = 'revoked', user_id = NULL, updated_at = ? WHERE id = ?")
-        .run(Date.now(), activeLic.id);
-      logAudit(user.id, user.email, 'license.user_deleted', { license_key: activeLic.license_key.slice(0, 24) + '…' });
+    const revokedLic = revokeUserLicense(user.id, user.email);
+    if (revokedLic) {
+      logAudit(user.id, user.email, 'license.user_deleted', { license_key: revokedLic.license_key.slice(0, 24) + '…' });
     }
     res.json({ ok: true, message: 'Licencia eliminada y desvinculada exitosamente.' });
   } catch (err) {
     console.error('[delete /api/me/license]', err);
-    res.status(500).json({ ok: false, error: 'Error al eliminar la licencia.' });
+    res.status(500).json({ ok: false, error: err.message || 'Error al eliminar la licencia.' });
   }
 });
 
