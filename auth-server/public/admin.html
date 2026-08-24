@@ -777,6 +777,20 @@ async function doGenerate(e) {
   }
 }
 
+function resetGenerate() {
+  hideMsg($('genMsg'));
+  $('genForm').reset();
+  $('genResult').classList.add('hidden');
+}
+
+function copyToken() {
+  const ta = $('genToken');
+  ta.select();
+  ta.setSelectionRange(0, 999999);
+  if (navigator.clipboard) navigator.clipboard.writeText(ta.value).catch(() => {});
+  showMsg($('genMsg'), 'Código copiado al portapapeles.');
+}
+
 function prepararLicenciaWeb(email) {
   switchTab('generate');
   const radioWeb = document.querySelector('input[name="genLicType"][value="web"]');

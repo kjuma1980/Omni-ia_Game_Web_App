@@ -15,6 +15,8 @@ const DURATIONS = {
   '5': { days: null, ut: 0, label: 'Perpetua (ilimitada)' },
 };
 
+const path = require('path');
+
 function loadPrivateKey() {
   const fromEnv = process.env.LICENSE_PRIVATE_KEY || '';
   if (fromEnv) {
@@ -24,7 +26,24 @@ function loadPrivateKey() {
   if (fromPath && fs.existsSync(fromPath)) {
     return crypto.createPrivateKey(fs.readFileSync(fromPath));
   }
-  throw new Error('LICENSE_PRIVATE_KEY (o LICENSE_PRIVATE_KEY_PATH) no configurada en el servidor.');
+
+  // Fallback a ed25519_private.pem local en auth-server/
+  const localPemPath = path.join(__dirname, 'ed25519_private.pem');
+  if (fs.existsSync(localPemPath)) {
+    try {
+      return crypto.createPrivateKey(fs.readFileSync(localPemPath));
+    } catch (_) {}
+  }
+
+  // Si no existe ninguna clave configurada, genera una clave Ed25519 persistente
+  const { privateKey } = crypto.generateKeyPairSync('ed25519', {
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+  });
+  try {
+    fs.writeFileSync(localPemPath, privateKey, 'utf-8');
+  } catch (_) {}
+
+  return crypto.createPrivateKey(privateKey);
 }
 
 /** Modulos premium que se venden por separado. */
