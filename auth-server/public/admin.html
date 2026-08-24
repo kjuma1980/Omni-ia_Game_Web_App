@@ -141,6 +141,13 @@
           <label>Hardware ID del cliente</label>
           <input type="text" id="genHwid" placeholder="OMNI-HW-XXXX-XXXX-XXXX" />
         </div>
+
+        <div id="genWebUserFila" class="hidden" style="margin-bottom:12px;">
+          <label>Seleccionar Usuario Registrado de la Web App</label>
+          <select id="genUserSelect">
+            <option value="">-- Cargando lista de usuarios… --</option>
+          </select>
+        </div>
         <div class="row">
           <div>
             <label>Duración</label>
@@ -651,12 +658,41 @@ async function revokeDevice(id) {
   }
 }
 
-const OPCION_A_MEDIDA = '<option value="custom">A medida (indicar días)…</option>';
+async function loadUserSelectOptions(selectedEmail = '') {
+  const sel = $('genUserSelect');
+  if (!sel) return;
+  try {
+    const data = await api('GET', '/api/admin/users?limit=500');
+    const users = data.users || [];
+    if (!users.length) {
+      sel.innerHTML = '<option value="">No hay usuarios registrados en la base de datos</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">-- Seleccionar usuario de la lista --</option>' +
+      users.map(u => {
+        const nombre = [u.first_name, u.last_name].filter(Boolean).join(' ');
+        const label = `${u.email}` + (nombre ? ` (${nombre})` : '');
+        const isSel = selectedEmail && u.email.toLowerCase() === selectedEmail.toLowerCase() ? ' selected' : '';
+        return `<option value="${esc(u.email)}"${isSel}>${esc(label)}</option>`;
+      }).join('');
+    sel.onchange = () => {
+      if (sel.value) {
+        $('genEmail').value = sel.value;
+      }
+    };
+  } catch (err) {
+    sel.innerHTML = '<option value="">Error al cargar la lista de usuarios</option>';
+  }
+}
 
 function actualizarCamposLicenciaType() {
   const isWeb = document.querySelector('input[name="genLicType"]:checked')?.value === 'web';
   $('genHwidFila').classList.toggle('hidden', isWeb);
+  $('genWebUserFila').classList.toggle('hidden', !isWeb);
   $('genHwid').required = !isWeb;
+  if (isWeb) {
+    loadUserSelectOptions($('genEmail').value);
+  }
 }
 
 async function loadDurations() {
