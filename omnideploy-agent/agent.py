@@ -68,7 +68,7 @@ def cargar_env() -> None:
 cargar_env()
 
 RELAY = os.environ.get("OMNI_RELAY_URL", "https://omni-api.fenixdev.cloud")
-MASTER_KEY = os.environ.get("OMNI_MASTER_KEY", "")
+MASTER_KEY = os.environ.get("OMNI_MASTER_KEY", "abKY62O2TDK0zgLDgWImeo26VaTrYdRjgDgsvyUzhAs")
 COMFYUI = os.environ.get("OMNI_COMFYUI_URL", "http://127.0.0.1:8188").rstrip("/")
 NOMBRE = os.environ.get("OMNI_FRIENDLY_NAME", os.environ.get("COMPUTERNAME", "Host GPU"))
 
@@ -992,4 +992,18 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as err:
+        print(f"\n[ERROR] El agente se ha detenido: {err}", flush=True)
+        try:
+            input("\nPresiona ENTER para salir...")
+        except Exception:
+            pass
+    except SystemExit as sys_err:
+        if sys_err.code != 0:
+            try:
+                input("\nPresiona ENTER para salir...")
+            except Exception:
+                pass
+        sys.exit(sys_err.code)
