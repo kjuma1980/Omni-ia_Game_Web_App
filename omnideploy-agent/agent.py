@@ -718,15 +718,20 @@ SERVICIOS = {
 
 def informar_capacidades() -> None:
     """
-    Dice al arrancar QUE puede atender este equipo y CON QUE.
+    Dice al arrancar QUÉ puede atender este equipo y CON QUÉ.
+    Verifica primero con /system_stats si ComfyUI ya está en ejecución.
     """
     que_comfy, _ = SERVICIOS["ComfyUI"]
-    try:
-        info = comfy("GET", "/object_info/CheckpointLoaderSimple", espera=5)
-        n = len(info["CheckpointLoaderSimple"]["input"]["required"]["ckpt_name"][0])
-        log(f"  ComfyUI  {COMFYUI} [EN LINEA]")
-        log(f"           sirve {que_comfy} ({n} checkpoints)")
-    except Exception:  # noqa: BLE001
+    if esta_comfyui_activo():
+        try:
+            info = comfy("GET", "/object_info/CheckpointLoaderSimple", espera=5)
+            n = len(info["CheckpointLoaderSimple"]["input"]["required"]["ckpt_name"][0])
+            log(f"  ComfyUI  {COMFYUI} [EN LINEA - INSTANCIA ACTIVA DETECTADA]")
+            log(f"           sirve {que_comfy} ({n} checkpoints)")
+        except Exception:  # noqa: BLE001
+            log(f"  ComfyUI  {COMFYUI} [EN LINEA - INSTANCIA ACTIVA DETECTADA]")
+            log(f"           sirve {que_comfy}")
+    else:
         log(f"  ComfyUI  {COMFYUI} [LISTO PARA AUTO-LANZAMIENTO REMOTO]")
         log("           (Apagado actualmente. Se encenderá automáticamente cuando la Web App lo solicite)")
 

@@ -317,7 +317,7 @@ router.post('/control/stop-comfy', (req, res) => {
 router.get('/control/logs', (req, res) => {
   const deploymentId = obtenerDeploymentIdActivo(req.query?.deploymentId);
   if (!deploymentId) {
-    return res.json({ ok: true, status: 'idle', logs: 'Esperando conexión del agente GPU...' });
+    return res.json({ ok: true, status: 'idle', logs: 'Consola lista. Configura ComfyUI o selecciona un proveedor activo.' });
   }
 
   const info = obtenerInfoLogs(deploymentId);
