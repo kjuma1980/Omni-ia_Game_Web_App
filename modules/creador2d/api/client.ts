@@ -285,7 +285,11 @@ export class Creador2DClient {
         createdAt: worldData.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         isInterior: worldData.isInterior || false,
-        _count: { chunks: Array.isArray(worldData.chunks) ? worldData.chunks.length : 0 }
+        _count: { chunks: Array.isArray(worldData.chunks) ? worldData.chunks.length : 0 },
+        stats: worldData.stats || {
+          chunkCount: Array.isArray(worldData.chunks) ? worldData.chunks.length : 0,
+          bounds: { minCx: 0, minCy: 0, maxCx: 0, maxCy: 0 }
+        }
       };
 
       const existingIdx = worlds.findIndex((w: any) => w.id === importedId);
@@ -331,14 +335,22 @@ export class Creador2DClient {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             isInterior: false,
-            _count: { chunks: 1 }
+            _count: { chunks: 1 },
+            stats: {
+              chunkCount: 1,
+              bounds: { minCx: 0, minCy: 0, maxCx: 0, maxCy: 0 }
+            }
           }
         ];
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(worlds)); } catch {}
       }
 
       if (method === 'GET') {
-        return schema.parse(worlds as any);
+        const sanitized = worlds.map((w: any) => ({
+          ...w,
+          stats: w.stats || { chunkCount: w._count?.chunks || 0, bounds: { minCx: 0, minCy: 0, maxCx: 0, maxCy: 0 } }
+        }));
+        return schema.parse(sanitized as any);
       }
 
       if (method === 'POST') {
@@ -363,7 +375,11 @@ export class Creador2DClient {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           isInterior: false,
-          _count: { chunks: 0 }
+          _count: { chunks: 0 },
+          stats: {
+            chunkCount: 0,
+            bounds: { minCx: 0, minCy: 0, maxCx: 0, maxCy: 0 }
+          }
         };
         worlds.push(newWorld);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(worlds)); } catch {}
@@ -382,7 +398,7 @@ export class Creador2DClient {
       } catch {
         worlds = [];
       }
-      const existingWorld = worlds.find((w: any) => w.id === worldId) || {
+      const rawWorld = worlds.find((w: any) => w.id === worldId) || {
         id: worldId,
         slug: 'mundo-' + worldId,
         name: 'Mundo 2D Web',
@@ -402,7 +418,19 @@ export class Creador2DClient {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         isInterior: false,
-        _count: { chunks: 0 }
+        _count: { chunks: 0 },
+        stats: {
+          chunkCount: 0,
+          bounds: { minCx: 0, minCy: 0, maxCx: 0, maxCy: 0 }
+        }
+      };
+
+      const existingWorld = {
+        ...rawWorld,
+        stats: rawWorld.stats || {
+          chunkCount: rawWorld._count?.chunks || 0,
+          bounds: { minCx: 0, minCy: 0, maxCx: 0, maxCy: 0 }
+        }
       };
 
       if (cleanPath.endsWith('/export')) {

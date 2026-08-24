@@ -119,9 +119,9 @@ export const blockDefinitionSchema = z.object({
 export const worldSummarySchema = z.object({
   id: z.string(),
   slug: z.string().default('mundo-2d'),
-  name: z.string(),
+  name: z.string().default('Mundo 2D'),
   description: z.string().nullable().optional(),
-  type: worldTypeSchema,
+  type: worldTypeSchema.catch('TOP_DOWN_CENITAL'),
   tileSize: z.number().int().default(32),
   chunkSize: z.number().int().default(16),
   biome: z.string().default('grassy_plains'),
@@ -144,13 +144,16 @@ export const worldSummarySchema = z.object({
 
 export const worldDetailSchema = worldSummarySchema.extend({
   stats: z.object({
-    chunkCount: z.number().int(),
+    chunkCount: z.number().int().default(0),
     bounds: z.object({
-      minCx: z.number().int(),
-      minCy: z.number().int(),
-      maxCx: z.number().int(),
-      maxCy: z.number().int(),
-    }),
+      minCx: z.number().int().default(0),
+      minCy: z.number().int().default(0),
+      maxCx: z.number().int().default(0),
+      maxCy: z.number().int().default(0),
+    }).default({ minCx: 0, minCy: 0, maxCx: 0, maxCy: 0 }),
+  }).default({
+    chunkCount: 0,
+    bounds: { minCx: 0, minCy: 0, maxCx: 0, maxCy: 0 }
   }),
 });
 
