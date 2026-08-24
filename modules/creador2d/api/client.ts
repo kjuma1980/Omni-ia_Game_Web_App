@@ -16,6 +16,7 @@ import {
   worldDetailSchema,
   worldSummarySchema,
 } from '../schemas';
+import { CATALOG } from '../../../creador2d-backend/prisma/catalog';
 import type {
   AiStatus,
   AiSuggestion,
@@ -465,6 +466,62 @@ export class Creador2DClient {
         return schema.parse(existingWorld as any);
       }
 
+      if (cleanPath.endsWith('/weather')) {
+        if (method === 'PATCH' || method === 'POST') {
+          const body = init.body ? JSON.parse(init.body as string) : {};
+          return schema.parse({
+            id: 'weather-' + worldId,
+            worldId,
+            type: body.type || 'NONE',
+            intensity: body.intensity ?? 0.5,
+            windDirection: body.windDirection || 'NONE',
+            windStrength: body.windStrength ?? 0,
+            fogDensity: body.fogDensity ?? 0,
+            tint: body.tint || '#9fb4c7',
+            emissionRate: body.emissionRate ?? 10,
+            lightning: body.lightning ?? false,
+            lightningEvery: body.lightningEvery ?? 7,
+            lightningTint: body.lightningTint || '#dbe9ff',
+            enabled: body.enabled ?? (body.type && body.type !== 'NONE'),
+          } as any);
+        }
+        return schema.parse({
+          id: 'weather-' + worldId,
+          worldId,
+          type: 'NONE',
+          intensity: 0.5,
+          windDirection: 'NONE',
+          windStrength: 0,
+          fogDensity: 0,
+          tint: '#9fb4c7',
+          emissionRate: 10,
+          lightning: false,
+          lightningEvery: 7,
+          lightningTint: '#dbe9ff',
+          enabled: false,
+        } as any);
+      }
+
+      if (cleanPath.endsWith('/fluids')) {
+        if (method === 'POST' || method === 'PUT') {
+          const body = init.body ? JSON.parse(init.body as string) : {};
+          return schema.parse({
+            id: 'fluid-' + Date.now(),
+            worldId,
+            blockKey: body.blockKey || 'water',
+            flow: body.flow || 'STILL',
+            speed: body.speed ?? 1,
+            waveHeight: body.waveHeight ?? 0.2,
+            bubbles: body.bubbles ?? false,
+            bubbleRate: body.bubbleRate ?? 5,
+          } as any);
+        }
+        return schema.parse({
+          inUse: [],
+          settings: []
+        } as any);
+      }
+
       if (method === 'DELETE') {
         worlds = worlds.filter((w: any) => w.id !== worldId);
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(worlds)); } catch {}
@@ -475,24 +532,86 @@ export class Creador2DClient {
     if (cleanPath.startsWith('/blocks')) {
       if (cleanPath.endsWith('/custom') && method === 'POST') {
         const body = init.body ? JSON.parse(init.body as string) : {};
-        return schema.parse({
+        const customBlock = {
           id: 'custom_block_' + Date.now(),
           key: body.key || 'custom_block_' + Date.now(),
           name: body.name || 'Bloque Personalizado',
-          worldTypes: ['TOP_DOWN_CENITAL'],
-          layer: 'TERRAIN',
-          category: 'TERRAIN',
-          placement: 'GRID',
-          tags: ['custom'],
+          description: body.description || 'Creado con IA',
+          worldTypes: body.worldTypes || ['TOP_DOWN_CENITAL', 'TOP_DOWN_THREE_QUARTER', 'COUNTRYSIDE_RUNNER', 'SIDE_PLATFORMER'],
+          layer: body.layer || 'GROUND',
+          category: body.category || 'TERRAIN',
+          placement: body.placement || 'GRID',
+          tags: body.tags || ['custom', 'ai'],
           variant: 1,
           animated: false,
           entrance: false,
-          collisionFlags: 0,
-          biome: 'all',
-          visual: { pattern: 'solid', colors: ['#4a5568'] }
-        } as any);
+          collisionFlags: body.collisionFlags ?? 0,
+          biome: body.biome || 'all',
+          visual: body.visual || { pattern: 'solid', colors: ['#4a5568'] },
+          ySortOffset: 0,
+          heightInTiles: body.heightInTiles || 1,
+          breakable: true,
+          craftable: false,
+          recipe: null,
+          dropQuantity: 1,
+          defaultScale: 1,
+          origin: body.origin || 'AI_LOCAL',
+          isSystem: false,
+          imageData: body.imageData || null,
+        };
+
+        const CUSTOM_KEY = 'omni_web_creador2d_custom_blocks';
+        let customBlocks: any[] = [];
+        try {
+          const raw = localStorage.getItem(CUSTOM_KEY);
+          customBlocks = raw ? JSON.parse(raw) : [];
+        } catch {
+          customBlocks = [];
+        }
+        customBlocks.push(customBlock);
+        try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(customBlocks)); } catch {}
+
+        return schema.parse(customBlock as any);
       }
-      return schema.parse([] as any);
+
+      const systemBlocks = CATALOG.map((b: any) => ({
+        id: b.id || `sys_${b.key}`,
+        key: b.key,
+        name: b.name,
+        description: b.description || '',
+        worldTypes: b.worldTypes || ['TOP_DOWN_CENITAL', 'TOP_DOWN_THREE_QUARTER', 'COUNTRYSIDE_RUNNER', 'SIDE_PLATFORMER'],
+        layer: b.layer || 'GROUND',
+        category: b.category || 'TERRAIN',
+        placement: b.placement || 'GRID',
+        tags: b.tags || [],
+        variant: b.variant || 1,
+        animated: b.animated || false,
+        entrance: b.entrance || false,
+        collisionFlags: b.collisionFlags ?? 0,
+        biome: b.biome || 'all',
+        visual: b.visual,
+        ySortOffset: b.ySortOffset || 0,
+        heightInTiles: b.heightInTiles || 1,
+        breakable: b.breakable || false,
+        craftable: b.craftable || false,
+        recipe: b.recipe || null,
+        dropQuantity: b.dropQuantity || 1,
+        defaultScale: b.defaultScale || 1,
+        origin: b.origin || 'PROCEDURAL',
+        isSystem: true,
+        imageData: b.imageData || null,
+      }));
+
+      const CUSTOM_KEY = 'omni_web_creador2d_custom_blocks';
+      let customBlocks: any[] = [];
+      try {
+        const raw = localStorage.getItem(CUSTOM_KEY);
+        customBlocks = raw ? JSON.parse(raw) : [];
+      } catch {
+        customBlocks = [];
+      }
+
+      return schema.parse([...systemBlocks, ...customBlocks] as any);
     }
 
     try {

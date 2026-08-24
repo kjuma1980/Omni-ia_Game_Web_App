@@ -100,14 +100,14 @@ export const blockDefinitionSchema = z.object({
   biome: z.string(),
   visual: visualSchema,
   ySortOffset: z.number().int(),
-  heightInTiles: z.number().int().min(1).max(8),
-  breakable: z.boolean(),
-  craftable: z.boolean(),
+  heightInTiles: z.number().min(0.1).max(20).default(1),
+  breakable: z.boolean().default(true),
+  craftable: z.boolean().default(false),
   recipe: z
     .array(z.object({ key: z.string(), qty: z.number().int().min(1) }))
     .nullable()
     .optional(),
-  dropQuantity: z.number().int().min(0),
+  dropQuantity: z.number().int().min(0).default(1),
   // `default` en vez de exigirlos: un backend anterior a estos campos sigue
   // sirviendo bloques perfectamente utiles, y rechazarlos por eso vaciaria la
   // paleta otra vez.
@@ -267,19 +267,19 @@ export const parallaxLayerSchema = z.object({
 });
 
 export const weatherSchema = z.object({
-  id: z.string(),
-  worldId: z.string(),
-  type: z.enum(['NONE', 'RAIN', 'SNOW', 'DUST', 'ASH', 'LAVA_RAIN', 'FOG', 'MIST', 'STORM']),
-  intensity: z.number(),
-  windDirection: z.enum(['NONE', 'DOWN', 'LEFT', 'RIGHT', 'DOWN_LEFT', 'DOWN_RIGHT', 'UP']),
-  windStrength: z.number(),
-  fogDensity: z.number(),
-  tint: z.string(),
-  emissionRate: z.number().int(),
+  id: z.string().default('weather-default'),
+  worldId: z.string().default('world-demo'),
+  type: z.enum(['NONE', 'RAIN', 'SNOW', 'DUST', 'ASH', 'LAVA_RAIN', 'FOG', 'MIST', 'STORM']).catch('NONE'),
+  intensity: z.number().default(0.5),
+  windDirection: z.enum(['NONE', 'DOWN', 'LEFT', 'RIGHT', 'DOWN_LEFT', 'DOWN_RIGHT', 'UP']).catch('NONE'),
+  windStrength: z.number().default(0),
+  fogDensity: z.number().default(0),
+  tint: z.string().default('#9fb4c7'),
+  emissionRate: z.number().int().default(10),
   lightning: z.boolean().default(false),
   lightningEvery: z.number().default(7),
   lightningTint: z.string().default('#dbe9ff'),
-  enabled: z.boolean(),
+  enabled: z.boolean().default(false),
 });
 
 export const fluidSettingSchema = z.object({
