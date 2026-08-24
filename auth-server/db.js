@@ -221,10 +221,12 @@ const findStmt = db.prepare('SELECT * FROM users WHERE email = ?');
 const findByIdStmt = db.prepare('SELECT * FROM users WHERE id = ?');
 
 function findUserByEmail(email) {
-  return findStmt.get(email);
+  if (!email) return null;
+  return findStmt.get(String(email).trim().toLowerCase());
 }
 
 function findUserById(id) {
+  if (id === undefined || id === null) return null;
   return findByIdStmt.get(id);
 }
 
@@ -428,7 +430,8 @@ function renewLicense({ licenseKey, newLicenseKey, hwid, capability, durationDay
 }
 
 function findLicenseByKey(licenseKey) {
-  return db.prepare('SELECT * FROM licenses WHERE license_key = ?').get(licenseKey);
+  if (!licenseKey) return null;
+  return db.prepare('SELECT * FROM licenses WHERE license_key = ?').get(String(licenseKey).trim());
 }
 
 function findLicenseByHwid(hwid) {
@@ -637,13 +640,14 @@ function failReminderAttempt(id, errorMsg) {
 // ===========================================================================
 
 function findLicenseByUserId(userId) {
+  if (userId === undefined || userId === null) return null;
   return db.prepare(
     "SELECT * FROM licenses WHERE user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1"
   ).get(userId);
 }
 
 function findActiveLicenseForUser(userId, email) {
-  if (userId) {
+  if (userId !== undefined && userId !== null) {
     const lic = db.prepare("SELECT * FROM licenses WHERE user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1").get(userId);
     if (lic) return lic;
   }
@@ -655,8 +659,9 @@ function findActiveLicenseForUser(userId, email) {
 }
 
 function linkLicenseToUser(licenseKey, userId) {
+  if (!licenseKey || userId === undefined || userId === null) return;
   db.prepare('UPDATE licenses SET user_id = ?, updated_at = ? WHERE license_key = ?')
-    .run(userId, Date.now(), licenseKey);
+    .run(userId, Date.now(), String(licenseKey).trim());
 }
 
 function revokeUserLicense(userId, email) {
