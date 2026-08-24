@@ -6361,28 +6361,73 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                     <button
                       onClick={async () => {
-                        // window.confirm NO funciona en Tauri v2 y el comando plugin:dialog|ask NO existe en tauri-plugin-dialog 2.7
-                        // (ask/confirm son wrappers JS que llaman al comando message con buttons OkCancelCustom).
-                        const dialogResult = await invoke<string>('plugin:dialog|message', {
-                          message: '¿Eliminar la licencia actual de este equipo?\n\nSe borrará license.key y se reiniciará el contador de tiempo (uptime.dat).\n\nEsta acción no se puede deshacer.',
-                          title: 'ELIMINAR LICENCIA',
-                          kind: 'warning',
-                          buttons: { OkCancelCustom: ['Eliminar licencia', 'Cancelar'] },
-                        });
-                        // Según versión del plugin el resultado es "Ok" (botón OK) o el label exacto ("Eliminar licencia").
-                        // Único caso de cancelación: el label del botón Cancelar.
-                        if (!dialogResult || dialogResult === 'Cancel' || dialogResult === 'Cancelar') return;
+                        const isTauri = typeof (window as any).__TAURI_INTERNALS__ !== 'undefined';
+                        let confirmed = false;
+
+                        if (isTauri) {
+                          try {
+                            const dialogResult = await invoke<string>('plugin:dialog|message', {
+                              message: '¿Eliminar la licencia actual de tu cuenta?\n\nEsta acción no se puede deshacer.',
+                              title: 'ELIMINAR LICENCIA',
+                              kind: 'warning',
+                              buttons: { OkCancelCustom: ['Eliminar licencia', 'Cancelar'] },
+                            });
+                            confirmed = Boolean(dialogResult && dialogResult !== 'Cancel' && dialogResult !== 'Cancelar');
+                          } catch (_) {
+                            confirmed = window.confirm('¿Eliminar la licencia actual de tu cuenta?\n\nEsta acción no se puede deshacer.');
+                          }
+                        } else {
+                          confirmed = window.confirm('¿Eliminar la licencia actual de tu cuenta?\n\nEsta acción no se puede deshacer.');
+                        }
+
+                        if (!confirmed) return;
+
                         try {
                           setLicenseError('');
                           setLicenseSuccess('');
-                          await invoke<string>('delete_license');
-                          const details = await invoke<LicenseDetails>('get_license_info');
-                          setLicenseDetails(details);
-                          setIsLicensed(details.is_licensed);
-                          setHardwareId(details.hardware_id);
-                          setLicenseSuccess('Licencia eliminada y contador reiniciado.');
-                        } catch (err) {
-                          setLicenseError(String(err));
+
+                          if (isTauri) {
+                            try {
+                              await invoke<string>('delete_license');
+                            } catch (_) {}
+                          }
+
+                          // Desvincular/eliminar la licencia en el servidor Web (auth-server)
+                          const authServerUrl = localStorage.getItem('omni_auth_server_url') || 'https://fenixdev.cloud';
+                          const authToken = localStorage.getItem('omni_auth_token') || sessionStorage.getItem('omni_auth_token') || '';
+
+                          if (authToken) {
+                            const res = await fetch(`${authServerUrl.replace(/\/$/, '')}/api/me/license`, {
+                              method: 'DELETE',
+                              headers: {
+                                'Authorization': `Bearer ${authToken}`,
+                                'Content-Type': 'application/json'
+                              }
+                            });
+                            const data = await res.json().catch(() => ({}));
+                            if (!res.ok) {
+                              throw new Error(data.error || 'Error al eliminar la licencia en el servidor');
+                            }
+                          }
+
+                          if (isTauri) {
+                            try {
+                              const details = await invoke<LicenseDetails>('get_license_info');
+                              setLicenseDetails(details);
+                              setIsLicensed(details.is_licensed);
+                              setHardwareId(details.hardware_id);
+                            } catch (_) {}
+                          } else {
+                            setIsLicensed(false);
+                            setLicenseDetails(null);
+                          }
+
+                          setLicenseSuccess('Licencia eliminada y desvinculada exitosamente.');
+                          setTimeout(() => {
+                            window.location.reload();
+                          }, 800);
+                        } catch (err: any) {
+                          setLicenseError(err.message || String(err));
                         }
                       }}
                       className="w-full flex items-center justify-center gap-2 py-2.5 rounded bg-red-950/40 hover:bg-red-900/40 border border-red-900/50 hover:border-red-700/60 text-red-400 font-bold text-[10px] uppercase tracking-widest transition-all duration-300"
