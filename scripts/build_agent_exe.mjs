@@ -25,7 +25,13 @@ console.log('Ejecutando PyArmor:', pyarmorCmd);
 execSync(pyarmorCmd, { stdio: 'inherit' });
 
 console.log('⚙️ Compilando código binario seguro a ejecutable .exe con PyInstaller...');
-const pyinstallerCmd = `pyinstaller --onefile --noconsole --name OmniDeployAgent --paths "${obfDir}" "${path.join(obfDir, 'agent.py')}"`;
+const hiddenImports = [
+  'transporte', 'base64', 'json', 'os', 'random', 'sys', 'time', 'pathlib', 'winreg',
+  'subprocess', 'threading', 'asyncio', 'typing',
+  'urllib', 'urllib.request', 'urllib.parse', 'urllib.error', 'urllib.response'
+].map(m => `--hidden-import=${m}`).join(' ');
+
+const pyinstallerCmd = `pyinstaller --onefile --console --name OmniDeployAgent ${hiddenImports} --paths "${obfDir}" "${path.join(obfDir, 'agent.py')}"`;
 console.log('Ejecutando PyInstaller:', pyinstallerCmd);
 execSync(pyinstallerCmd, { stdio: 'inherit' });
 

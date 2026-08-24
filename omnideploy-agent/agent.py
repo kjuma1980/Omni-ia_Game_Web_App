@@ -13,7 +13,7 @@ Sin dependencias externas, solo biblioteca estandar. Se ejecuta con
 `python agent.py` y se configura por variables de entorno o `agent.env`.
 """
 
-from __future__ import annotations
+# from __future__ import annotations
 
 import base64
 import json

@@ -15,6 +15,15 @@
 > 4. **Validación de Tests**: Ejecuta la suite de pruebas/tests existentes tras cualquier cambio y reporta resultados antes de dar por terminada la tarea.
 > 5. **Aislamiento de Archivos**: No toques archivos que no estén directamente relacionados con la petición, aunque el editor los tenga abiertos.
 
+## 0.2 REGLA SUPREMA DE VERIFICACIÓN LOCAL Y PROHIBICIÓN DE DESPLIEGUES SIN PROBAR (OBLIGATORIA E INVARIABLE)
+> [!CAUTION]
+> **ESTRICTA PROHIBICIÓN DE DESPLIEGUES SIN VERIFICACIÓN EMPÍRICA PREVIA**
+> 1. **NUNCA ASUMIR QUE ALGO FUNCIONA**: Queda estrictamente prohibido dar por sentado, presuponer o declarar que un archivo, script, binario (`.exe`, `.bat`), endpoint o compilación funciona sin antes haberlo ejecutado y verificado empíricamente en el entorno local.
+> 2. **PROHIBIDO DESPLEGAR A HOSTINGER / SERVIDOR SIN PRUEBA Y APROBACIÓN MANIFIESTA**: Ningún cambio o ejecutable se subirá o desplegará al servidor de producción en Hostinger (`fenixdev.cloud`) hasta que:
+>    - Se haya ejecutado localmente y verificado que no lanza errores de runtime ni de sintaxis.
+>    - El usuario haya probado la solución o dado su aprobación explícita con un "sí" o "despliega".
+> 3. **PROBABILIDAD CERO DE ASUMIR ÉXITO POR SOLO EDITAR O COMPILAR**: La edición o compilación limpia de un archivo no equivale a éxito. Todo binario o ejecutable compilado debe probarse localmente mediante su ejecución real en la terminal antes de informar cualquier resultado.
+
 Este documento define los agentes para la evolución de OMNI-IA GAME hacia un sistema híbrido masivo.
 
 ## 1. Omni-Director (Orquestador)

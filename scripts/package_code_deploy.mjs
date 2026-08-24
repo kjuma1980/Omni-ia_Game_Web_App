@@ -46,14 +46,14 @@ function copyRecursiveSync(src, dest) {
       if (PROTECTED_ITEMS.has(childItemName) || childItemName.endsWith('.log') || childItemName.startsWith('data.db') || childItemName.startsWith('omnideploy.db')) {
         return;
       }
-      // Omitir archivos .exe pesados en el paquete de código (se suben vía chunks)
-      if (childItemName.endsWith('.exe')) {
+      // Omitir ejecutables pesados excepto OmniDeployAgent.exe del agente
+      if (childItemName.endsWith('.exe') && childItemName !== 'OmniDeployAgent.exe') {
         return;
       }
       copyRecursiveSync(path.join(src, childItemName), path.join(dest, childItemName));
     });
   } else {
-    if (src.endsWith('.exe')) return;
+    if (src.endsWith('.exe') && !src.endsWith('OmniDeployAgent.exe')) return;
     fs.copyFileSync(src, dest);
   }
 }

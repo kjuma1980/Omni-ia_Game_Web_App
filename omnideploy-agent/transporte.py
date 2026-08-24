@@ -13,7 +13,7 @@ Sin dependencias externas: `urllib` de la biblioteca estandar. Anadir
 `requests` o `websockets` obligaria a instalar cosas en el PC del dueno.
 """
 
-from __future__ import annotations
+# from __future__ import annotations
 
 import json
 import urllib.error
