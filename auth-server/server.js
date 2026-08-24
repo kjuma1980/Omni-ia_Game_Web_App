@@ -1011,29 +1011,10 @@ app.post('/api/admin/licenses/generate', optionalAuth, rateLimit(60 * 1000, 30),
   if (!auth) {
     return res.status(403).json({ ok: false, error: 'Acceso denegado: se requiere clave de registro o cuenta de administrador.' });
   }
-  const hwid = String((req.body.hwid || '').trim().toUpperCase());
+  const targetType = String(req.body.target_type || req.body.license_type || 'desktop').toLowerCase();
+  let hwid = String((req.body.hwid || '').trim().toUpperCase());
   const durationKey = String(req.body.duration || '');
   const capability = String(req.body.capability || 'full');
-  if (!hwid) return res.status(400).json({ ok: false, error: 'Falta hwid.' });
-  // `resolveDuration` y no `DURATIONS[...]`: admite los cinco escalones de
-  // siempre y ademas un numero de dias a medida.
-  const duracion = resolveDuration(durationKey);
-  if (!duracion) {
-    return res.status(400).json({ ok: false, error: 'Duración inválida: usa 1-5 o un número de días (1-36500).' });
-  }
-  if (!CAPS.includes(capability)) {
-    return res.status(400).json({ ok: false, error: `Capability inválida: usa ${CAPS.join(", ")}.` });
-  }
-
-  // Modulos premium sueltos, ademas de lo que conceda `capability`. Se admite
-  // array o cadena separada por comas, porque el panel manda una cosa y los
-  // scripts de linea de comandos la otra.
-  const mods = Array.isArray(req.body.mods)
-    ? req.body.mods
-    : String(req.body.mods || '')
-        .split(',')
-        .map((m) => m.trim())
-        .filter(Boolean);
 
   // Cuenta del CLIENTE a la que se ata la licencia. Es obligatoria si se envia:
   // una licencia sin cuenta no se puede reclamar ni controlar, asi que se
@@ -1053,6 +1034,34 @@ app.post('/api/admin/licenses/generate', optionalAuth, rateLimit(60 * 1000, 30),
 
   const contactEmail = String((req.body.contact_email || '').trim().toLowerCase()) || null;
   const targetEmail = (cliente ? cliente.email : null) || contactEmail;
+
+  if (targetType === 'web' || !hwid) {
+    if (!targetEmail) {
+      return res.status(400).json({ ok: false, error: 'Para emitir una licencia Web se requiere seleccionar el usuario o su correo electrónico.' });
+    }
+    hwid = `WEB-${targetEmail.toUpperCase()}`;
+  }
+
+  if (!hwid) return res.status(400).json({ ok: false, error: 'Falta hwid o correo del usuario Web.' });
+  // `resolveDuration` y no `DURATIONS[...]`: admite los cinco escalones de
+  // siempre y ademas un numero de dias a medida.
+  const duracion = resolveDuration(durationKey);
+  if (!duracion) {
+    return res.status(400).json({ ok: false, error: 'Duración inválida: usa 1-5 o un número de días (1-36500).' });
+  }
+  if (!CAPS.includes(capability)) {
+    return res.status(400).json({ ok: false, error: `Capability inválida: usa ${CAPS.join(", ")}.` });
+  }
+
+  // Modulos premium sueltos, ademas de lo que conceda `capability`. Se admite
+  // array o cadena separada por comas, porque el panel manda una cosa y los
+  // scripts de linea de comandos la otra.
+  const mods = Array.isArray(req.body.mods)
+    ? req.body.mods
+    : String(req.body.mods || '')
+        .split(',')
+        .map((m) => m.trim())
+        .filter(Boolean);
 
   let generated;
   try {

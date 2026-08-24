@@ -82,23 +82,33 @@ async function registerOnServer(token, payload, durationKey, contactEmail) {
 
 function main() {
   const args = process.argv.slice(2);
-  if (args.length < 3) {
-    console.log('Uso: node generate_license.mjs <HWID> <duracion> <full|dev_portal> [--mods a,b] [--email correo] [--out archivo] [--sin-registrar]');
+  const webIdx = args.indexOf('--web');
+  const webEmail = webIdx !== -1 ? args[webIdx + 1] : null;
+
+  if (args.length < 3 && !webEmail) {
+    console.log('Uso: node generate_license.mjs <HWID|--web correo> <duracion> <full|dev_portal|none> [--mods a,b] [--email correo] [--out archivo] [--sin-registrar]');
+    console.log('  --web: genera una licencia vinculada a la cuenta de un usuario Web por correo.');
     console.log('  duracion: 1=1 dia  2=3 meses  3=6 meses  4=12 meses  5=perpetua');
     console.log('            o a medida con el prefijo d: d45 = 45 dias (1-36500).');
-    console.log('            El prefijo hace falta porque d2 son DOS DIAS y 2 es el trimestral.');
     console.log(`  --mods: módulos premium sueltos, separados por comas. Disponibles: ${MODULES.join(', ')}`);
     console.log('  --email: correo de contacto del cliente, para el registro.');
     console.log(`  Se REGISTRA en ${AUTH_SERVER_URL} salvo que pases --sin-registrar.`);
-    console.log('  --sin-registrar: NO la registra. La app la rechazará en cuanto tenga red.');
-    console.log('  Auth: LICENSE_REGISTER_KEY (env) o login admin con OMNI_ADMIN_EMAIL + OMNI_ADMIN_PASSWORD (env).');
     process.exit(1);
   }
-  const [hwId, durationKey, cap] = args;
+
+  let hwId, durationKey, cap;
+  if (webEmail) {
+    hwId = `WEB-${webEmail.trim().toUpperCase()}`;
+    durationKey = args[args.indexOf('--web') + 2] || args[0];
+    cap = args[args.indexOf('--web') + 3] || args[1] || 'full';
+  } else {
+    [hwId, durationKey, cap] = args;
+  }
+
   const outIdx = args.indexOf('--out');
   const outFile = outIdx !== -1 ? args[outIdx + 1] : null;
   const emailIdx = args.indexOf('--email');
-  const contactEmail = emailIdx !== -1 ? args[emailIdx + 1] : null;
+  const contactEmail = (emailIdx !== -1 ? args[emailIdx + 1] : null) || webEmail;
   const modsIdx = args.indexOf('--mods');
   const mods = modsIdx !== -1
     ? String(args[modsIdx + 1] || '').split(',').map((m) => m.trim()).filter(Boolean)
