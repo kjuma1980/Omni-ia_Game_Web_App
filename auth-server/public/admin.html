@@ -658,6 +658,8 @@ async function revokeDevice(id) {
   }
 }
 
+const OPCION_A_MEDIDA = '<option value="custom">A medida (indicar días)…</option>';
+
 async function loadUserSelectOptions(selectedEmail = '') {
   const sel = $('genUserSelect');
   if (!sel) return;
@@ -701,25 +703,28 @@ async function loadDurations() {
   });
   actualizarCamposLicenciaType();
 
-  if ($('genDuration').options.length) return;
-  try {
-    const data = await api('GET', '/api/admin/license-durations');
-    $('genDuration').innerHTML = Object.entries(data.durations)
-      .map(([k, d]) => `<option value="${k}">${esc(d.label)}</option>`)
-      .join('') + OPCION_A_MEDIDA;
-  } catch (err) {
-    $('genDuration').innerHTML = `
-      <option value="1">1 día (1,440 min uptime)</option>
-      <option value="2">3 meses (129,600 min uptime)</option>
-      <option value="3">6 meses (259,200 min uptime)</option>
-      <option value="4">12 meses (518,400 min uptime)</option>
-      <option value="5">Perpetua (ilimitada)</option>` + OPCION_A_MEDIDA;
+  const sel = $('genDuration');
+  if (sel && !sel.options.length) {
+    try {
+      const data = await api('GET', '/api/admin/license-durations');
+      sel.innerHTML = Object.entries(data.durations)
+        .map(([k, d]) => `<option value="${k}">${esc(d.label)}</option>`)
+        .join('') + OPCION_A_MEDIDA;
+    } catch (err) {
+      sel.innerHTML = `
+        <option value="1">1 día (1,440 min uptime)</option>
+        <option value="2">3 meses (129,600 min uptime)</option>
+        <option value="3">6 meses (259,200 min uptime)</option>
+        <option value="4">12 meses (518,400 min uptime)</option>
+        <option value="5">Perpetua (ilimitada)</option>` + OPCION_A_MEDIDA;
+    }
   }
-  // El campo de días solo aparece al elegir "a medida", para no añadir una
-  // casilla más al formulario en el caso normal, que son los cinco escalones.
-  $('genDuration').onchange = () => {
-    $('genDiasFila').classList.toggle('hidden', $('genDuration').value !== 'custom');
-  };
+
+  if (sel) {
+    sel.onchange = () => {
+      $('genDiasFila').classList.toggle('hidden', sel.value !== 'custom');
+    };
+  }
 }
 
 async function doGenerate(e) {
