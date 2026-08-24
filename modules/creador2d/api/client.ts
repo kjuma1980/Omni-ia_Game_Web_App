@@ -455,6 +455,82 @@ export class Creador2DClient {
         return schema.parse({ applied: 1, errors: [] } as any);
       }
 
+      if (cleanPath.endsWith('/weather')) {
+        const WEATHER_KEY = `omni_web_creador2d_weather_${worldId}`;
+        let stored: any = null;
+        try {
+          const raw = localStorage.getItem(WEATHER_KEY);
+          if (raw) stored = JSON.parse(raw);
+        } catch {}
+
+        if (!stored) {
+          stored = {
+            id: 'weather-' + worldId,
+            worldId,
+            type: 'NONE',
+            intensity: 0.5,
+            windDirection: 'NONE',
+            windStrength: 0,
+            fogDensity: 0,
+            tint: '#9fb4c7',
+            emissionRate: 10,
+            lightning: false,
+            lightningEvery: 7,
+            lightningTint: '#dbe9ff',
+            enabled: false,
+          };
+        }
+
+        if (method === 'PATCH' || method === 'POST') {
+          const body = init.body ? JSON.parse(init.body as string) : {};
+          Object.assign(stored, body);
+          if (body.type !== undefined) {
+            stored.enabled = body.type !== 'NONE';
+          }
+          try { localStorage.setItem(WEATHER_KEY, JSON.stringify(stored)); } catch {}
+          return schema.parse(stored as any);
+        }
+
+        return schema.parse(stored as any);
+      }
+
+      if (cleanPath.endsWith('/fluids')) {
+        const FLUIDS_KEY = `omni_web_creador2d_fluids_${worldId}`;
+        let stored: any = null;
+        try {
+          const raw = localStorage.getItem(FLUIDS_KEY);
+          if (raw) stored = JSON.parse(raw);
+        } catch {}
+
+        if (!stored) {
+          stored = { inUse: [], settings: [] };
+        }
+
+        if (method === 'POST' || method === 'PUT') {
+          const body = init.body ? JSON.parse(init.body as string) : {};
+          const newSetting = {
+            id: 'fluid-' + Date.now(),
+            worldId,
+            blockKey: body.blockKey || 'water',
+            flow: body.flow || 'STILL',
+            speed: body.speed ?? 1,
+            waveHeight: body.waveHeight ?? 0.2,
+            bubbles: body.bubbles ?? false,
+            bubbleRate: body.bubbleRate ?? 5,
+          };
+          const existingIdx = stored.settings.findIndex((s: any) => s.blockKey === newSetting.blockKey);
+          if (existingIdx >= 0) {
+            stored.settings[existingIdx] = { ...stored.settings[existingIdx], ...newSetting };
+          } else {
+            stored.settings.push(newSetting);
+          }
+          try { localStorage.setItem(FLUIDS_KEY, JSON.stringify(stored)); } catch {}
+          return schema.parse(newSetting as any);
+        }
+
+        return schema.parse(stored as any);
+      }
+
       if (method === 'GET') {
         return schema.parse(existingWorld as any);
       }
@@ -464,62 +540,6 @@ export class Creador2DClient {
         Object.assign(existingWorld, body, { updatedAt: new Date().toISOString() });
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(worlds)); } catch {}
         return schema.parse(existingWorld as any);
-      }
-
-      if (cleanPath.endsWith('/weather')) {
-        if (method === 'PATCH' || method === 'POST') {
-          const body = init.body ? JSON.parse(init.body as string) : {};
-          return schema.parse({
-            id: 'weather-' + worldId,
-            worldId,
-            type: body.type || 'NONE',
-            intensity: body.intensity ?? 0.5,
-            windDirection: body.windDirection || 'NONE',
-            windStrength: body.windStrength ?? 0,
-            fogDensity: body.fogDensity ?? 0,
-            tint: body.tint || '#9fb4c7',
-            emissionRate: body.emissionRate ?? 10,
-            lightning: body.lightning ?? false,
-            lightningEvery: body.lightningEvery ?? 7,
-            lightningTint: body.lightningTint || '#dbe9ff',
-            enabled: body.enabled ?? (body.type && body.type !== 'NONE'),
-          } as any);
-        }
-        return schema.parse({
-          id: 'weather-' + worldId,
-          worldId,
-          type: 'NONE',
-          intensity: 0.5,
-          windDirection: 'NONE',
-          windStrength: 0,
-          fogDensity: 0,
-          tint: '#9fb4c7',
-          emissionRate: 10,
-          lightning: false,
-          lightningEvery: 7,
-          lightningTint: '#dbe9ff',
-          enabled: false,
-        } as any);
-      }
-
-      if (cleanPath.endsWith('/fluids')) {
-        if (method === 'POST' || method === 'PUT') {
-          const body = init.body ? JSON.parse(init.body as string) : {};
-          return schema.parse({
-            id: 'fluid-' + Date.now(),
-            worldId,
-            blockKey: body.blockKey || 'water',
-            flow: body.flow || 'STILL',
-            speed: body.speed ?? 1,
-            waveHeight: body.waveHeight ?? 0.2,
-            bubbles: body.bubbles ?? false,
-            bubbleRate: body.bubbleRate ?? 5,
-          } as any);
-        }
-        return schema.parse({
-          inUse: [],
-          settings: []
-        } as any);
       }
 
       if (method === 'DELETE') {
