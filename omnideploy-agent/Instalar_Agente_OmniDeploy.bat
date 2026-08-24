@@ -1,7 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
-title Instalador del Agente OmniDeploy - Proveedor GPU
+title Instalador del Agente OmniDeploy - Proveedor GPU [v2.8 - 23/08/2026]
 color 0A
+
+rem Version actualizada con autodeteccion activa y consola en tiempo real
 
 echo.
 echo =========================================================================
