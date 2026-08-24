@@ -418,6 +418,18 @@ def ejecutar_en_comfyui(inputs: dict) -> list[dict[str, str]]:
             if clave in campos:
                 log(f"  modelo: {campos[clave]}")
 
+    if not esta_comfyui_activo():
+        log("  [OMNIDEPLOY] ⏳ ComfyUI no está listo aún. Esperando que finalice el arranque...")
+        lanzar_comfyui_local()
+        limite_boot = time.time() + 120
+        while time.time() < limite_boot:
+            if esta_comfyui_activo():
+                log("  [OMNIDEPLOY] ✅ ComfyUI está listo. Procediendo con el trabajo.")
+                break
+            time.sleep(2)
+        if not esta_comfyui_activo():
+            raise RuntimeError("ComfyUI no respondió a tiempo durante el inicio automático.")
+
     encolado = comfy("POST", "/prompt", {"prompt": workflow})
     prompt_id = encolado.get("prompt_id")
     if not prompt_id:
@@ -767,7 +779,9 @@ def esta_comfyui_activo() -> bool:
 def lanzar_comfyui_local() -> bool:
     global PROCESO_COMFYUI, ESTADO_COMFYUI
     if esta_comfyui_activo():
-        capturar_linea_log("ComfyUI ya está activo en http://127.0.0.1:8188")
+        msg = f"ComfyUI ya está activo en {COMFYUI}"
+        capturar_linea_log(msg)
+        log(f"  ComfyUI  {COMFYUI} [EN LINEA - INSTANCIA ACTIVA DETECTADA]")
         ESTADO_COMFYUI = "running"
         return True
 
@@ -785,11 +799,16 @@ def lanzar_comfyui_local() -> bool:
                 break
 
     if not cmd:
-        capturar_linea_log("Falta OMNI_COMFYUI_LAUNCH_CMD en agent.env. No se encontró script por defecto.")
+        msg = "Falta OMNI_COMFYUI_LAUNCH_CMD en agent.env. No se encontró script por defecto."
+        capturar_linea_log(msg)
+        log(f"  [ERROR] {msg}")
         ESTADO_COMFYUI = "stopped"
         return False
 
-    capturar_linea_log(f"Lanzando ComfyUI localmente: {cmd}")
+    msg = f"🚀 Comando de lanzamiento recibido: Iniciando ComfyUI localmente en '{cmd}'"
+    capturar_linea_log(msg)
+    log(f"  [OMNIDEPLOY] {msg}")
+
     try:
         import subprocess
         import threading
@@ -811,16 +830,36 @@ def lanzar_comfyui_local() -> bool:
 
         t_hilo = threading.Thread(target=capturar_salida, daemon=True)
         t_hilo.start()
-        ESTADO_COMFYUI = "running"
+
+        def monitorear_arranque():
+            global ESTADO_COMFYUI
+            log("  [OMNIDEPLOY] ⏳ Esperando que ComfyUI inicie su servidor HTTP...")
+            limite_espera = time.time() + 120
+            while time.time() < limite_espera:
+                if esta_comfyui_activo():
+                    ESTADO_COMFYUI = "running"
+                    log(f"  ComfyUI  {COMFYUI} [EN LINEA - LISTO PARA TRABAJAR]")
+                    capturar_linea_log(f"✅ ComfyUI iniciado exitosamente y [EN LINEA] en {COMFYUI}")
+                    return
+                time.sleep(2)
+            log("  [OMNIDEPLOY] ⚠️ Tiempo de espera agotado esperando el arranque de ComfyUI.")
+
+        t_mon = threading.Thread(target=monitorear_arranque, daemon=True)
+        t_mon.start()
+
         return True
     except Exception as e:
-        capturar_linea_log(f"Error al ejecutar script de ComfyUI: {e}")
+        msg = f"Error al ejecutar script de ComfyUI: {e}"
+        capturar_linea_log(msg)
+        log(f"  [ERROR] {msg}")
         ESTADO_COMFYUI = "stopped"
         return False
 
 def detener_comfyui_local() -> None:
     global PROCESO_COMFYUI, ESTADO_COMFYUI
-    capturar_linea_log("Solicitud de apagado de ComfyUI local...")
+    msg = "Solicitud de apagado de ComfyUI local..."
+    capturar_linea_log(msg)
+    log(f"  [OMNIDEPLOY] 🛑 {msg}")
     if PROCESO_COMFYUI:
         try:
             PROCESO_COMFYUI.terminate()
@@ -833,7 +872,9 @@ def detener_comfyui_local() -> None:
     except Exception:
         pass
     ESTADO_COMFYUI = "stopped"
-    capturar_linea_log("ComfyUI detenido.")
+    msg_fin = "ComfyUI detenido."
+    capturar_linea_log(msg_fin)
+    log(f"  [OMNIDEPLOY] {msg_fin}")
 
 def sincronizar_logs_y_control(t: TransporteSondeo) -> None:
     global LOGS_PENDIENTES, ESTADO_COMFYUI
@@ -848,10 +889,14 @@ def sincronizar_logs_y_control(t: TransporteSondeo) -> None:
         resp = t.enviar_logs(a_enviar, status=actual_status)
         cmd = resp.get("controlCommand")
         if cmd == "START_COMFY":
-            capturar_linea_log("Recibida orden remota START_COMFY desde el servidor.")
+            msg = "Recibida orden remota START_COMFY desde la Web App / Servidor."
+            capturar_linea_log(msg)
+            log(f"  [OMNIDEPLOY] 🚀 {msg}")
             lanzar_comfyui_local()
         elif cmd == "STOP_COMFY":
-            capturar_linea_log("Recibida orden remota STOP_COMFY desde el servidor.")
+            msg = "Recibida orden remota STOP_COMFY desde la Web App / Servidor."
+            capturar_linea_log(msg)
+            log(f"  [OMNIDEPLOY] 🛑 {msg}")
             detener_comfyui_local()
     except Exception:  # noqa: BLE001
         pass
