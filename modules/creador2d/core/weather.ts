@@ -66,8 +66,8 @@ interface Profile {
 }
 
 const PROFILES: Record<Exclude<WeatherType, 'NONE'>, Profile> = {
-  RAIN: { fall: 1400, spread: 0.35, size: 16, sway: 0, render: 'streak', haze: 0.06, density: 1 },
-  STORM: { fall: 1900, spread: 0.3, size: 22, sway: 0, render: 'streak', haze: 0.12, density: 1.3 },
+  RAIN: { fall: 1400, spread: 0.35, size: 9, sway: 0, render: 'streak', haze: 0.06, density: 1 },
+  STORM: { fall: 2100, spread: 0.3, size: 8, sway: 0, render: 'streak', haze: 0.12, density: 1.3 },
   SNOW: { fall: 90, spread: 0.7, size: 2.6, sway: 26, render: 'flake', haze: 0.05, density: 0.7 },
   DUST: { fall: 60, spread: 0.9, size: 1.8, sway: 40, render: 'mote', haze: 0.14, density: 0.8 },
   ASH: { fall: 70, spread: 0.8, size: 2.2, sway: 30, render: 'mote', haze: 0.16, density: 0.7 },
@@ -155,8 +155,9 @@ export class WeatherOverlay {
     const windStrength = Math.max(0, Math.min(1, weather.windStrength));
 
     while (this.particles.length < target) {
-      const depth = 0.35 + Math.random() * 0.65;
+      const depth = 0.3 + Math.random() * 0.7;
       const speed = profile.fall * (1 - profile.spread + Math.random() * profile.spread) * depth;
+      const randomFactor = 0.25 + Math.random() * 1.5;
 
       this.particles.push({
         // Se distribuyen por toda la pantalla al arrancar en vez de caer desde
@@ -165,7 +166,7 @@ export class WeatherOverlay {
         y: Math.random() * this.height,
         vx: wind.x * speed * windStrength * 1.2,
         vy: speed * Math.max(0.15, wind.y === 0 ? 1 : wind.y),
-        size: profile.size * depth * (0.7 + Math.random() * 0.6),
+        size: profile.size * depth * randomFactor,
         depth,
         phase: Math.random() * Math.PI * 2,
       });
@@ -179,7 +180,7 @@ export class WeatherOverlay {
     dt: number,
   ): void {
     const wind = WIND_VECTOR[weather.windDirection];
-    const windStrength = Math.max(0, Math.min(1, weather.windStrength));
+    const windStrength = weather.windDirection !== 'NONE' ? Math.max(0.35, weather.windStrength) : weather.windStrength;
     const margin = profile.size * 2 + 40;
 
     for (const p of this.particles) {
@@ -189,8 +190,15 @@ export class WeatherOverlay {
       // serpentea; un copo si.
       const sway = profile.sway === 0 ? 0 : Math.sin(p.phase) * profile.sway * p.depth;
 
-      p.x += (p.vx + sway + wind.x * 180 * windStrength) * dt;
-      p.y += p.vy * dt * (0.5 + intensity * 0.5);
+      // Recalcular velocidad dinamica en tiempo real segun la direccion activa del viento
+      const targetVx = wind.x * profile.fall * 0.45 * windStrength * p.depth;
+      const targetVy = profile.fall * Math.max(0.15, wind.y === 0 ? 1 : wind.y) * (0.5 + intensity * 0.5) * p.depth;
+
+      p.vx = p.vx * 0.85 + targetVx * 0.15;
+      p.vy = p.vy * 0.85 + targetVy * 0.15;
+
+      p.x += (p.vx + sway) * dt;
+      p.y += p.vy * dt;
 
       // Reciclado toroidal: reaparece por el lado contrario al que salio, de
       // modo que la poblacion se mantiene constante sin reasignar memoria.
@@ -243,18 +251,18 @@ export class WeatherOverlay {
 
     if (profile.render === 'streak') {
       ctx.strokeStyle = weather.tint;
-      ctx.lineCap = 'round';
+      ctx.lineCap = 'butt';
 
       for (const p of this.particles) {
         // El trazo sigue la direccion real de la gota, no una vertical fija:
         // con viento lateral las lineas se inclinan solas.
-        const length = p.size;
+        const length = Math.max(1, p.size);
         const norm = Math.hypot(p.vx, p.vy) || 1;
         const dx = (p.vx / norm) * length;
         const dy = (p.vy / norm) * length;
 
-        ctx.globalAlpha = 0.25 + p.depth * 0.5;
-        ctx.lineWidth = Math.max(0.6, p.depth * 1.6);
+        ctx.globalAlpha = 0.25 + p.depth * 0.65;
+        ctx.lineWidth = Math.max(1, p.depth > 0.75 ? 1.5 : 1);
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
         ctx.lineTo(p.x - dx, p.y - dy);
