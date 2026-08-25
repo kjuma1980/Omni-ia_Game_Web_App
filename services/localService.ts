@@ -65,25 +65,54 @@ const fetchJsonSecure = async (
         throw new DOMException('Aborted by user', 'AbortError');
       }
       const msg = typeof e === 'string' ? e : (e?.message || String(e));
-      throw new Error(msg.substring(0, 300));
     }
   }
-  const response = await fetch(url, {
-    method: 'POST',
+
+  if (!invokeFn) {
+    try {
+      const method = body ? 'POST' : 'GET';
+      const proxyRes = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUrl: url,
+          method,
+          headers,
+          payload: body
+        }),
+        signal
+      });
+      if (proxyRes.ok) {
+        return await proxyRes.json();
+      }
+    } catch (e: any) {
+      if (e?.name === 'AbortError' || String(e).includes('Aborted')) {
+        throw new DOMException('Aborted by user', 'AbortError');
+      }
+    }
+  }
+
+  const method = body ? 'POST' : 'GET';
+  const fetchOptions: RequestInit = {
+    method,
     headers,
-    body: JSON.stringify(body),
     signal
-  });
+  };
+  if (body) {
+    fetchOptions.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(url, fetchOptions);
   if (!response.ok) {
-    const err = await response.text().catch(() => '');
+    const errText = await response.text().catch(() => '');
     let errJson: any;
     try {
-      errJson = JSON.parse(err);
+      errJson = JSON.parse(errText);
     } catch {}
-    const errMsg = errJson?.error?.message || errJson?.error || err.substring(0, 250) || 'Sin respuesta';
+    const errMsg = errJson?.error?.message || errJson?.error || errText.substring(0, 250) || 'Sin respuesta';
     throw new Error(`HTTP ${response.status} (${response.statusText || 'Error'}): ${errMsg}`);
   }
-  return response.json();
+  return await response.json();
 };
 
 const ensureBase64Image = async (imageInput: string): Promise<string> => {
@@ -547,18 +576,26 @@ export const generateOpenAICompletion = async (
 
   console.log(`[Omni IA Game] Ejecutando petición ${provider.toUpperCase()} (${model})...`);
 
-  // SEGURIDAD: vía proxy Rust en Tauri / webBridge proxy_request
-  const data = await fetchJsonSecure(
-    baseUrl,
-    headers,
-    payload,
-    signal
-  );
-  const choice = data.choices?.[0];
-  const msg = choice?.message || choice?.delta;
-  const content = msg?.content || msg?.reasoning || msg?.reasoning_content;
-  if (content && typeof content === 'string' && content.trim() !== '') return content;
-  return `No response from ${provider}.`;
+  try {
+    const data = await fetchJsonSecure(baseUrl, headers, payload, signal);
+    const choice = data.choices?.[0];
+    const msg = choice?.message || choice?.delta;
+    const content = msg?.content || msg?.reasoning || msg?.reasoning_content;
+    if (content && typeof content === 'string' && content.trim() !== '') return content;
+    return `No response from ${provider}.`;
+  } catch (err: any) {
+    const errStr = String(err?.message || err);
+    if (provider === 'nvidia' && (errStr.includes('503') || errStr.includes('ResourceExhausted') || errStr.includes('429') || errStr.includes('limit reached'))) {
+      console.warn(`[NVIDIA NIM] Modelo ${model} saturado. Reintentando automáticamente con meta/llama-3.1-8b-instruct...`);
+      const fallbackPayload = { ...payload, model: 'meta/llama-3.1-8b-instruct' };
+      const fallbackData = await fetchJsonSecure(baseUrl, headers, fallbackPayload, signal);
+      const choice = fallbackData.choices?.[0];
+      const msg = choice?.message || choice?.delta;
+      const content = msg?.content || msg?.reasoning || msg?.reasoning_content;
+      if (content && typeof content === 'string' && content.trim() !== '') return content;
+    }
+    throw err;
+  }
 };
 
 // Generic OpenAI-compatible endpoint (for "other" providers)
