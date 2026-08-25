@@ -44,7 +44,7 @@ async function main() {
   const serverJs = path.join(rootDir, 'auth-server', 'server.js');
 
   const zipFile = path.join(rootDir, 'omni_auth_code_deploy.zip');
-  await updateRemoteCode(zipFile, '../../omni_auth_code_deploy.zip', false);
+  await updateRemoteCode(zipFile, '../../omni_auth_code_deploy.zip', true);
 
   console.log('\n🎉 ¡Despliegue multiruta del servidor Node.js en Hostinger completado!');
 }

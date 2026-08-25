@@ -380,6 +380,21 @@ app.post('/api/admin/upload-chunk', (req, res) => {
       } catch (errCopy) {
         console.error('Error guardando copia persistente:', errCopy);
       }
+      if (filename.endsWith('.zip')) {
+        try {
+          const { execSync } = require('child_process');
+          console.log(`📦 Descomprimiendo paquete ${filename} en ${__dirname}...`);
+          try {
+            execSync(`unzip -o "${destPath}" -d "${__dirname}"`);
+            console.log('✅ Paquete .zip descomprimido con unzip en el servidor de Hostinger.');
+          } catch {
+            execSync(`tar -xf "${destPath}" -C "${__dirname}"`);
+            console.log('✅ Paquete .zip descomprimido con tar en el servidor de Hostinger.');
+          }
+        } catch (unzipErr) {
+          console.error('⚠️ Error descomprimiendo paquete zip:', unzipErr.message);
+        }
+      }
       if (isRestart) {
         console.log('🔄 Reiniciando proceso de Node.js en Hostinger...');
         setTimeout(() => process.exit(0), 500);
