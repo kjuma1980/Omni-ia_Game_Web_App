@@ -69,27 +69,29 @@ const fetchJsonSecure = async (
   }
 
   if (!invokeFn) {
-    try {
-      const method = body ? 'POST' : 'GET';
-      const proxyRes = await fetch('/api/proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetUrl: url,
-          method,
-          headers,
-          payload: body
-        }),
-        signal
-      });
-      if (proxyRes.ok) {
-        return await proxyRes.json();
-      }
-    } catch (e: any) {
-      if (e?.name === 'AbortError' || String(e).includes('Aborted')) {
-        throw new DOMException('Aborted by user', 'AbortError');
-      }
+    const method = body ? 'POST' : 'GET';
+    const proxyRes = await fetch('/api/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetUrl: url,
+        method,
+        headers,
+        payload: body
+      }),
+      signal
+    });
+
+    if (!proxyRes.ok) {
+      const errText = await proxyRes.text().catch(() => '');
+      let errJson: any;
+      try {
+        errJson = JSON.parse(errText);
+      } catch {}
+      const errMsg = errJson?.error?.message || errJson?.error || errText.substring(0, 250) || `Error HTTP ${proxyRes.status}`;
+      throw new Error(errMsg);
     }
+    return await proxyRes.json();
   }
 
   const method = body ? 'POST' : 'GET';
