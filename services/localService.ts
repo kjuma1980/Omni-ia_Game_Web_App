@@ -580,10 +580,9 @@ export const generateOpenAICompletion = async (
     ]
   };
 
-  if (isDeepSeekThinking) {
+  if (provider === 'nvidia' && model.includes('r1')) {
     payload.chat_template_kwargs = {
-      thinking: true,
-      reasoning_effort: 'high'
+      thinking: true
     };
   }
 
