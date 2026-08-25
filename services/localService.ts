@@ -491,7 +491,7 @@ export const generateOpenAICompletion = async (
   prompt: string, 
   system: string, 
   apiKey: string, 
-  provider: 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'openrouter' | 'cometapi',
+  provider: 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'openrouter' | 'cometapi' | 'nvidia',
   isExpansion: boolean = false,
   modelOverride?: string,
   signal?: AbortSignal
@@ -527,6 +527,9 @@ export const generateOpenAICompletion = async (
   } else if (provider === 'cometapi') {
     baseUrl = 'https://api.cometapi.com/v1/chat/completions';
     if (!model) model = 'gpt-4o';
+  } else if (provider === 'nvidia') {
+    baseUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
+    if (!model) model = 'meta/llama-3.3-70b-instruct';
   } else {
     throw new Error(`Proveedor ${provider} no soportado en generateOpenAICompletion.`);
   }

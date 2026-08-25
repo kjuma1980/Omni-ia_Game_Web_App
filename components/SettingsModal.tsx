@@ -98,7 +98,8 @@ const PREDEFINED_NPC_MODELS: Record<string, string[]> = {
   qwen: ['qwen3.7-max', 'qwen3.7-plus', 'qwen-max', 'qwen-plus'],
   kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
-  cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner']
+  cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner'],
+  nvidia: ['meta/llama-3.3-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'deepseek-ai/deepseek-r1', 'qwen/qwen2.5-72b-instruct']
 };
 
 const PREDEFINED_TEXT_MODELS: Record<string, string[]> = {
@@ -109,7 +110,8 @@ const PREDEFINED_TEXT_MODELS: Record<string, string[]> = {
   qwen: ['qwen3.7-max', 'qwen3.7-plus', 'qwen-max', 'qwen-plus'],
   kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
-  cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner']
+  cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner'],
+  nvidia: ['meta/llama-3.3-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'deepseek-ai/deepseek-r1', 'qwen/qwen2.5-72b-instruct']
 };
 
 const PREDEFINED_IMAGE_MODELS: Record<string, string[]> = {
@@ -2599,7 +2601,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label className="flex items-center justify-between mb-4 cursor-pointer">
                     <span className="font-bold text-slate-200">Proveedor de Texto & Lógica</span>
                     <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 flex-wrap gap-1">
-                      {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi', 'ollama', 'omnideploy', 'lm-studio', 'llama-server', 'other'].map((p) => (
+                      {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi', 'nvidia', 'ollama', 'omnideploy', 'lm-studio', 'llama-server', 'other'].map((p) => (
                         <button
                           key={p}
                           onClick={() => {
@@ -2681,8 +2683,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     </Tooltip>
                   )}
 
-                  {/* Cloud providers (Gemini/Anthropic/OpenAI/DeepSeek/Qwen/Kimi/OpenRouter/CometAPI): selector de modelos */}
-                  {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi'].includes(settings.text.provider) && (() => {
+                  {/* Cloud providers (Gemini/Anthropic/OpenAI/DeepSeek/Qwen/Kimi/OpenRouter/CometAPI/NVIDIA): selector de modelos */}
+                  {['gemini', 'anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi', 'nvidia'].includes(settings.text.provider) && (() => {
                     const provider = settings.text.provider;
                     const predefined = PREDEFINED_TEXT_MODELS[provider] || [];
                     const currentModel = settings.text.model || '';

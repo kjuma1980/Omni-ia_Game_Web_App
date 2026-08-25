@@ -290,7 +290,7 @@ export interface ProjectData {
       apiKey?: string;
     };
     text: {
-      provider: 'gemini' | 'ollama' | 'lm-studio' | 'llama-server' | 'omnideploy' | 'anthropic' | 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'openrouter' | 'cometapi' | 'other';
+      provider: 'gemini' | 'ollama' | 'lm-studio' | 'llama-server' | 'omnideploy' | 'anthropic' | 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
       baseUrl: string;
       baseUrls?: { [provider: string]: string };
       model: string;
@@ -302,7 +302,7 @@ export interface ProjectData {
       omniDeployDeploymentId?: string;
     };
     npcs: {
-      provider: 'gemini' | 'ollama' | 'lm-studio' | 'llama-server' | 'omnideploy' | 'anthropic' | 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'openrouter' | 'cometapi' | 'other';
+      provider: 'gemini' | 'ollama' | 'lm-studio' | 'llama-server' | 'omnideploy' | 'anthropic' | 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
       baseUrl: string;
       baseUrls?: { [provider: string]: string };
       model: string;
@@ -471,7 +471,7 @@ export interface ProjectData {
       apiKeys?: { [provider: string]: string };
     };
     code: {
-      provider: 'gemini' | 'ollama' | 'lm-studio' | 'llama-server' | 'omnideploy' | 'anthropic' | 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'openrouter' | 'cometapi' | 'other';
+      provider: 'gemini' | 'ollama' | 'lm-studio' | 'llama-server' | 'omnideploy' | 'anthropic' | 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
       baseUrl: string;
       baseUrls?: { [provider: string]: string };
       model: string;
@@ -485,7 +485,7 @@ export interface ProjectData {
     promptEngineer: {
       enabled: boolean;
       useTextProvider: boolean;
-      provider: 'gemini' | 'ollama' | 'lm-studio' | 'llama-server' | 'omnideploy' | 'anthropic' | 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'openrouter' | 'cometapi' | 'other';
+      provider: 'gemini' | 'ollama' | 'lm-studio' | 'llama-server' | 'omnideploy' | 'anthropic' | 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
       /** OmniDeploy: el refinador tambien puede ir a la GPU del proveedor. */
       omniDeployApiKey?: string;
       omniDeployDeploymentId?: string;
