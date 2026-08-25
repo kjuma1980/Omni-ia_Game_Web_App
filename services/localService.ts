@@ -509,43 +509,49 @@ export const generateOpenAICompletion = async (
 
   if (provider === 'openai') {
     baseUrl = 'https://api.openai.com/v1/chat/completions';
-    if (!model) model = 'gpt-5.5';
+    if (!model || model === 'custom') model = 'gpt-4o-mini';
   } else if (provider === 'deepseek') {
     baseUrl = 'https://api.deepseek.com/v1/chat/completions';
-    if (!model) model = 'deepseek-v4-pro';
+    if (!model || model === 'custom') model = 'deepseek-chat';
   } else if (provider === 'qwen') {
     baseUrl = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
-    if (!model) model = 'qwen3.7-max';
+    if (!model || model === 'custom') model = 'qwen-plus';
   } else if (provider === 'kimi') {
     baseUrl = 'https://api.moonshot.cn/v1/chat/completions';
-    if (!model) model = 'kimi-k2.6';
+    if (!model || model === 'custom') model = 'moonshot-v1-8k';
   } else if (provider === 'openrouter') {
     baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
-    if (!model) model = 'openrouter/auto';
+    if (!model || model === 'custom') model = 'openrouter/auto';
     headers['HTTP-Referer'] = 'https://fenixdev.cloud';
     headers['X-Title'] = 'Omni-IA Game';
   } else if (provider === 'cometapi') {
     baseUrl = 'https://api.cometapi.com/v1/chat/completions';
-    if (!model) model = 'gpt-4o';
+    if (!model || model === 'custom') model = 'gpt-4o-mini';
   } else if (provider === 'nvidia') {
     baseUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
-    if (!model) model = 'meta/llama-3.3-70b-instruct';
+    if (!model || model === 'custom') model = 'meta/llama-3.3-70b-instruct';
   } else {
     throw new Error(`Proveedor ${provider} no soportado en generateOpenAICompletion.`);
   }
+
+  const payload: any = {
+    model: model,
+    temperature: 0.7,
+    top_p: 0.95,
+    max_tokens: isExpansion ? 4096 : 2048,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: prompt }
+    ]
+  };
+
+  console.log(`[Omni IA Game] Ejecutando petición ${provider.toUpperCase()} (${model})...`);
 
   // SEGURIDAD: vía proxy Rust en Tauri / webBridge proxy_request
   const data = await fetchJsonSecure(
     baseUrl,
     headers,
-    {
-      model: model,
-      max_tokens: 8192,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: prompt }
-      ]
-    },
+    payload,
     signal
   );
   const choice = data.choices?.[0];

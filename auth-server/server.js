@@ -150,6 +150,12 @@ const ALLOWED_CLOUD_DOMAINS = [
   "api.tripo3d.ai",
   "platform.tripo3d.ai",
   "api.meshy.ai",
+  "openrouter.ai",
+  "api.openrouter.ai",
+  "api.cometapi.com",
+  "cometapi.com",
+  "integrate.api.nvidia.com",
+  "nvidia.com",
   "fenixdev.cloud",
   "omni-api.fenixdev.cloud"
 ];

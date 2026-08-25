@@ -3201,11 +3201,13 @@ Generate the professional prompts in JSON format:`;
   const provider = useText ? activeTextProvider : (pe.provider && pe.provider !== 'gemini' ? pe.provider : activeTextProvider);
   const apiKey = useText 
     ? (settings?.text?.apiKeys?.[provider] || settings?.text?.apiKey || settings?.ollama?.apiKey || (settings as any)?.geminiApiKey) 
-    : (pe.apiKey || settings?.text?.apiKeys?.[provider] || (settings as any)?.geminiApiKey);
+    : (pe.apiKeys?.[provider] || pe.apiKey || settings?.text?.apiKeys?.[provider] || (settings as any)?.geminiApiKey);
   const baseUrl = useText 
     ? (settings?.text?.baseUrl || (provider === 'ollama' ? settings?.ollama?.baseUrl : ''))
     : (pe.baseUrl || settings?.text?.baseUrl || (provider === 'ollama' ? settings?.ollama?.baseUrl : ''));
   let model = (useText ? settings?.text?.model : pe.model) || settings?.text?.model || '';
+
+  console.log(`[Prompt Engineer] Refinando con proveedor '${provider}' (Modelo: ${model || 'default'}, Key: ${apiKey ? 'Configurada' : 'Vacía'})...`);
 
   // Si es Ollama local, resolver contra los modelos instalados ANTES del Memory Orchestrator
   if ((provider as string) === 'ollama' || (provider as string) === 'local') {
