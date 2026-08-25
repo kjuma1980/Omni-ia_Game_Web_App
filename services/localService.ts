@@ -598,9 +598,9 @@ export const generateOpenAICompletion = async (
     return `No response from ${provider}.`;
   } catch (err: any) {
     const errStr = String(err?.message || err);
-    if (provider === 'nvidia' && (errStr.includes('503') || errStr.includes('404') || errStr.includes('ResourceExhausted') || errStr.includes('429') || errStr.includes('limit reached'))) {
-      console.warn(`[NVIDIA NIM] Modelo ${model} no disponible o saturado. Reintentando automáticamente con nvidia/llama-3.1-nemotron-70b-instruct...`);
-      const fallbackPayload = { ...payload, model: 'nvidia/llama-3.1-nemotron-70b-instruct' };
+    if (provider === 'nvidia' && (errStr.includes('504') || errStr.includes('503') || errStr.includes('404') || errStr.includes('Timeout') || errStr.includes('ResourceExhausted') || errStr.includes('429') || errStr.includes('limit reached'))) {
+      console.warn(`[NVIDIA NIM] Modelo ${model} lento, no disponible o sufriendo timeout. Reintentando automáticamente con meta/llama-3.3-70b-instruct...`);
+      const fallbackPayload = { ...payload, model: 'meta/llama-3.3-70b-instruct' };
       delete fallbackPayload.chat_template_kwargs;
       delete fallbackPayload.extra_body;
       const fallbackData = await fetchJsonSecure(baseUrl, headers, fallbackPayload, signal);
