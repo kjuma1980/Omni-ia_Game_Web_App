@@ -1,5 +1,6 @@
 /**
  * omniCrypto.ts — Módulo de Cifrado Binario y Formato de Guardado `.omni`
+ * con Vinculación Criptográfica de Propiedad (Email + Licencia)
  *
  * Formato binario encriptado de alta seguridad para proyectos de Omni-IA Game.
  * Compatible 100% tanto con la Web App (Navegador) como con la Versión de Escritorio (Tauri / WebView2 / Node.js).
@@ -14,8 +15,17 @@
 
 const MAGIC_BYTES = new Uint8Array([0x4F, 0x4D, 0x4E, 0x49]); // "OMNI"
 const PROTOCOL_VERSION = 0x01;
-const DEFAULT_KEY_PASSPHRASE = "OMNI_IA_GAME_PROJECT_SECRET_KEY_v1_2026";
+const BASE_MASTER_SECRET = "OMNI_IA_GAME_PROJECT_SECRET_KEY_v1_2026";
 const PBKDF2_ITERATIONS = 100_000;
+
+/**
+ * Genera la frase de derivación dinámica combinando la Frase Maestra, el Correo y la Licencia del Usuario.
+ */
+function construirFraseIdentidad(ownerEmail: string, licenseKey: string): string {
+  const emailLwr = (ownerEmail || 'anonymous').toLowerCase().trim();
+  const licTrim = (licenseKey || 'free').trim();
+  return `${BASE_MASTER_SECRET}:${emailLwr}:${licTrim}`;
+}
 
 /**
  * Comprime un string de texto a GZIP utilizando la API W3C CompressionStream.
@@ -44,7 +54,7 @@ async function comprimirTexto(texto: string): Promise<Uint8Array> {
     }
     return result;
   }
-  return datos; // Fallback si no está disponible CompressionStream
+  return datos;
 }
 
 /**
@@ -73,7 +83,6 @@ async function descomprimirTexto(datos: Uint8Array): Promise<string> {
       }
       return new TextDecoder('utf-8').decode(result);
     } catch (e) {
-      // Si no era GZIP, decodificar directo
       return new TextDecoder('utf-8').decode(datos);
     }
   }
@@ -108,19 +117,30 @@ async function derivarClaveAES(passphrase: string, salt: Uint8Array): Promise<Cr
 }
 
 /**
- * Cifra y empaqueta un objeto de proyecto en formato binario `.omni`.
+ * Cifra y empaqueta un objeto de proyecto en formato binario `.omni`, vinculándolo a la cuenta y licencia del usuario.
  */
 export async function exportarProyectoOmni(
   projectData: object,
-  userPassphrase: string = DEFAULT_KEY_PASSPHRASE
+  ownerEmail: string = '',
+  licenseKey: string = ''
 ): Promise<Uint8Array> {
-  const jsonStr = JSON.stringify(projectData);
+  const payloadToEncrypt = {
+    ...projectData,
+    _omniOwner: {
+      ownerEmail: (ownerEmail || '').toLowerCase().trim(),
+      licenseKey: (licenseKey || '').trim(),
+      timestamp: Date.now(),
+    },
+  };
+
+  const jsonStr = JSON.stringify(payloadToEncrypt);
   const compressedData = await comprimirTexto(jsonStr);
 
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
 
-  const key = await derivarClaveAES(userPassphrase, salt);
+  const passphrase = construirFraseIdentidad(ownerEmail, licenseKey);
+  const key = await derivarClaveAES(passphrase, salt);
 
   const ciphertextBuffer = await crypto.subtle.encrypt(
     {
@@ -133,7 +153,6 @@ export async function exportarProyectoOmni(
 
   const ciphertext = new Uint8Array(ciphertextBuffer);
 
-  // Ensamblar binario final: MAGIC(4B) + VERSION(1B) + SALT(16B) + IV(12B) + CIPHERTEXT(N)
   const totalLength = MAGIC_BYTES.length + 1 + salt.length + iv.length + ciphertext.length;
   const omniBinary = new Uint8Array(totalLength);
 
@@ -159,7 +178,7 @@ export async function exportarProyectoOmni(
  * Inspecciona si un buffer binario corresponde a un archivo `.omni` válido.
  */
 export function esArchivoOmni(buffer: ArrayBuffer): boolean {
-  if (buffer.byteLength < 33) return false;
+  if (!buffer || buffer.byteLength < 33) return false;
   const header = new Uint8Array(buffer, 0, 4);
   return (
     header[0] === MAGIC_BYTES[0] &&
@@ -170,11 +189,12 @@ export function esArchivoOmni(buffer: ArrayBuffer): boolean {
 }
 
 /**
- * Descifra y desempaca un archivo binario `.omni` devolviendo el objeto JSON del proyecto.
+ * Descifra y desempaca un archivo binario `.omni`, verificando la coincidencia de propiedad (Email + Licencia).
  */
 export async function importarProyectoOmni(
   buffer: ArrayBuffer,
-  userPassphrase: string = DEFAULT_KEY_PASSPHRASE
+  currentEmail: string = '',
+  currentLicenseKey: string = ''
 ): Promise<any> {
   const bytes = new Uint8Array(buffer);
 
@@ -191,10 +211,12 @@ export async function importarProyectoOmni(
   const iv = bytes.slice(21, 33);
   const ciphertext = bytes.slice(33);
 
-  const key = await derivarClaveAES(userPassphrase, salt);
+  const passphrase = construirFraseIdentidad(currentEmail, currentLicenseKey);
+  const key = await derivarClaveAES(passphrase, salt);
 
+  let decryptedBuffer: ArrayBuffer;
   try {
-    const decryptedBuffer = await crypto.subtle.decrypt(
+    decryptedBuffer = await crypto.subtle.decrypt(
       {
         name: "AES-GCM",
         iv: iv,
@@ -202,13 +224,25 @@ export async function importarProyectoOmni(
       key,
       ciphertext
     );
-
-    const compressedData = new Uint8Array(decryptedBuffer);
-    const jsonStr = await descomprimirTexto(compressedData);
-    return JSON.parse(jsonStr);
   } catch (err) {
     throw new Error(
-      "Error al descifrar el proyecto .omni. El archivo está dañado o fue alterado externamente (Tamper Check Failed)."
+      "🔒 ACCESO DENEGADO DE PROPIEDAD: No se pudo descifrar este archivo .omni. Este proyecto pertenece a otra cuenta de usuario o clave de licencia distinta."
     );
   }
+
+  const compressedData = new Uint8Array(decryptedBuffer);
+  const jsonStr = await descomprimirTexto(compressedData);
+  const data = JSON.parse(jsonStr);
+
+  // Verificación estricta de Firma de Propiedad (_omniOwner)
+  const activeEmailLwr = (currentEmail || '').toLowerCase().trim();
+  const ownerEmailLwr = (data?._omniOwner?.ownerEmail || '').toLowerCase().trim();
+
+  if (ownerEmailLwr && activeEmailLwr && ownerEmailLwr !== activeEmailLwr) {
+    throw new Error(
+      `🔒 ACCESO DENEGADO DE PROPIEDAD: Este proyecto .omni está vinculado a la cuenta [${data._omniOwner.ownerEmail}]. No puedes abrirlo desde la cuenta activa [${currentEmail}].`
+    );
+  }
+
+  return data;
 }

@@ -1210,8 +1210,10 @@ const App: React.FC = () => {
         creador2dWorlds,
       };
 
-      // Cifrado y empaquetado binario AES-256-GCM (.omni)
-      const omniBinary = await exportarProyectoOmni(fullSaveData);
+      // Cifrado y empaquetado binario AES-256-GCM (.omni) vinculado a la cuenta y licencia del usuario
+      const activeEmail = readStoredEmail() || '';
+      const activeLicense = readStoredToken() || '';
+      const omniBinary = await exportarProyectoOmni(fullSaveData, activeEmail, activeLicense);
       const filename = `${project.name.replace(/\s+/g, '_')}.omni`;
 
       const isWeb = typeof window !== 'undefined' && ((window as any).__OMNI_IS_WEB__ === true || !((window as any).__TAURI_INTERNALS__?.invoke));
@@ -1256,10 +1258,13 @@ const App: React.FC = () => {
             throw new Error('Error al leer el archivo.');
           }
 
+          const activeEmail = readStoredEmail() || '';
+          const activeLicense = readStoredToken() || '';
+
           let data: any = null;
           if (esArchivoOmni(arrayBuffer)) {
-            // Formato binario cifrado .omni
-            data = await importarProyectoOmni(arrayBuffer);
+            // Formato binario cifrado .omni vinculado a usuario/licencia
+            data = await importarProyectoOmni(arrayBuffer, activeEmail, activeLicense);
           } else {
             // Retrocompatibilidad con archivos legados .json
             const textContent = new TextDecoder('utf-8').decode(arrayBuffer);

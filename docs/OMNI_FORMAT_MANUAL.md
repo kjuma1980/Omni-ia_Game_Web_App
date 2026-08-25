@@ -42,16 +42,19 @@ Un archivo `.omni` es un archivo binario puro estructurado en 5 segmentos secuen
 
 Para lograr compatibilidad cruzada exacta entre WebApp y Desktop:
 
-1. **Frase Clave Maestra por Defecto:**  
-   `"OMNI_IA_GAME_PROJECT_SECRET_KEY_v1_2026"` *(O la contraseña personalizada elegida por el usuario)*.
+1. **Fórmula de Derivación Dinámica de Clave (Identidad del Usuario + Licencia):**  
+   Para impedir que un usuario no autorizado abra archivos `.omni` creados por otra cuenta, la clave simétrica AES-256-GCM se deriva mediante PBKDF2 combinando:  
+   `PassphraseIdentidad = "OMNI_IA_GAME_PROJECT_SECRET_KEY_v1_2026:" + email.toLowerCase().trim() + ":" + licencia.trim()`
 2. **Algoritmo de Cifrado Simétrico:**  
-   **AES-256-GCM** (Galois/Counter Mode).
+   **AES-256-GCM** (Galois/Counter Mode) con 256 bits y Auth Tag de 16 bytes.
 3. **Derivación de Clave (KDF):**  
    - Algoritmo: **PBKDF2**
    - Hash: **SHA-256**
    - Iteraciones: **100,000**
    - Longitud de Clave Resultante: **256 bits (32 bytes)**
-4. **Compresión Previa al Cifrado:**  
+4. **Firma Interna de Propiedad (`_omniOwner`):**  
+   El payload JSON comprimido incluye los metadatos `_omniOwner: { ownerEmail, licenseKey, timestamp }`.
+5. **Compresión Previa al Cifrado:**  
    Algoritmo **GZIP / Deflate** aplicado al texto plano JSON antes de cifrar.
 
 ---
