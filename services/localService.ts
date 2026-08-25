@@ -548,7 +548,11 @@ export const generateOpenAICompletion = async (
     },
     signal
   );
-  return data.choices?.[0]?.message?.content || data.choices?.[0]?.delta?.content || `No response from ${provider}.`;
+  const choice = data.choices?.[0];
+  const msg = choice?.message || choice?.delta;
+  const content = msg?.content || msg?.reasoning || msg?.reasoning_content;
+  if (content && typeof content === 'string' && content.trim() !== '') return content;
+  return `No response from ${provider}.`;
 };
 
 // Generic OpenAI-compatible endpoint (for "other" providers)
