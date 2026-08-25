@@ -1352,9 +1352,10 @@ const App: React.FC = () => {
           await saveAssetsToDB(mergedAssets);
           await saveProjectToDB(mergedProject);
           setProject(mergedProject);
-        } catch (err) {
+        } catch (err: any) {
           console.error('Error al abrir el proyecto:', err);
-          alert('Error al abrir el proyecto .omni. El archivo está dañado o no es válido.');
+          const msg = err?.message || 'Error al abrir el proyecto .omni. El archivo está dañado o no es válido.';
+          alert(msg);
         }
       };
       reader.readAsArrayBuffer(file);
