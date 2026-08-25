@@ -69,19 +69,24 @@ function copyRecursiveSync(src, dest) {
 }
 
 const distDir = path.join(rootDir, 'dist');
+const localPublicDir = path.join(authServerDir, 'public');
+const localAppDir = path.join(authServerDir, 'public', 'app');
 const localDlDir = path.join(authServerDir, 'public', 'downloads');
+
 if (fs.existsSync(distDir)) {
-  console.log('📋 Copiando archivos compilados de dist/ a public/downloads/...');
+  console.log('📋 Copiando archivos compilados de dist/ a todas las rutas públicas del servidor web...');
+  copyRecursiveSync(distDir, localPublicDir);
+  copyRecursiveSync(distDir, localAppDir);
   copyRecursiveSync(distDir, localDlDir);
 }
 
 copyRecursiveSync(authServerDir, stageDir);
 
-// Asegurar carpeta downloads para que exista
-const dlDir = path.join(stageDir, 'public', 'downloads');
-if (!fs.existsSync(dlDir)) fs.mkdirSync(dlDir, { recursive: true });
+// Asegurar copias en el directorio de staging
 if (fs.existsSync(distDir)) {
-  copyRecursiveSync(distDir, dlDir);
+  copyRecursiveSync(distDir, path.join(stageDir, 'public'));
+  copyRecursiveSync(distDir, path.join(stageDir, 'public', 'app'));
+  copyRecursiveSync(distDir, path.join(stageDir, 'public', 'downloads'));
 }
 
 // Omitir .env local para evitar empaquetar credenciales locales de desarrollo

@@ -1172,14 +1172,17 @@ const App: React.FC = () => {
 
   const handleSave = async () => {
     try {
-      // SEGURIDAD: por defecto el proyecto se exporta SIN API keys (recomendado para compartir).
-      const dialogResult = await invoke<string>('plugin:dialog|message', {
-        message: '¿Incluir tus API keys en el archivo exportado?\n\n• INCLUIR CLAVES = solo si el archivo es para tu uso personal\n• EXPORTAR SIN CLAVES = recomendado si vas a compartir el archivo',
-        title: '🔒 SEGURIDAD DE TUS CLAVES',
-        kind: 'warning',
-        buttons: { OkCancelCustom: ['Incluir claves', 'Exportar sin claves'] },
-      });
-      const includeKeys = dialogResult === 'Ok';
+      let includeKeys = true;
+      const isWebCheck = typeof window !== 'undefined' && ((window as any).__OMNI_IS_WEB__ === true || !((window as any).__TAURI_INTERNALS__?.invoke));
+      if (!isWebCheck && invoke && typeof invoke === 'function') {
+        const dialogResult = await invoke<string>('plugin:dialog|message', {
+          message: '¿Incluir tus API keys en el archivo exportado?\n\n• INCLUIR CLAVES = solo si el archivo es para tu uso personal\n• EXPORTAR SIN CLAVES = recomendado si vas a compartir el archivo',
+          title: '🔒 SEGURIDAD DE TUS CLAVES',
+          kind: 'warning',
+          buttons: { OkCancelCustom: ['Incluir claves', 'Exportar sin claves'] },
+        }).catch(() => 'Cancel');
+        includeKeys = dialogResult === 'Ok';
+      }
       const projectToSave = includeKeys ? project : stripApiKeysFromProject(project);
 
       // Empaquetar todos los mundos de Creador 2D dentro del archivo unico del proyecto
