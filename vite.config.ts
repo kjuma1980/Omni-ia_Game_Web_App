@@ -19,6 +19,14 @@ export default defineConfig(async () => {
       port: 3142,
       strictPort: true,
       host: '127.0.0.1',
+      proxy: {
+        '/api/nvidia': {
+          target: 'https://integrate.api.nvidia.com',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api\/nvidia/, '')
+        }
+      },
       watch: {
         ignored: [
           '**/src-tauri/**',

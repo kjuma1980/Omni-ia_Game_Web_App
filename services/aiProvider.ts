@@ -2572,7 +2572,7 @@ const robustJSONParse = (raw: string): { positive?: string; negative?: string } 
     return { positive: "", negative: "" };
   }
 
-  const cleaned = raw
+  let cleaned = raw
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
     .replace(/<think>[\s\S]*/gi, '')
     .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
@@ -2593,36 +2593,48 @@ const robustJSONParse = (raw: string): { positive?: string; negative?: string } 
     return String(val).trim();
   };
 
-  // 1. Intento con JSON.parse nativo tolerante a variantes de claves
-  try {
-    const obj = JSON.parse(cleaned);
-    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-      const posVal = obj.positive 
-        ?? obj.positive_keywords 
-        ?? obj.positive_prompt 
-        ?? obj.prompt 
-        ?? obj.positivePrompt 
-        ?? obj.refined_prompt 
-        ?? obj.output 
-        ?? obj.result;
-      const negVal = obj.negative 
-        ?? obj.negative_keywords 
-        ?? obj.negative_prompt 
-        ?? obj.negativePrompt 
-        ?? obj.negative_exclusions 
-        ?? obj.exclusions 
-        ?? "";
+  // Pre-sanitizador: escapar saltos de línea y tabulaciones literales dentro de cadenas entre comillas
+  const sanitizedJsonCandidate = cleaned
+    .replace(/,\s*([\}\]])/g, '$1')
+    .replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/gs, (match) => {
+      return match
+        .replace(/\r?\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t');
+    });
 
-      if (posVal !== undefined || negVal !== undefined) {
-        const posStr = formatValue(posVal);
-        const negStr = formatValue(negVal);
-        if (posStr || negStr) {
-          return { positive: posStr, negative: negStr };
+  // 1. Intento con JSON.parse nativo usando la cadena pre-sanitizada o la limpia
+  for (const candidate of [sanitizedJsonCandidate, cleaned]) {
+    try {
+      const obj = JSON.parse(candidate);
+      if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+        const posVal = obj.positive 
+          ?? obj.positive_keywords 
+          ?? obj.positive_prompt 
+          ?? obj.prompt 
+          ?? obj.positivePrompt 
+          ?? obj.refined_prompt 
+          ?? obj.output 
+          ?? obj.result;
+        const negVal = obj.negative 
+          ?? obj.negative_keywords 
+          ?? obj.negative_prompt 
+          ?? obj.negativePrompt 
+          ?? obj.negative_exclusions 
+          ?? obj.exclusions 
+          ?? "";
+
+        if (posVal !== undefined || negVal !== undefined) {
+          const posStr = formatValue(posVal);
+          const negStr = formatValue(negVal);
+          if (posStr || negStr) {
+            return { positive: posStr, negative: negStr };
+          }
         }
       }
+    } catch (_) {
+      // Intentar el siguiente candidato silenciosamente
     }
-  } catch (parseError) {
-    console.warn("[Omni IA Game] Standard JSON.parse falló, aplicando extracción heurística tolerante a fallos...", parseError);
   }
 
   // 2. Extracción heurística tolerante a comillas dobles internas y claves variantes

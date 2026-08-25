@@ -238,15 +238,24 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
         }
       }
 
-      // Para URLs Cloud, hacer fetch directo en modo web
+      // Para URLs Cloud, hacer fetch directo o a través del proxy si el proveedor restringe CORS (ej: NVIDIA)
+      let requestUrl = url;
+      if (url.includes('integrate.api.nvidia.com')) {
+        const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost');
+        if (isLocalDev) {
+          requestUrl = url.replace('https://integrate.api.nvidia.com', '/api/nvidia');
+        }
+      }
+
       const fetchHeaders: Record<string, string> = { ...headers };
       let body: any = undefined;
       if (payload) {
         body = typeof payload === 'string' ? payload : JSON.stringify(payload);
         if (!fetchHeaders['Content-Type']) fetchHeaders['Content-Type'] = 'application/json';
       }
+
       try {
-        const directRes = await fetch(url, { method, headers: fetchHeaders, body });
+        const directRes = await fetch(requestUrl, { method, headers: fetchHeaders, body });
         if (isImageResponse) {
           const arrayBuffer = await directRes.arrayBuffer();
           const bytes = new Uint8Array(arrayBuffer);
@@ -269,8 +278,44 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
           return JSON.stringify(errObj);
         }
         return textResult;
-      } catch (e: any) {
-        return JSON.stringify({ error: { message: `Error de conexión proxy (${e?.message || String(e)})` } });
+      } catch (directErr: any) {
+        // Fallback al relé backend /api/proxy si el navegador bloquea por política CORS
+        try {
+          const proxyRes = await fetch('/api/proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              targetUrl: url,
+              method,
+              headers: fetchHeaders,
+              payload
+            })
+          });
+          if (isImageResponse) {
+            const arrayBuffer = await proxyRes.arrayBuffer();
+            const bytes = new Uint8Array(arrayBuffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+              binary += String.fromCharCode(bytes[i]);
+            }
+            const b64 = btoa(binary);
+            const mime = url.includes('.jpg') || url.includes('.jpeg') ? 'image/jpeg' : 'image/png';
+            return `data:${mime};base64,${b64}`;
+          }
+          const textResult = await proxyRes.text();
+          if (!proxyRes.ok) {
+            let errObj: any;
+            try {
+              errObj = JSON.parse(textResult);
+            } catch {
+              errObj = { error: { message: textResult.substring(0, 250) || `Error HTTP ${proxyRes.status}` } };
+            }
+            return JSON.stringify(errObj);
+          }
+          return textResult;
+        } catch (proxyErr: any) {
+          return JSON.stringify({ error: { message: `Error de conexión proxy (${directErr?.message || String(directErr)})` } });
+        }
       }
     }
 

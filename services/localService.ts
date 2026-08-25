@@ -560,30 +560,30 @@ export const generateOpenAICompletion = async (
     if (!model || model === 'custom') model = 'gpt-4o-mini';
   } else if (provider === 'nvidia') {
     baseUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
-    if (!model || model === 'custom' || model.includes('meta/llama-3.3')) {
+    if (!model || model === 'custom') {
       model = 'deepseek-ai/deepseek-v4-flash-0731';
     }
   } else {
     throw new Error(`Proveedor ${provider} no soportado en generateOpenAICompletion.`);
   }
 
+  const isDeepSeekThinking = provider === 'nvidia' && (model.includes('deepseek') || model.includes('thinking') || model.includes('r1'));
+
   const payload: any = {
     model: model,
-    temperature: provider === 'nvidia' ? 1 : 0.7,
+    temperature: isDeepSeekThinking ? 1 : 0.7,
     top_p: 0.95,
-    max_tokens: provider === 'nvidia' ? 16384 : (isExpansion ? 4096 : 2048),
+    max_tokens: isDeepSeekThinking ? 16384 : (isExpansion ? 4096 : 2048),
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: prompt }
     ]
   };
 
-  if (provider === 'nvidia') {
-    payload.extra_body = {
-      chat_template_kwargs: {
-        thinking: true,
-        reasoning_effort: 'high'
-      }
+  if (isDeepSeekThinking) {
+    payload.chat_template_kwargs = {
+      thinking: true,
+      reasoning_effort: 'high'
     };
   }
 
@@ -601,6 +601,7 @@ export const generateOpenAICompletion = async (
     if (provider === 'nvidia' && (errStr.includes('503') || errStr.includes('404') || errStr.includes('ResourceExhausted') || errStr.includes('429') || errStr.includes('limit reached'))) {
       console.warn(`[NVIDIA NIM] Modelo ${model} no disponible o saturado. Reintentando automáticamente con nvidia/llama-3.1-nemotron-70b-instruct...`);
       const fallbackPayload = { ...payload, model: 'nvidia/llama-3.1-nemotron-70b-instruct' };
+      delete fallbackPayload.chat_template_kwargs;
       delete fallbackPayload.extra_body;
       const fallbackData = await fetchJsonSecure(baseUrl, headers, fallbackPayload, signal);
       const choice = fallbackData.choices?.[0];

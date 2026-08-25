@@ -88,7 +88,7 @@ const PREDEFINED_CODE_MODELS: Record<string, string[]> = {
   kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
   cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner'],
-  nvidia: ['meta/llama-3.3-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'deepseek-ai/deepseek-r1', 'mistralai/mistral-large-2-instruct']
+  nvidia: ['deepseek-ai/deepseek-v4-flash-0731', 'meta/llama-3.3-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'deepseek-ai/deepseek-r1', 'mistralai/mistral-large-2-instruct']
 };
 
 const PREDEFINED_NPC_MODELS: Record<string, string[]> = {
@@ -100,7 +100,7 @@ const PREDEFINED_NPC_MODELS: Record<string, string[]> = {
   kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
   cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner'],
-  nvidia: ['meta/llama-3.3-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'deepseek-ai/deepseek-r1', 'mistralai/mistral-large-2-instruct']
+  nvidia: ['deepseek-ai/deepseek-v4-flash-0731', 'meta/llama-3.3-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'deepseek-ai/deepseek-r1', 'mistralai/mistral-large-2-instruct']
 };
 
 const PREDEFINED_TEXT_MODELS: Record<string, string[]> = {
@@ -112,7 +112,7 @@ const PREDEFINED_TEXT_MODELS: Record<string, string[]> = {
   kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
   cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner'],
-  nvidia: ['meta/llama-3.3-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'deepseek-ai/deepseek-r1', 'mistralai/mistral-large-2-instruct']
+  nvidia: ['deepseek-ai/deepseek-v4-flash-0731', 'meta/llama-3.3-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'deepseek-ai/deepseek-r1', 'mistralai/mistral-large-2-instruct']
 };
 
 const PREDEFINED_IMAGE_MODELS: Record<string, string[]> = {
@@ -3103,7 +3103,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                           </>
                         )}
 
-                        {(['anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi'].includes(settings.promptEngineer?.provider || '')) && (
+                        {(['anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi', 'nvidia'].includes(settings.promptEngineer?.provider || '')) && (
                           <div className="p-3 bg-amber-900/20 border border-amber-500/30 rounded text-xs text-amber-200">
                             <p className="font-bold mb-1 flex items-center gap-2"><Cloud className="w-3 h-3" /> {(settings.promptEngineer?.provider || '').toUpperCase()} Cloud</p>
                             <p className="text-[10px] text-slate-400">Solo necesitas la API Key. Se usará el modelo por defecto del proveedor.</p>
