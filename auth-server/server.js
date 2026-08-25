@@ -67,7 +67,8 @@ app.use('/api/omnideploy', express.json({ limit: '150mb' }));
 
 app.use(express.json());
 
-const PORT = parseInt(process.env.PORT || '4010', 10);
+const rawPort = process.env.PORT;
+const PORT = rawPort && !isNaN(Number(rawPort)) ? parseInt(rawPort, 10) : (rawPort || 4010);
 const JWT_SECRET = process.env.JWT_SECRET || '_omni_ia_game_jwt_secret_fallback_key_2026_safe_';
 const CODE_TTL_MS = (parseInt(process.env.CODE_TTL_MINUTES || '15', 10)) * 60 * 1000;
 const CODE_MAX_ATTEMPTS = 5;
@@ -222,7 +223,7 @@ app.post('/api/proxy', rateLimit(60 * 1000, 120), async (req, res) => {
 
     const responseText = await upstreamRes.text();
     return res.send(responseText);
-  } catch (err: any) {
+  } catch (err) {
     if (err?.name === 'AbortError') {
       return res.status(504).send('Error en relé proxy: Tiempo de espera agotado al conectar con el proveedor.');
     }
@@ -1296,7 +1297,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ ok: false, error: err.message || 'Error interno del servidor.' });
 });
 
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 
 async function bootstrapAdmin() {
   const email = String(process.env.ADMIN_BOOTSTRAP_EMAIL || 'admin@fenixdev.cloud').trim().toLowerCase();
@@ -1351,9 +1352,15 @@ app.use(
 async function start() {
   await bootstrapAdmin();
   startReminders();
-  app.listen(PORT, HOST, () => {
-    console.log(`Omni-IA Auth Server escuchando en http://${HOST}:${PORT}`);
-  });
+  if (process.env.PORT) {
+    app.listen(process.env.PORT, () => {
+      console.log(`Omni-IA Auth Server escuchando en puerto/socket de Hostinger: ${process.env.PORT}`);
+    });
+  } else {
+    app.listen(4010, '127.0.0.1', () => {
+      console.log('Omni-IA Auth Server escuchando en http://127.0.0.1:4010');
+    });
+  }
 }
 
 start();
