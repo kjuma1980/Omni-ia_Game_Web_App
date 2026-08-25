@@ -1346,10 +1346,10 @@ const App: React.FC = () => {
           setProject(mergedProject);
         } catch (err) {
           console.error('Error al abrir el proyecto:', err);
-          alert('Error al abrir el proyecto. El archivo no es un JSON de proyecto valido.');
+          alert('Error al abrir el proyecto .omni. El archivo está dañado o no es válido.');
         }
       };
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
     }
   };
 
