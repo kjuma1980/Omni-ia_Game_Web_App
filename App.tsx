@@ -24,6 +24,7 @@ import { checkForUpdates, UpdateManifest, CURRENT_VERSION } from './services/upd
 import UpdateModal from './components/UpdateModal';
 import { getLlamaServerState, stopLlamaServer } from './services/llamaServerService';
 import { comfyWS } from './services/comfyWebSocket';
+import { exportarProyectoOmni, importarProyectoOmni, esArchivoOmni } from './services/omniCrypto';
 
 // Conectar WebSocket directo a la URL de ComfyUI para recibir logs en tiempo real sin latencia ni pasar por OmniDeploy
 
@@ -1206,13 +1207,14 @@ const App: React.FC = () => {
         creador2dWorlds,
       };
 
-      const content = JSON.stringify(fullSaveData, null, 2);
-      const filename = `${project.name.replace(/\s+/g, '_')}_devasset_ai.json`;
+      // Cifrado y empaquetado binario AES-256-GCM (.omni)
+      const omniBinary = await exportarProyectoOmni(fullSaveData);
+      const filename = `${project.name.replace(/\s+/g, '_')}.omni`;
 
       const isWeb = typeof window !== 'undefined' && ((window as any).__OMNI_IS_WEB__ === true || !((window as any).__TAURI_INTERNALS__?.invoke));
 
       if (isWeb || !invoke || typeof invoke !== 'function') {
-        const blob = new Blob([content], { type: 'application/json' });
+        const blob = new Blob([omniBinary], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -1224,8 +1226,10 @@ const App: React.FC = () => {
         return;
       }
 
+      // En Tauri/Desktop enviamos el binario codificado en base64
+      const binaryBase64 = btoa(String.fromCharCode(...omniBinary));
       const result = await invoke('save_project_file', {
-        content,
+        content: binaryBase64,
         filename,
       });
 
@@ -1234,7 +1238,7 @@ const App: React.FC = () => {
       }
     } catch (e) {
       console.error('Save failed', e);
-      alert('Error al guardar el proyecto.');
+      alert('Error al guardar el proyecto cifrado .omni.');
     }
   };
 
@@ -1244,10 +1248,23 @@ const App: React.FC = () => {
       const reader = new FileReader();
       reader.onload = async (event) => {
         try {
-          const content = event.target?.result as string;
-          const data = JSON.parse(content);
+          const arrayBuffer = event.target?.result as ArrayBuffer;
+          if (!arrayBuffer) {
+            throw new Error('Error al leer el archivo.');
+          }
+
+          let data: any = null;
+          if (esArchivoOmni(arrayBuffer)) {
+            // Formato binario cifrado .omni
+            data = await importarProyectoOmni(arrayBuffer);
+          } else {
+            // Retrocompatibilidad con archivos legados .json
+            const textContent = new TextDecoder('utf-8').decode(arrayBuffer);
+            data = JSON.parse(textContent);
+          }
+
           if (!data || typeof data !== 'object') {
-            throw new Error('Formato de proyecto invalido.');
+            throw new Error('Formato de proyecto inválido.');
           }
 
           const rawAssets = Array.isArray(data.assets) ? data.assets : [];
@@ -1465,9 +1482,9 @@ const App: React.FC = () => {
               <button onClick={handleSave} className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-blue-400 transition-colors" title="Guardar Proyecto">
                 <Save className="w-4 h-4" />
               </button>
-              <label className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-green-400 transition-colors cursor-pointer" title="Abrir Proyecto">
+              <label className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-green-400 transition-colors cursor-pointer" title="Abrir Proyecto (.omni)">
                 <FolderOpen className="w-4 h-4" />
-                <input type="file" accept=".json" onChange={handleOpen} className="hidden" />
+                <input type="file" accept=".omni,.json" onChange={handleOpen} className="hidden" />
               </label>
               <button onClick={handleDelete} className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-red-400 transition-colors" title="Borrar Proyecto">
                 <Trash2 className="w-4 h-4" />
