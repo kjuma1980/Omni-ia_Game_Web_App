@@ -73,7 +73,13 @@ const localAppDir = path.join(authServerDir, 'public', 'app');
 const localDlDir = path.join(authServerDir, 'public', 'downloads');
 
 if (fs.existsSync(distDir)) {
-  console.log('📋 Copiando archivos compilados de dist/ a public/app/ y public/downloads/...');
+  console.log('🧹 Limpiando assets antiguos acumulados en public/app/assets/ y public/downloads/assets/...');
+  const appAssets = path.join(localAppDir, 'assets');
+  const dlAssets = path.join(localDlDir, 'assets');
+  if (fs.existsSync(appAssets)) fs.rmSync(appAssets, { recursive: true, force: true });
+  if (fs.existsSync(dlAssets)) fs.rmSync(dlAssets, { recursive: true, force: true });
+
+  console.log('📋 Copiando archivos compilados frescos de dist/ a public/app/ y public/downloads/...');
   copyRecursiveSync(distDir, localAppDir);
   copyRecursiveSync(distDir, localDlDir);
 }
