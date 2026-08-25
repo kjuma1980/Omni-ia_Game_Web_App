@@ -182,16 +182,28 @@ app.post('/api/proxy', rateLimit(60 * 1000, 120), (req, res) => {
       return res.status(403).send('Dominio no permitido en el proxy seguro de Hostinger');
     }
 
-    const reqHeaders = { ...headers, host: parsedUrl.host };
-    delete reqHeaders['content-length'];
+    const reqHeaders = { 'accept': 'application/json', 'content-type': 'application/json' };
+    if (headers && typeof headers === 'object') {
+      for (const [k, v] of Object.entries(headers)) {
+        const lk = k.toLowerCase();
+        if (lk !== 'host' && lk !== 'origin' && lk !== 'referer' && lk !== 'content-length' && lk !== 'connection') {
+          reqHeaders[lk] = v;
+        }
+      }
+    }
+    reqHeaders['host'] = parsedUrl.host;
 
     const clientReq = (parsedUrl.protocol === 'https:' ? https : http).request(targetUrl, {
       method: method.toUpperCase(),
       headers: reqHeaders
     }, (upstreamRes) => {
       res.status(upstreamRes.statusCode);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', '*');
       Object.keys(upstreamRes.headers).forEach(k => {
-        if (k !== 'transfer-encoding') {
+        const lk = k.toLowerCase();
+        if (lk !== 'transfer-encoding' && lk !== 'access-control-allow-origin' && lk !== 'access-control-allow-headers') {
           res.setHeader(k, upstreamRes.headers[k]);
         }
       });
