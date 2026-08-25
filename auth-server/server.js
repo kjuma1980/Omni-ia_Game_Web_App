@@ -192,6 +192,12 @@ app.post('/api/proxy', rateLimit(60 * 1000, 120), async (req, res) => {
     if (!reqHeaders['content-type'] && !reqHeaders['Content-Type']) {
       reqHeaders['Content-Type'] = 'application/json';
     }
+    if (!reqHeaders['user-agent'] && !reqHeaders['User-Agent']) {
+      reqHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+    }
+    if (!reqHeaders['accept'] && !reqHeaders['Accept']) {
+      reqHeaders['Accept'] = 'application/json';
+    }
 
     let bodyStr = undefined;
     if (payload) {
