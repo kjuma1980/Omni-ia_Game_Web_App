@@ -160,7 +160,7 @@ const ALLOWED_CLOUD_DOMAINS = [
   "omni-api.fenixdev.cloud"
 ];
 
-app.post('/api/proxy', rateLimit(60 * 1000, 120), (req, res) => {
+app.post('/api/proxy', rateLimit(60 * 1000, 120), async (req, res) => {
   try {
     const targetUrl = req.body?.targetUrl || req.body?.url;
     const method = req.body?.method || 'GET';
@@ -171,9 +171,6 @@ app.post('/api/proxy', rateLimit(60 * 1000, 120), (req, res) => {
       return res.status(400).send('targetUrl es requerido');
     }
 
-    const { URL } = require('url');
-    const http = require('http');
-    const https = require('https');
     const parsedUrl = new URL(targetUrl);
     const hostname = parsedUrl.hostname.toLowerCase();
 
@@ -182,48 +179,54 @@ app.post('/api/proxy', rateLimit(60 * 1000, 120), (req, res) => {
       return res.status(403).send('Dominio no permitido en el proxy seguro de Hostinger');
     }
 
-    const reqHeaders = { 'accept': 'application/json', 'content-type': 'application/json' };
+    const reqHeaders = {};
     if (headers && typeof headers === 'object') {
       for (const [k, v] of Object.entries(headers)) {
         const lk = k.toLowerCase();
-        if (lk !== 'host' && lk !== 'origin' && lk !== 'referer' && lk !== 'content-length' && lk !== 'connection') {
-          reqHeaders[lk] = v;
+        if (lk !== 'host' && lk !== 'origin' && lk !== 'referer' && lk !== 'connection' && lk !== 'accept-encoding') {
+          reqHeaders[k] = v;
         }
       }
     }
-    let dataStr = null;
+    if (!reqHeaders['content-type'] && !reqHeaders['Content-Type']) {
+      reqHeaders['Content-Type'] = 'application/json';
+    }
+
+    let bodyStr = undefined;
     if (payload) {
-      dataStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
-      reqHeaders['content-length'] = Buffer.byteLength(dataStr);
+      bodyStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
     }
 
-    const clientReq = (parsedUrl.protocol === 'https:' ? https : http).request(targetUrl, {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+
+    const upstreamRes = await fetch(targetUrl, {
       method: method.toUpperCase(),
-      headers: reqHeaders
-    }, (upstreamRes) => {
-      res.status(upstreamRes.statusCode);
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', '*');
-      Object.keys(upstreamRes.headers).forEach(k => {
-        const lk = k.toLowerCase();
-        if (lk !== 'transfer-encoding' && lk !== 'access-control-allow-origin' && lk !== 'access-control-allow-headers') {
-          res.setHeader(k, upstreamRes.headers[k]);
-        }
-      });
-      upstreamRes.pipe(res);
+      headers: reqHeaders,
+      body: bodyStr,
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    res.status(upstreamRes.status);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+
+    upstreamRes.headers.forEach((val, key) => {
+      const lk = key.toLowerCase();
+      if (lk !== 'transfer-encoding' && lk !== 'content-encoding' && lk !== 'access-control-allow-origin' && lk !== 'access-control-allow-headers') {
+        res.setHeader(key, val);
+      }
     });
 
-    clientReq.on('error', (err) => {
-      res.status(502).send('Error en relé proxy: ' + err.message);
-    });
-
-    if (dataStr) {
-      clientReq.write(dataStr);
+    const responseText = await upstreamRes.text();
+    return res.send(responseText);
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      return res.status(504).send('Error en relé proxy: Tiempo de espera agotado al conectar con el proveedor.');
     }
-    clientReq.end();
-  } catch (err) {
-    res.status(400).send('Petición proxy inválida: ' + err.message);
+    return res.status(502).send('Error en relé proxy: ' + (err?.message || String(err)));
   }
 });
 
