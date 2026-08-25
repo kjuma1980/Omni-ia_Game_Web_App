@@ -733,17 +733,12 @@ const generateImageRaw = async (
     // puede comportarse distinto.
     const workflow = await pedirWorkflowDelProveedor(
       { deploymentId: odDepId.trim(), apiKey: odApiKey.trim() },
-      // Mundos tiene sus propias ranuras por perspectiva, asi que se pide en su
-      // seccion. Si el proveedor no tiene nada cargado ahi, el agente cae a su
-      // general de Mundos y, si tampoco, al general de Imagen: el mismo que usa
-      // Sprites, que es justo el comportamiento de la aplicacion en local.
       mode === 'background' ? 'mundos' : 'imagen',
-      // La MISMA clave de ranura que usa la aplicacion en local
-      // ("sprite:Idle", "world:platformer"). Si esa ranura no tiene workflow
-      // propio, el proveedor devuelve su general.
       mode === 'background'
         ? slotKeyForPerspective(uiState?.gameGenre || '')
         : slotKeyForAction(action),
+      'ASSETS',
+      mode === 'background' ? 'Mundos' : 'Sprites',
     );
 
     // A partir de aqui, IDENTICO a ComfyUI ---------------------------------

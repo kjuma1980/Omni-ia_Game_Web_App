@@ -241,9 +241,13 @@ export async function pedirWorkflowDelProveedor(
   creds: OmniDeployCreds,
   tipo: 'imagen' | 'mundos' | 'video' | 'voz' | 'musica' | 'sfx' | '3d',
   accion?: string,
+  tab?: string,
+  subtab?: string,
 ): Promise<Record<string, any>> {
   const inputs: Record<string, unknown> = { tipo, pedir_workflow: true };
   if (accion) inputs.accion = accion;
+  if (tab) inputs.tab = tab;
+  if (subtab) inputs.subtab = subtab;
 
   const { jobId } = await omniDeployEncolar(creds, inputs);
   const salidas = await pollOmniDeployRun(creds, jobId);
@@ -276,14 +280,10 @@ export async function generarConOmniDeploy(
     seed?: number;
     /** Que se quiere producir. Solo se usa si no se manda grafo. */
     tipo?: 'imagen' | 'video' | 'voz' | 'musica' | 'sfx' | '3d';
-    /**
-     * Accion elegida en la interfaz: "Idle", "Static Object", "T-Pose"...
-     *
-     * Sirve para que el proveedor use el workflow que TENGA LIGADO a esa
-     * accion, igual que hace la aplicacion cuando genera en local, y si no
-     * tiene ninguno, su workflow general.
-     */
+    /** Accion elegida en la interfaz: "Idle", "Static Object", "T-Pose"... */
     accion?: string;
+    tab?: string;
+    subtab?: string;
     /** Pestana que lo pidio, para el registro de uso del proveedor. */
     servicio?: string;
     /**

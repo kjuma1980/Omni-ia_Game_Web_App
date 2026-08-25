@@ -230,40 +230,56 @@ def workflow_de_esta_maquina(inputs: dict) -> dict | None:
     def saneado(x: str) -> str:
         return "".join(c if (c.isalnum() or c in "-_") else "_" for c in x)
 
-    # SE BUSCA DENTRO DE LA CARPETA DEL TIPO Y NUNCA FUERA. Cada pestana de la
-    # aplicacion tiene su propia configuracion de ComfyUI, con su workflow: un
-    # trabajo de voz no puede acabar ejecutando un grafo de imagen y devolviendo
-    # un PNG donde se espera un wav.
-    tipo = saneado(str(inputs.get("tipo") or "imagen").strip().lower())
-
-    candidatos = []
+    tab = str(inputs.get("tab") or inputs.get("tipo") or "ASSETS").strip().upper()
+    subtab = str(inputs.get("subtab") or "").strip()
     accion = str(inputs.get("accion") or "").strip()
-    if accion:
-        candidatos.append((tipo, saneado(accion)))
-    candidatos.append((tipo, "general"))
 
-    # Mundos funciona igual que Sprites: tiene sus ranuras por perspectiva, pero
-    # si no hay nada cargado en ellas ni en su general, vale el general de
-    # Imagen —el mismo que usa Sprites—, que es lo que hace la aplicacion cuando
-    # genera en local. No al reves: un grafo de mundos no se sirve a un sprite.
-    if tipo == "mundos":
-        # Las tuberias A, B y C NO se consultan. Son el reparto entre varios
-        # ComfyUI del camino local, y sus workflows son los mismos que ya estan
-        # en las ranuras por perspectiva: consultarlas solo anade un escalon que
-        # puede servir un grafo distinto del que el usuario ve seleccionado.
-        candidatos.append(("imagen", "general"))
+    # 1. Busqueda en la carpeta `workflows/` del Agente OmniDeploy (AQUI / workflows)
+    raiz_agente = AQUI / "workflows"
+    if raiz_agente.is_dir():
+        candidatos_agente = []
+        if tab and subtab and accion:
+            candidatos_agente.append(raiz_agente / saneado(tab) / saneado(subtab) / f"{saneado(accion)}.json")
+        if tab and subtab:
+            candidatos_agente.append(raiz_agente / saneado(tab) / saneado(subtab) / "default.json")
+        if tab:
+            candidatos_agente.append(raiz_agente / saneado(tab) / "default.json")
+        candidatos_agente.append(raiz_agente / "default.json")
 
-    for carpeta, nombre in candidatos:
-        dir_wf = raiz / carpeta
-        f = dir_wf / f"{nombre}.json"
-        if f.exists():
-            try:
-                grafo = json.loads(f.read_text(encoding="utf-8"))
-            except json.JSONDecodeError:
-                continue
-            if isinstance(grafo, dict) and grafo:
-                log(f"  workflow de esta maquina: {carpeta}/{nombre} ({len(grafo)} nodos)")
-                return grafo
+        for f in candidatos_agente:
+            if f.exists():
+                try:
+                    grafo = json.loads(f.read_text(encoding="utf-8"))
+                    if isinstance(grafo, dict) and grafo:
+                        log(f"  workflow encontrado en agente: {f.relative_to(AQUI)} ({len(grafo)} nodos)")
+                        return grafo
+                except json.JSONDecodeError:
+                    continue
+
+    # 2. Busqueda de respaldo en LOCALAPPDATA
+    base = os.environ.get("LOCALAPPDATA", "")
+    if base:
+        raiz = Path(base) / "Omni IA Game" / "omnideploy" / "workflows"
+        if raiz.is_dir():
+            tipo = saneado(str(inputs.get("tipo") or "imagen").strip().lower())
+            candidatos = []
+            if accion:
+                candidatos.append((tipo, saneado(accion)))
+            candidatos.append((tipo, "general"))
+            if tipo == "mundos":
+                candidatos.append(("imagen", "general"))
+
+            for carpeta, nombre in candidatos:
+                dir_wf = raiz / carpeta
+                f = dir_wf / f"{nombre}.json"
+                if f.exists():
+                    try:
+                        grafo = json.loads(f.read_text(encoding="utf-8"))
+                        if isinstance(grafo, dict) and grafo:
+                            log(f"  workflow de esta maquina: {carpeta}/{nombre} ({len(grafo)} nodos)")
+                            return grafo
+                    except json.JSONDecodeError:
+                        continue
     return None
 
 

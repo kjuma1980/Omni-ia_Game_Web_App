@@ -1,0 +1,518 @@
+{
+  "9": {
+    "inputs": {
+      "filename_prefix": "z-image-turbo",
+      "images": [
+        "69",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image #output"
+    }
+  },
+  "65": {
+    "inputs": {
+      "shift": 3,
+      "model": [
+        "82",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": {
+      "title": "ModelSamplingAuraFlow"
+    }
+  },
+  "66": {
+    "inputs": {
+      "unet_name": "z_image_turbo_bf16.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "67": {
+    "inputs": {
+      "text": "masterpiece, ultra detailed, professional illustration, 8k resolution, realistic 3D render, physically based rendering, 4k PBR materials with albedo, roughness, metallic and normal detail, accurate global illumination, believable surface wear. The subject is a massive, intimidatingly muscular alien warrior featuring an imposing physique, large expressive eyes, and a small mouth, with thick horns protruding from its head. It possesses powerful limbs, five digits on each hand, three toes on each foot, and a long tail extending straight behind it for symmetry. Large bat-like wings are folded flat against its back to maintain a clean profile. The alien is clad in semi-organic bio-armor that appears to have life, featuring the integrated face of a female alien within the chest plate. A high-tech galactic sword is mounted on its back. T-pose rigging reference, limbs extended straight out to the sides, perfectly symmetrical, standing upright facing the camera, arms held horizontal at shoulder height, orthographic front view, full body visible from head to feet, neutral relaxed expression. All limbs are separated from the torso with clear open space visible between limb and body, ensuring nothing overlaps or hides another part. Isolated 3D character asset on a pure solid white background, clean studio illumination, neutral environment, diffuse even ambient illumination.",
+      "clip": [
+        "70",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIPTextEncode (PROMPT)"
+    }
+  },
+  "68": {
+    "inputs": {
+      "seed": 661521997606461,
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "65",
+        0
+      ],
+      "positive": [
+        "67",
+        0
+      ],
+      "negative": [
+        "76",
+        0
+      ],
+      "latent_image": [
+        "71",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler $sampler"
+    }
+  },
+  "69": {
+    "inputs": {
+      "samples": [
+        "68",
+        0
+      ],
+      "vae": [
+        "72",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "70": {
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "lumina2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "71": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "EmptySD3LatentImage"
+    }
+  },
+  "72": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "75": {
+    "inputs": {
+      "transparency": true,
+      "model": "u2net",
+      "post_processing": false,
+      "only_mask": false,
+      "alpha_matting": false,
+      "alpha_matting_foreground_threshold": 240,
+      "alpha_matting_background_threshold": 10,
+      "alpha_matting_erode_size": 10,
+      "background_color": "none"
+    },
+    "class_type": "Image Rembg (Remove Background)",
+    "_meta": {
+      "title": "Image Rembg (Remove Background)"
+    }
+  },
+  "76": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "70",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "82": {
+    "inputs": {
+      "strength": 1,
+      "model": [
+        "66",
+        0
+      ],
+      "model_patch": [
+        "87",
+        0
+      ],
+      "vae": [
+        "72",
+        0
+      ],
+      "image": [
+        "89",
+        0
+      ]
+    },
+    "class_type": "ZImageFunControlnet",
+    "_meta": {
+      "title": "Apply Z-Image Fun ControlNet"
+    }
+  },
+  "87": {
+    "inputs": {
+      "name": "Z-Image-Turbo-Fun-Controlnet-Union.safetensors"
+    },
+    "class_type": "ModelPatchLoader",
+    "_meta": {
+      "title": "Load Model Patch"
+    }
+  },
+  "89": {
+    "inputs": {
+      "image": "Pose_89.png",
+      "Add pose": "add_pose",
+      "Reset pose": "reset_pose",
+      "widget_openpose": {
+        "undo_history": [
+          {
+            "keypoints": [
+              [
+                241,
+                77
+              ],
+              [
+                241,
+                120
+              ],
+              [
+                191,
+                118
+              ],
+              [
+                177,
+                183
+              ],
+              [
+                163,
+                252
+              ],
+              [
+                298,
+                118
+              ],
+              [
+                317,
+                182
+              ],
+              [
+                332,
+                245
+              ],
+              [
+                218,
+                242
+              ],
+              [
+                213,
+                359
+              ],
+              [
+                215,
+                454
+              ],
+              [
+                270,
+                240
+              ],
+              [
+                282,
+                360
+              ],
+              [
+                286,
+                456
+              ],
+              [
+                232,
+                59
+              ],
+              [
+                253,
+                60
+              ],
+              [
+                225,
+                70
+              ],
+              [
+                260,
+                72
+              ]
+            ]
+          },
+          {
+            "keypoints": [
+              [
+                241,
+                77
+              ],
+              [
+                241,
+                120
+              ],
+              [
+                191,
+                118
+              ],
+              [
+                177,
+                183
+              ],
+              [
+                163,
+                252
+              ],
+              [
+                298,
+                118
+              ],
+              [
+                317,
+                182
+              ],
+              [
+                332,
+                245
+              ],
+              [
+                218,
+                242
+              ],
+              [
+                210,
+                359
+              ],
+              [
+                215,
+                454
+              ],
+              [
+                270,
+                240
+              ],
+              [
+                282,
+                360
+              ],
+              [
+                286,
+                456
+              ],
+              [
+                232,
+                59
+              ],
+              [
+                253,
+                60
+              ],
+              [
+                225,
+                70
+              ],
+              [
+                260,
+                72
+              ]
+            ]
+          },
+          {
+            "keypoints": [
+              [
+                241,
+                77
+              ],
+              [
+                241,
+                120
+              ],
+              [
+                191,
+                118
+              ],
+              [
+                177,
+                183
+              ],
+              [
+                163,
+                252
+              ],
+              [
+                298,
+                118
+              ],
+              [
+                317,
+                182
+              ],
+              [
+                332,
+                245
+              ],
+              [
+                218,
+                242
+              ],
+              [
+                210,
+                359
+              ],
+              [
+                206,
+                453
+              ],
+              [
+                270,
+                240
+              ],
+              [
+                282,
+                360
+              ],
+              [
+                286,
+                456
+              ],
+              [
+                232,
+                59
+              ],
+              [
+                253,
+                60
+              ],
+              [
+                225,
+                70
+              ],
+              [
+                260,
+                72
+              ]
+            ]
+          },
+          {
+            "keypoints": [
+              [
+                241,
+                77
+              ],
+              [
+                241,
+                120
+              ],
+              [
+                191,
+                118
+              ],
+              [
+                177,
+                183
+              ],
+              [
+                163,
+                252
+              ],
+              [
+                298,
+                118
+              ],
+              [
+                317,
+                182
+              ],
+              [
+                332,
+                245
+              ],
+              [
+                218,
+                242
+              ],
+              [
+                210,
+                359
+              ],
+              [
+                208,
+                454
+              ],
+              [
+                270,
+                240
+              ],
+              [
+                282,
+                360
+              ],
+              [
+                286,
+                456
+              ],
+              [
+                232,
+                59
+              ],
+              [
+                253,
+                60
+              ],
+              [
+                225,
+                70
+              ],
+              [
+                260,
+                72
+              ]
+            ]
+          }
+        ],
+        "redo_history": [],
+        "currentCanvasSize": {
+          "width": 512,
+          "height": 512
+        },
+        "background": null,
+        "backgroundColor": null
+      }
+    },
+    "class_type": "PoseNode",
+    "_meta": {
+      "title": "PoseNode - 512x512"
+    }
+  }
+}
