@@ -43,16 +43,13 @@ async function main() {
   const serverJs = path.join(rootDir, 'auth-server', 'server.js');
   const zipFile = path.join(rootDir, 'omni_auth_code_deploy.zip');
 
-  console.log('1️⃣ Actualizando server.js en Hostinger y reiniciando motor Node.js...');
-  await updateRemoteCode(serverJs, 'server.js', true);
+  console.log('1️⃣ Enviendo server.js actualizado a Hostinger (sin matar proceso)...');
+  await updateRemoteCode(serverJs, 'server.js', false);
 
-  console.log('⏳ Esperando 3 segundos para reinicio del servidor...');
-  await new Promise(r => setTimeout(r, 3000));
-
-  console.log('2️⃣ Subiendo paquete web omni_auth_code_deploy.zip...');
+  console.log('2️⃣ Subiendo paquete web omni_auth_code_deploy.zip (con reinicio final)...');
   await updateRemoteCode(zipFile, '../../omni_auth_code_deploy.zip', true);
 
-  console.log('\n🎉 ¡Despliegue y actualización completa en Hostinger finalizada con éxito!');
+  console.log('\n🎉 ¡Restauración y despliegue completado con éxito!');
 }
 
 main().catch(err => {

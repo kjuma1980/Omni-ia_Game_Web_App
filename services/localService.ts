@@ -561,7 +561,7 @@ export const generateOpenAICompletion = async (
   } else if (provider === 'nvidia') {
     baseUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
     if (!model || model === 'custom') {
-      model = 'deepseek-ai/deepseek-v4-flash-0731';
+      model = 'meta/llama-3.3-70b-instruct';
     }
   } else {
     throw new Error(`Proveedor ${provider} no soportado en generateOpenAICompletion.`);
