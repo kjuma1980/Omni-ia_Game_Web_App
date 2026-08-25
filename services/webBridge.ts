@@ -244,6 +244,32 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
         const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost');
         if (isLocalDev) {
           requestUrl = url.replace('https://integrate.api.nvidia.com', '/api/nvidia');
+        } else {
+          // En producción (fenixdev.cloud), enviar siempre al proxy del servidor Express
+          requestUrl = '/api/proxy';
+          return await (async () => {
+            const fetchHeaders: Record<string, string> = { ...headers };
+            if (payload && !fetchHeaders['Content-Type']) fetchHeaders['Content-Type'] = 'application/json';
+            const proxyRes = await fetch('/api/proxy', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                targetUrl: url,
+                method,
+                headers: fetchHeaders,
+                payload
+              })
+            });
+            const textResult = await proxyRes.text();
+            if (!proxyRes.ok) {
+              let errObj: any;
+              try { errObj = JSON.parse(textResult); } catch {
+                errObj = { error: { message: textResult.substring(0, 250) || `Error HTTP ${proxyRes.status}` } };
+              }
+              return JSON.stringify(errObj);
+            }
+            return textResult;
+          })();
         }
       }
 

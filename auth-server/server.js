@@ -191,7 +191,11 @@ app.post('/api/proxy', rateLimit(60 * 1000, 120), (req, res) => {
         }
       }
     }
-    reqHeaders['host'] = parsedUrl.host;
+    let dataStr = null;
+    if (payload) {
+      dataStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      reqHeaders['content-length'] = Buffer.byteLength(dataStr);
+    }
 
     const clientReq = (parsedUrl.protocol === 'https:' ? https : http).request(targetUrl, {
       method: method.toUpperCase(),
@@ -214,8 +218,7 @@ app.post('/api/proxy', rateLimit(60 * 1000, 120), (req, res) => {
       res.status(502).send('Error en relé proxy: ' + err.message);
     });
 
-    if (payload) {
-      const dataStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    if (dataStr) {
       clientReq.write(dataStr);
     }
     clientReq.end();
