@@ -69,22 +69,19 @@ function copyRecursiveSync(src, dest) {
 }
 
 const distDir = path.join(rootDir, 'dist');
-const localPublicDir = path.join(authServerDir, 'public');
 const localAppDir = path.join(authServerDir, 'public', 'app');
 const localDlDir = path.join(authServerDir, 'public', 'downloads');
 
 if (fs.existsSync(distDir)) {
-  console.log('📋 Copiando archivos compilados de dist/ a todas las rutas públicas del servidor web...');
-  copyRecursiveSync(distDir, localPublicDir);
+  console.log('📋 Copiando archivos compilados de dist/ a public/app/ y public/downloads/...');
   copyRecursiveSync(distDir, localAppDir);
   copyRecursiveSync(distDir, localDlDir);
 }
 
 copyRecursiveSync(authServerDir, stageDir);
 
-// Asegurar copias en el directorio de staging
+// Asegurar copias en el directorio de staging para /app y /downloads
 if (fs.existsSync(distDir)) {
-  copyRecursiveSync(distDir, path.join(stageDir, 'public'));
   copyRecursiveSync(distDir, path.join(stageDir, 'public', 'app'));
   copyRecursiveSync(distDir, path.join(stageDir, 'public', 'downloads'));
 }

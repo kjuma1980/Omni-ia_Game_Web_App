@@ -1,14 +1,2356 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/jpeg" href="./logo.jpg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Omni IA Game — Versión Educativa</title>
-    <script type="module" crossorigin src="./assets/index-0gyKodeN.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-DwxJQIym.css">
-  </head>
-  <body class="bg-slate-950 text-slate-200 antialiased overflow-hidden">
-    <div id="root" class="h-screen w-screen flex flex-col"></div>
-  </body>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Omni-IA Game — El Motor de Creación de Videojuegos con Inteligencia Artificial</title>
+  <meta name="description" content="Omni-IA Game: La suite todo-en-uno para creación de videojuegos con IA local y en la nube. Sprites 2D, Modelado 3D, NPCs con LLM, Audio Espacial y Generación de Código." />
+  
+  <!-- Google Fonts: Orbitron, Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --bg-card: rgba(13, 17, 27, 0.85);
+      --purple-primary: #9333ea;
+      --purple-glow: rgba(168, 85, 247, 0.5);
+      --cyan-accent: #06b6d4;
+      --cyan-glow: rgba(6, 182, 212, 0.4);
+      --emerald-glow: #10b981;
+      --amber-accent: #f59e0b;
+      --border-glass: rgba(147, 51, 234, 0.25);
+      --font-display: 'Orbitron', monospace, sans-serif;
+      --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', Consolas, monospace;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: #f1f5f9;
+      font-family: var(--font-body);
+      overflow-x: hidden;
+      line-height: 1.6;
+      background-image: 
+        radial-gradient(ellipse at 50% 0%, rgba(88, 28, 135, 0.35) 0%, transparent 60%),
+        radial-gradient(circle at 10% 30%, rgba(6, 182, 212, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 90% 70%, rgba(147, 51, 234, 0.18) 0%, transparent 45%);
+      background-attachment: fixed;
+    }
+
+    /* Scanlines effect overlay */
+    .scanlines {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.22) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.35;
+    }
+
+    /* Fullscreen Fixed Canvas for Global Interactive Hero */
+    #gameCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      opacity: 0.88;
+      pointer-events: none;
+    }
+
+    /* Navigation Bar */
+    header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      background: rgba(7, 9, 14, 0.88);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.3s ease;
+    }
+
+    .nav-container {
+      max-width: 1300px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: #fff;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #a855f7 0%, #3b82f6 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 22px;
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .brand-text {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
+    .brand-text span {
+      background: linear-gradient(90deg, #c084fc, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .nav-links a, .nav-links button {
+      color: #cbd5e1;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: color 0.2s;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .nav-links a:hover, .nav-links button:hover {
+      color: #c084fc;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .sound-toggle-btn {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .sound-toggle-btn:hover {
+      background: rgba(147, 51, 234, 0.2);
+      color: #e2e8f0;
+      border-color: var(--purple-primary);
+    }
+
+    .btn-download-nav {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 9px 20px;
+      border-radius: 10px;
+      border: 1px solid #34d399;
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.35);
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-download-nav:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+    }
+
+    /* Hero Section */
+    .hero-section {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 24px 60px;
+      overflow: hidden;
+      z-index: 2;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 980px;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(147, 51, 234, 0.18);
+      border: 1px solid rgba(168, 85, 247, 0.45);
+      padding: 7px 18px;
+      border-radius: 30px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #d8b4fe;
+      margin-bottom: 24px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 25px rgba(147, 51, 234, 0.25);
+    }
+    .hero-badge .pulse-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+      animation: pulse 1.5s infinite;
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(2.4rem, 5.8vw, 4.6rem);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      margin-bottom: 20px;
+      color: #ffffff;
+    }
+
+    .hero-title .gradient-text {
+      background: linear-gradient(135deg, #c084fc 0%, #38bdf8 50%, #f472b6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 35px rgba(192, 132, 252, 0.45));
+    }
+
+    .hero-subtitle {
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: #94a3b8;
+      max-width: 780px;
+      margin: 0 auto 36px;
+      font-weight: 400;
+    }
+
+    .hero-cta-group {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .btn-hero-primary {
+      background: linear-gradient(135deg, #9333ea 0%, #6366f1 100%);
+      color: #fff;
+      text-decoration: none;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      padding: 16px 36px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 0 35px rgba(147, 51, 234, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.2);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-hero-primary:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 0 50px rgba(147, 51, 234, 0.8), inset 0 0 15px rgba(255, 255, 255, 0.4);
+      background: linear-gradient(135deg, #a855f7 0%, #4f46e5 100%);
+    }
+
+    .btn-hero-secondary {
+      background: rgba(15, 23, 42, 0.8);
+      color: #cbd5e1;
+      text-decoration: none;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 14px;
+      padding: 16px 28px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px);
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-hero-secondary:hover {
+      background: rgba(30, 41, 59, 0.9);
+      color: #fff;
+      border-color: var(--cyan-accent);
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.3);
+    }
+
+    /* Section Container */
+    .section-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 90px 24px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 50px;
+    }
+    .section-tag {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #c084fc;
+      margin-bottom: 10px;
+      display: block;
+    }
+    .section-title {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 900;
+      color: #f8fafc;
+      letter-spacing: -0.5px;
+      margin-bottom: 16px;
+    }
+    .section-desc {
+      color: #94a3b8;
+      font-size: 16px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    /* Interactive Live AI Forge Simulator */
+    .simulator-card {
+      background: rgba(13, 17, 27, 0.88);
+      border: 1px solid rgba(147, 51, 234, 0.4);
+      border-radius: 20px;
+      padding: 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(147, 51, 234, 0.15);
+      backdrop-filter: blur(16px);
+      margin-bottom: 0;
+    }
+
+    .sim-prompt-box {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    .sim-input {
+      flex: 1;
+      min-width: 280px;
+      background: rgba(7, 9, 14, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 14px 18px;
+      color: #f1f5f9;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .sim-input:focus {
+      border-color: var(--purple-primary);
+      box-shadow: 0 0 18px rgba(147, 51, 234, 0.4);
+    }
+    .btn-forge-run {
+      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 28px;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+      transition: all 0.2s;
+    }
+    .btn-forge-run:hover {
+      transform: scale(1.03);
+      box-shadow: 0 0 35px rgba(168, 85, 247, 0.7);
+    }
+
+    /* Pipeline Step Columns */
+    .pipeline-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    .pipeline-step {
+      background: rgba(7, 9, 14, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 20px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .pipeline-step.active {
+      border-color: var(--cyan-accent);
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.3);
+      background: rgba(6, 182, 212, 0.05);
+    }
+    .pipeline-step.completed {
+      border-color: #22c55e;
+      background: rgba(34, 197, 94, 0.05);
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .step-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+    }
+    .step-title {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 8px;
+    }
+    .step-preview {
+      height: 120px;
+      background: #020617;
+      border-radius: 8px;
+      border: 1px dashed rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #64748b;
+      text-align: center;
+      position: relative;
+    }
+
+    /* --- MASCOT ARENA & INTERACTIVE PLAYGROUND (COMPLETAMENTE OCULTO HASTA FORJAR) --- */
+    .mascot-sandbox-card {
+      display: none; /* TOTALMENTE OCULTO HASTA QUE SE FORJA CON IA */
+      margin-top: 36px;
+      background: radial-gradient(circle at 50% 0%, rgba(147, 51, 234, 0.25) 0%, rgba(13, 17, 27, 0.96) 70%);
+      border: 2px solid rgba(168, 85, 247, 0.6);
+      border-radius: 24px;
+      padding: 36px 32px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.75), 0 0 50px rgba(168, 85, 247, 0.35);
+      backdrop-filter: blur(20px);
+      position: relative;
+      overflow: hidden;
+      animation: forgeMaterialize 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes forgeMaterialize {
+      0% { opacity: 0; transform: scale(0.9) translateY(40px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .mascot-sandbox-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 18px;
+    }
+
+    .mascot-info-group {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .mascot-avatar-thumb {
+      width: 68px;
+      height: 68px;
+      border-radius: 16px;
+      border: 2px solid #a855f7;
+      object-fit: cover;
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
+      background: #1e1b4b;
+    }
+
+    .mascot-name-badge h3 {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 1px;
+    }
+    .mascot-name-badge span {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #38bdf8;
+      font-weight: 700;
+    }
+
+    .mascot-stats-pills {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .stat-pill {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #cbd5e1;
+    }
+    .stat-pill strong {
+      color: #f472b6;
+    }
+
+    /* Sandbox Canvas Area */
+    .arena-container {
+      position: relative;
+      width: 100%;
+      height: 380px;
+      border-radius: 16px;
+      background: #04060a;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      overflow: hidden;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
+    }
+
+    #mascotCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    /* Floating Sandbox HUD */
+    .arena-hud {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      display: flex;
+      gap: 12px;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .hud-chip {
+      background: rgba(13, 17, 27, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .hud-chip span {
+      color: #22c55e;
+      font-weight: 800;
+    }
+
+    /* Control Keys Floating Legend */
+    .arena-controls-bar {
+      margin-top: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: rgba(7, 9, 14, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 12px 20px;
+    }
+
+    .key-hints-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .kbd {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 3px 8px;
+      color: #38bdf8;
+      font-weight: 700;
+      box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    .mobile-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-mobile-act {
+      background: rgba(147, 51, 234, 0.3);
+      border: 1px solid #a855f7;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-mobile-act:hover, .btn-mobile-act:active {
+      background: #a855f7;
+      transform: scale(0.96);
+    }
+
+    /* Core Features Grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 28px;
+    }
+
+    .feature-card {
+      background: rgba(13, 17, 27, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 32px;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--purple-primary), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .feature-card:hover {
+      transform: translateY(-6px);
+      border-color: rgba(168, 85, 247, 0.4);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(168, 85, 247, 0.15);
+      background: rgba(18, 24, 38, 0.85);
+    }
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+
+    .feature-icon-wrapper {
+      width: 54px;
+      height: 54px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 20px;
+      background: rgba(147, 51, 234, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      box-shadow: 0 0 15px rgba(147, 51, 234, 0.2);
+    }
+
+    .feature-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    .feature-text {
+      color: #94a3b8;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .feature-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tech-pill {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: #38bdf8;
+    }
+
+    /* Big Download Section */
+    .download-cta-section {
+      background: linear-gradient(180deg, transparent 0%, rgba(88, 28, 135, 0.25) 100%);
+      border-top: 1px solid rgba(147, 51, 234, 0.2);
+      padding: 100px 24px;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .download-box {
+      max-width: 800px;
+      margin: 0 auto;
+      background: rgba(13, 17, 27, 0.92);
+      border: 1px solid rgba(168, 85, 247, 0.45);
+      border-radius: 24px;
+      padding: 48px 36px;
+      box-shadow: 0 0 60px rgba(147, 51, 234, 0.25);
+      backdrop-filter: blur(20px);
+    }
+
+    .btn-main-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff;
+      text-decoration: none;
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 18px;
+      padding: 18px 44px;
+      border-radius: 16px;
+      border: 2px solid #34d399;
+      box-shadow: 0 0 40px rgba(16, 185, 129, 0.5);
+      transition: all 0.25s;
+      margin: 24px 0 16px;
+    }
+    .btn-main-download:hover {
+      transform: translateY(-4px) scale(1.03);
+      box-shadow: 0 0 60px rgba(16, 185, 129, 0.8);
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    }
+
+    .download-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #64748b;
+      flex-wrap: wrap;
+    }
+
+    /* --- CHANGELOG MODAL (MANIFIESTO DE ACTUALIZACIONES) --- */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(4, 6, 11, 0.88);
+      backdrop-filter: blur(14px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: modalFadeIn 0.25s ease-out forwards;
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-box {
+      background: #0b0f19;
+      border: 1px solid rgba(168, 85, 247, 0.45);
+      border-radius: 24px;
+      max-width: 820px;
+      width: 100%;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.9), 0 0 50px rgba(147, 51, 234, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 24px 30px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(13, 17, 27, 0.95);
+    }
+    .modal-title-group h3 {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .modal-title-group p {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+    .btn-modal-close {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #cbd5e1;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-modal-close:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border-color: #ef4444;
+    }
+
+    .modal-body {
+      padding: 28px 30px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .changelog-card {
+      background: rgba(13, 17, 27, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 22px;
+      transition: all 0.2s;
+    }
+    .changelog-card.active {
+      border-color: rgba(16, 185, 129, 0.5);
+      background: rgba(16, 185, 129, 0.04);
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.12);
+    }
+
+    .changelog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .version-tag-badge {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge-status {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .badge-latest {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid #10b981;
+    }
+    .badge-past {
+      background: rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+    }
+    .changelog-date {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .changelog-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .changelog-list li {
+      font-size: 13px;
+      color: #cbd5e1;
+      line-height: 1.5;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .changelog-list li span.bullet {
+      color: #a855f7;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .modal-footer {
+      padding: 18px 30px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(13, 17, 27, 0.95);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .modal-raw-link {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #38bdf8;
+      text-decoration: none;
+    }
+    .modal-raw-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Footer */
+    footer {
+      position: relative;
+      z-index: 2;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 40px 24px;
+      text-align: center;
+      font-size: 13px;
+      color: #64748b;
+      background: #040609;
+    }
+    footer a, footer button.footer-link-btn {
+      color: #c084fc;
+      text-decoration: none;
+      margin: 0 10px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: inherit;
+      font-family: inherit;
+    }
+    footer a:hover, footer button.footer-link-btn:hover {
+      text-decoration: underline;
+      color: #d8b4fe;
+    }
+    .server-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #94a3b8;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin: 0 10px;
+      vertical-align: middle;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="scanlines"></div>
+
+  <!-- Fullscreen Fixed Canvas for Global Interactive Hero -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Barra de Navegación -->
+  <header>
+    <div class="nav-container">
+      <a href="#" class="brand-logo">
+        <div class="brand-icon">Ω</div>
+        <div class="brand-text">OMNI-IA <span>GAME</span></div>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#motor">Inicio</a></li>
+        <li><a href="#pipeline">Simulador IA</a></li>
+        <li><a href="#modulos">Módulos</a></li>
+        <li><button id="btnNavChangelog">Novedades (v0.2.8)</button></li>
+        <li><a href="/admin">Panel Admin</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <button id="soundBtn" class="sound-toggle-btn" title="Activar/Desactivar efectos de sonido Web Audio">
+          <span>🔊</span> SFX: ON
+        </button>
+        <a class="btn-web-nav" href="/app/" style="background: linear-gradient(135deg, #9333ea 0%, #3b82f6 100%); color: #fff; text-decoration: none; font-weight: 700; font-size: 13px; padding: 9px 18px; border-radius: 10px; border: 1px solid #c084fc; box-shadow: 0 0 15px rgba(147, 51, 234, 0.4); display: inline-flex; align-items: center; gap: 8px;">
+          <span>🌐</span> ABRIR APP WEB
+        </a>
+        <a class="btn-download-nav" href="/downloads/">
+          <span>⬇️</span> Zona de Descargas
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section" id="motor">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        <span>MOTOR PROCEDURAL v0.2.8 ACTIVO · DISPONIBLE EN WEB Y ESCRITORIO</span>
+      </div>
+
+      <h1 class="hero-title">
+        EL ESTUDIO DE VIDEOJUEGOS <br>
+        <span class="gradient-text">CREADO CON INTELIGENCIA ARTIFICIAL</span>
+      </h1>
+
+      <p class="hero-subtitle">
+        Genera mundos procedurales, spritesheets animados, modelos 3D con rigging, diálogos vivos de NPCs y código nativo para Godot y Unity en segundos. Disponible directamente en la Web o como App de Escritorio.
+      </p>
+
+      <div class="hero-cta-group" style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center; justify-content: center; margin-top: 24px;">
+        <a class="btn-hero-primary" href="/app/" style="background: linear-gradient(135deg, #a855f7 0%, #3b82f6 100%); border-color: #c084fc; box-shadow: 0 0 25px rgba(168, 85, 247, 0.6);">
+          <span>🌐</span> ABRIR APP WEB
+        </a>
+        <a class="btn-hero-secondary" href="/downloads/" id="btnHeroDownload">
+          <span>⚡</span> ZONA DE DESCARGAS (WINDOWS / LINUX / MAC)
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Simulador del Pipeline de IA en Vivo & Creación de Mascota -->
+  <section class="section-container" id="pipeline">
+    <div class="section-header">
+      <span class="section-tag">// PIPELINE NEURAL EN TIEMPO REAL</span>
+      <h2 class="section-title">El Cerebro de Omni-IA Game</h2>
+      <p class="section-desc">
+        Escribe cualquier concepto o usa el de la mascota oficial. Al pulsar <strong>«FORJAR ASSET CON IA»</strong>, el motor ejecutará la cadena completa y materializará el resultado en vivo.
+      </p>
+    </div>
+
+    <div class="simulator-card">
+      <div class="sim-prompt-box">
+        <input 
+          type="text" 
+          id="simPromptInput" 
+          class="sim-input" 
+          value="Fényx: Caballero mecha fénix cibernético con espada de plasma y alas de neón"
+          placeholder="Escribe la idea de tu personaje o mundo..."
+        />
+        <button class="btn-forge-run" id="btnRunPipeline">
+          <span>✨</span> FORJAR ASSET CON IA
+        </button>
+      </div>
+
+      <div class="pipeline-grid">
+        <!-- Paso 1: Prompt Refiner -->
+        <div class="pipeline-step" id="step1">
+          <div class="step-header">
+            <span class="step-badge">01. LLM REFINER</span>
+            <span class="step-status">LISTO</span>
+          </div>
+          <h4 class="step-title">Ingeniería de Prompts</h4>
+          <div class="step-preview" id="preview1">
+            Gemma / DeepSeek optimiza la descripción técnica de iluminación, pose y paleta.
+          </div>
+        </div>
+
+        <!-- Paso 2: Generación 2D / Sprites -->
+        <div class="pipeline-step" id="step2">
+          <div class="step-header">
+            <span class="step-badge">02. COMFYUI / FLUX</span>
+            <span class="step-status">EN ESPERA</span>
+          </div>
+          <h4 class="step-title">Spritesheet & Matting</h4>
+          <div class="step-preview" id="preview2">
+            Matriz de 8 direcciones, fondo verde chroma o transparente PNG de 32-bits.
+          </div>
+        </div>
+
+        <!-- Paso 3: Modelado 3D & Rigging -->
+        <div class="pipeline-step" id="step3">
+          <div class="step-header">
+            <span class="step-badge">03. 3D FORGE</span>
+            <span class="step-status">EN ESPERA</span>
+          </div>
+          <h4 class="step-title">Malla 3D & Esqueleto</h4>
+          <div class="step-preview" id="preview3">
+            Malla Low-Poly optimizada con texturas PBR y animación de caminata.
+          </div>
+        </div>
+
+        <!-- Paso 4: Código & Lógica de Juego -->
+        <div class="pipeline-step" id="step4">
+          <div class="step-header">
+            <span class="step-badge">04. GODOT / UNITY</span>
+            <span class="step-status">EN ESPERA</span>
+          </div>
+          <h4 class="step-title">Controlador de Personaje</h4>
+          <div class="step-preview" id="preview4">
+            Código GDScript / C# compilado y listo para arrastrar al motor de juegos.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN INTERACTIVA DE LA MASCOTA OFICIAL: FÉNYX (100% OCULTO HASTA TERMINAR EL CICLO DE GENERACIÓN) -->
+    <div class="mascot-sandbox-card" id="mascota">
+      <div class="mascot-sandbox-header">
+        <div class="mascot-info-group">
+          <img src="./mascot.jpg" onerror="this.onerror=null; this.src='/mascot.jpg';" alt="Mascota Oficial de Omni-IA Game" class="mascot-avatar-thumb" />
+          <div class="mascot-name-badge">
+            <h3>FÉNYX · <span style="color:#c084fc;">¡Asset Forjado con Éxito!</span></h3>
+            <span>MASCOTA OFICIAL · MECHA-FÉNIX CUÁNTICO JUGABLE</span>
+          </div>
+        </div>
+
+        <div class="mascot-stats-pills">
+          <div class="stat-pill">⚔️ ARMA: <strong>Plasma Katana</strong></div>
+          <div class="stat-pill">✨ HABILIDAD: <strong>Corte Dimensional</strong></div>
+          <div class="stat-pill">⚡ COMBO: <strong id="comboCounter">0 HITS</strong></div>
+          <div class="stat-pill">🎯 BLANCOS: <strong id="targetsSmashed">0 DESTRUIDOS</strong></div>
+        </div>
+      </div>
+
+      <!-- Lienzo del Mini-Juego de la Mascota -->
+      <div class="arena-container" id="arenaContainer">
+        <div class="arena-hud">
+          <div class="hud-chip">ESTADO: <span id="mascotStateTxt">IDLE</span></div>
+          <div class="hud-chip">SALTO DOBLE: <span id="doubleJumpTxt">DISPONIBLE</span></div>
+        </div>
+        <canvas id="mascotCanvas"></canvas>
+      </div>
+
+      <!-- Barra de Controles y Atajos -->
+      <div class="arena-controls-bar">
+        <div class="key-hints-group">
+          <span><span class="kbd">A</span> / <span class="kbd">D</span> o <span class="kbd">◀ ▶</span> Moverse</span>
+          <span><span class="kbd">W</span> o <span class="kbd">▲</span> Saltar / Doble Salto</span>
+          <span><span class="kbd">ESPACIO</span> o <span class="kbd">J</span> o <span class="kbd">CLIC</span> Espada Plasma</span>
+        </div>
+
+        <div class="mobile-actions">
+          <button class="btn-mobile-act" id="btnMascotLeft">◀ Izq</button>
+          <button class="btn-mobile-act" id="btnMascotRight">Der ▶</button>
+          <button class="btn-mobile-act" id="btnMascotJump">⏫ Saltar</button>
+          <button class="btn-mobile-act" id="btnMascotSlash" style="background:linear-gradient(135deg,#9333ea,#ec4899); border-color:#f472b6;">⚔️ Espada</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Módulos Principales -->
+  <section class="section-container" id="modulos">
+    <div class="section-header">
+      <span class="section-tag">// MÓDULOS DEL MOTOR</span>
+      <h2 class="section-title">Capacidades de Nueva Generación</h2>
+      <p class="section-desc">
+        Diseñado para desarrolladores independientes, estudios de videojuegos y centros educativos.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <!-- 1. WorldForge 2D -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper">🗺️</div>
+        <h3 class="feature-title">WorldForge 2D & Procedural</h3>
+        <p class="feature-text">
+          Generador infinito de mapas con auto-tiling cuántico, biomas dinámicos, iluminación 2D en tiempo real y exportación directa a tilemaps de Godot y Tiled.
+        </p>
+        <div class="feature-tags">
+          <span class="tech-pill">Auto-Tiling</span>
+          <span class="tech-pill">Biomas</span>
+          <span class="tech-pill">JSON / Godot</span>
+        </div>
+      </div>
+
+      <!-- 2. Sprite Studio & Rebanador -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper">🎨</div>
+        <h3 class="feature-title">Sprite Studio & Matting</h3>
+        <p class="feature-text">
+          Creación de turnarounds de personajes, posturas de combate, salto y caminata. Matting con red neuronal RMBG para recorte perfecto sin halos ni artefactos.
+        </p>
+        <div class="feature-tags">
+          <span class="tech-pill">Flux / SDXL</span>
+          <span class="tech-pill">Chroma Key</span>
+          <span class="tech-pill">RMBG-1.4</span>
+        </div>
+      </div>
+
+      <!-- 3. 3D Forge & Blender Bridge -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper">🧊</div>
+        <h3 class="feature-title">Modelado 3D & Rigging Automático</h3>
+        <p class="feature-text">
+          Conversión de conceptos en mallas poligonales GLTF/FBX, asignación de huesos automática (Auto-Rig) y renderizado volumétrico en tiempo real.
+        </p>
+        <div class="feature-tags">
+          <span class="tech-pill">Blender API</span>
+          <span class="tech-pill">GLTF / FBX</span>
+          <span class="tech-pill">PBR Textures</span>
+        </div>
+      </div>
+
+      <!-- 4. NPCs Vivos & IA Dialógica -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper">🤖</div>
+        <h3 class="feature-title">NPCs Inteligentes & Diálogos Vivos</h3>
+        <p class="feature-text">
+          Personajes no jugables con memoria persistente, estados emocionales, árboles de decisiones dinámicos e integración con Llama.cpp y Ollama local.
+        </p>
+        <div class="feature-tags">
+          <span class="tech-pill">Llama-Server</span>
+          <span class="tech-pill">Memoria RAG</span>
+          <span class="tech-pill">OpenAI / Gemini</span>
+        </div>
+      </div>
+
+      <!-- 5. Audio Espacial & SFX Generator -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper">🎵</div>
+        <h3 class="feature-title">Audio Espacial & Efectos de Sonido</h3>
+        <p class="feature-text">
+          Composición de pistas orquestales, bandas sonoras adaptativas para combates y sintetizador de efectos especiales (disparos, pasos, magia) con Reaper DAW.
+        </p>
+        <div class="feature-tags">
+          <span class="tech-pill">Reaper API</span>
+          <span class="tech-pill">Sintetizador 8-Bit</span>
+          <span class="tech-pill">WAV 48kHz</span>
+        </div>
+      </div>
+
+      <!-- 6. OmniDeploy GPU Cloud -->
+      <div class="feature-card">
+        <div class="feature-icon-wrapper">⚡</div>
+        <h3 class="feature-title">OmniDeploy & Red de GPU Distribuida</h3>
+        <p class="feature-text">
+          Conéctate a granjas de renderizado remotas o comparte tu GPU local con alumnos o compañeros de equipo mediante túnel seguro P2P de baja latencia.
+        </p>
+        <div class="feature-tags">
+          <span class="tech-pill">Relay Seguro</span>
+          <span class="tech-pill">GPU Sharing</span>
+          <span class="tech-pill">Cero Configuración</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Descarga Final Directa -->
+  <section class="download-cta-section" id="descargar">
+    <div class="download-box">
+      <span class="section-tag">// LISTO PARA PRODUCCIÓN</span>
+      <h2 class="section-title">Comienza a Crear tu Videojuego Hoy</h2>
+      <p class="section-desc">
+        Descarga el instalador nativo para Windows de 64-bits. Incluye aceleración GPU CUDA 12 integrada y servidor de autenticación seguro.
+      </p>
+
+      <a class="btn-main-download" href="/downloads/">
+        <span>⬇️</span> IR A ZONA DE DESCARGAS Y SCRIPTS (v0.2.8)
+      </a>
+
+      <div class="download-meta">
+        <span>📦 Versión: <strong>0.2.8 Release</strong></span>
+        <span>💾 Tamaño: <strong>392 MB</strong></span>
+        <span>💻 SO: <strong>Windows 10 / 11 (x64)</strong></span>
+        <span>⚡ Aceleración: <strong>NVIDIA CUDA / CPU</strong></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODAL DE MANIFIESTO DE ACTUALIZACIONES & CHANGELOG -->
+  <div class="modal-backdrop" id="changelogModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3><span>📦</span> MANIFIESTO DE ACTUALIZACIONES</h3>
+          <p>Historial de Novedades y Mejoras Continuas de Omni-IA Game</p>
+        </div>
+        <button class="btn-modal-close" id="btnCloseChangelog" title="Cerrar modal">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Versión Actual 0.2.8 -->
+        <div class="changelog-card active">
+          <div class="changelog-header">
+            <div class="version-tag-badge">
+              <span>🎯 Versión 0.2.8</span>
+              <span class="badge-status badge-latest">ACTUAL · RELEASE</span>
+            </div>
+            <span class="changelog-date">21 de Agosto, 2026</span>
+          </div>
+          <ul class="changelog-list">
+            <li><span class="bullet">⚡</span> <strong>Deslimitación Universal de Tokens en Ollama:</strong> Generación continua sin cortes ni topes de tokens (num_predict ilimitado y contexto 32K).</li>
+            <li><span class="bullet">📜</span> <strong>Narrativa y GDD Completo:</strong> Expansión IA de 7 secciones en español e inglés sin truncamiento de texto.</li>
+            <li><span class="bullet">✨</span> <strong>Refinamiento con IA sin Restricciones:</strong> Optimización fluida y completa para semillas de guión y prompts.</li>
+            <li><span class="bullet">🚀</span> <strong>OmniDeploy Host Workflows & Saneamiento RemBG:</strong> Corrección del flujo de tensores RGBA/RGB (3 canales) y priorización de workflows del equipo anfitrión.</li>
+          </ul>
+        </div>
+
+        <!-- Versión 0.2.7 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="version-tag-badge">
+              <span>🎯 Versión 0.2.7</span>
+            </div>
+            <span class="changelog-date">20 de Agosto, 2026</span>
+          </div>
+          <ul class="changelog-list">
+            <li><span class="bullet">🥋</span> <strong>Directivas Anatómicas Refinadas:</strong> Optimización de pose Idle en V relajada evitando extremidades horizontales y duplicación de brazos en modelos de difusión.</li>
+            <li><span class="bullet">🧠</span> <strong>Orquestador de Memoria Inteligente:</strong> Liberación automática de VRAM/RAM tras inferencias y prevención de saturación en modelos locales.</li>
+            <li><span class="bullet">🎯</span> <strong>ControlNet & Workflows por Acción:</strong> Integración y compatibilidad total con grafos específicos de animación y poses OpenPose.</li>
+            <li><span class="bullet">💾</span> <strong>Paginación SWAP 215GB Dedicada:</strong> Soporte de alto rendimiento en SSD para generación masiva de activos 3D y sprites.</li>
+          </ul>
+        </div>
+
+        <!-- Versión 0.2.6 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="version-tag-badge">
+              <span>⚡ Versión 0.2.6</span>
+              <span class="badge-status">RELEASE</span>
+            </div>
+            <span class="changelog-date">20 de Agosto, 2026</span>
+          </div>
+          <ul class="changelog-list">
+            <li><span class="bullet">🎨</span> <strong>Master Prompts Duales:</strong> Generación inmersiva con fondos libres contextualmente iluminados y modo estudio blanco puro/chroma key para sprites limpios.</li>
+            <li><span class="bullet">🧹</span> <strong>Sanitizador y Deduplicador de Negativos:</strong> Eliminación estricta de términos contradictorios, artefactos de estudio y bucles de poses en respuestas de LLMs.</li>
+            <li><span class="bullet">💾</span> <strong>Memoria Virtual SWAP SSD P:\:</strong> Soporte de 64 GB a 215 GB de paginación dedicada de alto rendimiento para modelos masivos locales de IA.</li>
+            <li><span class="bullet">💡</span> <strong>Tooltips Universales:</strong> Ayudas visuales contextuales enriquecidas integradas en todos los controles nuevos de la interfaz.</li>
+          </ul>
+        </div>
+
+        <!-- Versión 0.2.5 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="version-tag-badge">
+              <span>⚡ Versión 0.2.5</span>
+              <span class="badge-status">RELEASE</span>
+            </div>
+            <span class="changelog-date">19 de Agosto, 2026</span>
+          </div>
+          <ul class="changelog-list">
+            <li><span class="bullet">⚡</span> <strong>Sistema Oficial de Auto-Actualización (Tauri v2 Updater):</strong> Descarga e instalación en caliente con verificación criptográfica Minisign y reinicio automático integrado.</li>
+            <li><span class="bullet">🎯</span> <strong>Selección en el Paso 3 del Registro:</strong> Selección múltiple e interactiva de áreas de interés, plataformas, tipos de juegos y metodologías de aprendizaje durante la creación de cuenta.</li>
+            <li><span class="bullet">🤖</span> <strong>Modelo Local Zero-Config:</strong> Descarga directa y automatizada de modelos GGUF optimizados para Llama-Server sin necesidad de token ni cuentas externas.</li>
+            <li><span class="bullet">🚀</span> <strong>Mejoras en el Instalador de Omni IA Game:</strong> Instalación y preparación de entorno optimizada con creación y aseguramiento automático de directorios del sistema.</li>
+          </ul>
+        </div>
+
+        <!-- Versión 0.2.4 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="version-tag-badge">
+              <span>🎙️ Versión 0.2.4</span>
+              <span class="badge-status">RELEASE</span>
+            </div>
+            <span class="changelog-date">18 de Agosto, 2026</span>
+          </div>
+          <ul class="changelog-list">
+            <li><span class="bullet">🎙️</span> <strong>Motor Universal ComfyUI TTS:</strong> Arquitectura adaptativa de 4 capas compatible con cualquier flujo de voz local (VibeVoice, Kokoro, F5-TTS, CosyVoice, ChatterBox, MeloTTS y primitivas multilínea).</li>
+            <li><span class="bullet">🗣️</span> <strong>Inyección Inteligente de Guión Dual:</strong> Soporte completo para texto fijado con Expansión IA o diálogos directos con preservación de parámetros del modelo.</li>
+            <li><span class="bullet">🎧</span> <strong>Biblioteca VibeVoice_Library:</strong> Mapeo restaurado para las 13 entidades de voz bilingües en español (es-MX / es-ES) e inglés (en-US).</li>
+            <li><span class="bullet">🛡️</span> <strong>Blindaje de Conexiones Array:</strong> Preservación de enlaces tipo [id, slot] e inmunidad para enums de modelos y checkpoints.</li>
+            <li><span class="bullet">⚡</span> <strong>Aislamiento Total de Edge TTS:</strong> Funcionamiento independiente sin interferencia entre servidores locales.</li>
+          </ul>
+        </div>
+
+        <!-- Versión 0.2.3 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="version-tag-badge">
+              <span>🚀 Versión 0.2.3</span>
+              <span class="badge-status badge-past">ANTERIOR</span>
+            </div>
+            <span class="changelog-date">15 de Agosto, 2026</span>
+          </div>
+          <ul class="changelog-list">
+            <li><span class="bullet">✨</span> <strong>Mascota Oficial Fényx:</strong> Mecha-fénix cuántico jugable en Canvas con físicas de salto y combo de espada de plasma.</li>
+            <li><span class="bullet">🪄</span> <strong>Lápiz Mágico Procedural:</strong> Animación con partículas estelares y pulso de neón en todos los botones de refinado de IA.</li>
+            <li><span class="bullet">🎯</span> <strong>Detección Inteligente GGUF:</strong> Visualización limpia de modelos locales sin rutas de disco saturadas.</li>
+            <li><span class="bullet">⚡</span> <strong>Blindaje Llama-Server:</strong> Desacople total de descargas de Hugging Face y control autónomo de procesos.</li>
+            <li><span class="bullet">🚀</span> <strong>Presupuesto Ampliado (8192 Tokens):</strong> Evita textos y código cortado en generación narrativa.</li>
+            <li><span class="bullet">🛡️</span> <strong>Despliegue Seguro:</strong> Preservación estricta de base de datos `data.db` y credenciales de clientes.</li>
+          </ul>
+        </div>
+
+        <!-- Versión 0.2.2 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="version-tag-badge">
+              <span>⚡ Versión 0.2.2</span>
+              <span class="badge-status badge-past">ANTERIOR</span>
+            </div>
+            <span class="changelog-date">14 de Agosto, 2026</span>
+          </div>
+          <ul class="changelog-list">
+            <li><span class="bullet">⚡</span> <strong>Aceleración CUDA 12 Bundled:</strong> Inclusión de binarios y DLLs nativas CUDA con cero configuración manual.</li>
+            <li><span class="bullet">🤖</span> <strong>Parser JSON Resiliente:</strong> Auto-reparación y limpieza de Markdown en respuestas de LLMs.</li>
+            <li><span class="bullet">🔄</span> <strong>Activación Instantánea:</strong> Validación en vivo de licencias y sincronización multi-dispositivo.</li>
+            <li><span class="bullet">📊</span> <strong>Telemetría de VRAM:</strong> Monitoreo en tiempo real de GPU, memoria y temperatura.</li>
+          </ul>
+        </div>
+
+        <!-- Versión 0.2.1 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="version-tag-badge">
+              <span>🌐 Versión 0.2.1</span>
+              <span class="badge-status badge-past">ANTERIOR</span>
+            </div>
+            <span class="changelog-date">13 de Agosto, 2026</span>
+          </div>
+          <ul class="changelog-list">
+            <li><span class="bullet">🌐</span> <strong>OmniDeploy P2P Bridge:</strong> Túnel seguro para conexión y renderizado en GPUs remotas distribuidas.</li>
+            <li><span class="bullet">🎭</span> <strong>FaceDetailer Automático:</strong> Detección y mejora facial de alta definición en generación de sprites.</li>
+            <li><span class="bullet">⏱️</span> <strong>Telemetría de Sesión:</strong> Contador de tiempo de sesión en vivo y persistencia de autenticación.</li>
+          </ul>
+        </div>
+
+        <!-- Versión 0.2.0 -->
+        <div class="changelog-card">
+          <div class="changelog-header">
+            <div class="version-tag-badge">
+              <span>🏗️ Versión 0.2.0</span>
+              <span class="badge-status badge-past">LANZAMIENTO</span>
+            </div>
+            <span class="changelog-date">10 de Agosto, 2026</span>
+          </div>
+          <ul class="changelog-list">
+            <li><span class="bullet">🎮</span> <strong>Suite Todo-en-Uno:</strong> Módulos WorldForge 2D, Sprite Studio, 3D Forge y NPCs Vivos integrados.</li>
+            <li><span class="bullet">🧊</span> <strong>Blender API Bridge:</strong> Modelado poligonal con auto-rigging y exportación GLTF/FBX.</li>
+            <li><span class="bullet">🎨</span> <strong>Matting RMBG-1.4:</strong> Recorte alpha transparente para spritesheets.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <a class="btn-download-nav" href="/downloads/Omni-IA-Game-Setup-0.2.8.exe" download>
+          <span>⬇️</span> Descargar v0.2.8 (392 MB)
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <p>© 2026 Omni-IA Game · Desarrollado por FenixDev Cloud y Criollos Studio · Versión Educativa y de Producción</p>
+    <p style="margin-top: 8px;">
+      <a href="/admin">Panel de Administración</a> · 
+      <button class="footer-link-btn" id="btnFooterChangelog">Manifiesto de Actualizaciones</button> · 
+      <span class="server-status-pill" title="Servidores de Autenticación y Despliegue 100% Operativos"><span class="pulse-dot" style="display:inline-block; margin-right:4px;"></span> Servidores: <strong style="color:#22c55e;">Online</strong></span>
+    </p>
+  </footer>
+
+  <!-- Script del Videojuego Interactivo en Canvas, Mascota Fényx & Audio Synth -->
+  <script>
+    // --- 1. WEB AUDIO API SYNTHESIZER (Efectos de sonido procedurales) ---
+    let soundEnabled = true;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx && AudioContextClass) {
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playSound(type) {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        if (type === 'click') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.08);
+          gain.gain.setValueAtTime(0.1, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        } else if (type === 'slash') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.exponentialRampToValueAtTime(150, now + 0.14);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.14);
+          osc.start(now);
+          osc.stop(now + 0.14);
+        } else if (type === 'jump') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.exponentialRampToValueAtTime(580, now + 0.18);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+          osc.start(now);
+          osc.stop(now + 0.18);
+        } else if (type === 'hit') {
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(120, now);
+          osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+          osc.start(now);
+          osc.stop(now + 0.1);
+        } else if (type === 'spell') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(300, now);
+          osc.frequency.exponentialRampToValueAtTime(1200, now + 0.3);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+          osc.start(now);
+          osc.stop(now + 0.3);
+        }
+      } catch (e) {}
+    }
+
+    const soundBtn = document.getElementById('soundBtn');
+    soundBtn.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      soundBtn.innerHTML = soundEnabled ? '<span>🔊</span> SFX: ON' : '<span>🔇</span> SFX: OFF';
+      if (soundEnabled) playSound('click');
+    });
+
+    // --- 2. MODAL DE MANIFIESTO DE ACTUALIZACIONES (CHANGELOG) ---
+    const changelogModal = document.getElementById('changelogModal');
+    const btnNavChangelog = document.getElementById('btnNavChangelog');
+    const btnFooterChangelog = document.getElementById('btnFooterChangelog');
+    const btnCloseChangelog = document.getElementById('btnCloseChangelog');
+
+    function openChangelogModal() {
+      changelogModal.style.display = 'flex';
+      playSound('click');
+    }
+
+    function closeChangelogModal() {
+      changelogModal.style.display = 'none';
+      playSound('click');
+    }
+
+    btnNavChangelog.addEventListener('click', openChangelogModal);
+    btnFooterChangelog.addEventListener('click', openChangelogModal);
+    btnCloseChangelog.addEventListener('click', closeChangelogModal);
+
+    changelogModal.addEventListener('click', (e) => {
+      if (e.target === changelogModal) {
+        closeChangelogModal();
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && changelogModal.style.display === 'flex') {
+        closeChangelogModal();
+      }
+    });
+
+    // --- 3. MOTOR DEL HERO CANVAS INTERACTIVO GLOBAL (TODA LA PANTALLA) ---
+    const heroCanvas = document.getElementById('gameCanvas');
+    const heroCtx = heroCanvas.getContext('2d');
+
+    let hWidth = (heroCanvas.width = window.innerWidth);
+    let hHeight = (heroCanvas.height = window.innerHeight);
+
+    function resizeGlobalCanvas() {
+      hWidth = heroCanvas.width = window.innerWidth;
+      hHeight = heroCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeGlobalCanvas);
+
+    // Héroe interactivo global que viaja por toda la pantalla
+    const topHero = {
+      x: hWidth / 2,
+      y: hHeight / 2,
+      targetX: hWidth / 2,
+      targetY: hHeight / 2,
+      size: 26,
+      speed: 6.5,
+      trail: [],
+      particles: [],
+      facingRight: true,
+      moving: false
+    };
+
+    const floatingNodes = [];
+    for (let i = 0; i < 45; i++) {
+      floatingNodes.push({
+        x: Math.random() * hWidth,
+        y: Math.random() * hHeight,
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: (Math.random() - 0.5) * 0.8,
+        radius: Math.random() * 3 + 1.5,
+        color: Math.random() > 0.5 ? '#06b6d4' : '#a855f7'
+      });
+    }
+
+    // Clic en CUALQUIER PARTE de la landing page para que el héroe vuele hacia allí y lance magia
+    window.addEventListener('click', (e) => {
+      // Ignorar clics dentro del modal de changelog o de la arena de la mascota para no mezclar acciones
+      if (e.target.closest('#changelogModal') || e.target.closest('#arenaContainer') || e.target.closest('#mascota')) {
+        return;
+      }
+
+      topHero.targetX = e.clientX;
+      topHero.targetY = e.clientY;
+      playSound('spell');
+
+      // Explosión de partículas cuánticas en el punto de clic
+      for (let i = 0; i < 22; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = Math.random() * 6 + 2.5;
+        topHero.particles.push({
+          x: e.clientX,
+          y: e.clientY,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd,
+          life: 1.0,
+          color: Math.random() > 0.5 ? '#38bdf8' : '#c084fc'
+        });
+      }
+    });
+
+    let lastHeroTime = performance.now();
+
+    function heroGameLoop(now) {
+      const dt = (now - lastHeroTime) / 1000;
+      lastHeroTime = now;
+
+      heroCtx.clearRect(0, 0, hWidth, hHeight);
+
+      // Rejilla isométrica global
+      heroCtx.strokeStyle = 'rgba(147, 51, 234, 0.07)';
+      heroCtx.lineWidth = 1;
+      const gridSize = 60;
+      const offsetX = (now * 0.02) % gridSize;
+      const offsetY = (now * 0.02) % gridSize;
+
+      for (let x = offsetX; x < hWidth; x += gridSize) {
+        heroCtx.beginPath();
+        heroCtx.moveTo(x, 0);
+        heroCtx.lineTo(x, hHeight);
+        heroCtx.stroke();
+      }
+      for (let y = offsetY; y < hHeight; y += gridSize) {
+        heroCtx.beginPath();
+        heroCtx.moveTo(0, y);
+        heroCtx.lineTo(hWidth, y);
+        heroCtx.stroke();
+      }
+
+      // Nodos neuronales
+      for (let i = 0; i < floatingNodes.length; i++) {
+        const node = floatingNodes[i];
+        node.x += node.vx;
+        node.y += node.vy;
+        if (node.x < 0 || node.x > hWidth) node.vx *= -1;
+        if (node.y < 0 || node.y > hHeight) node.vy *= -1;
+
+        heroCtx.fillStyle = node.color;
+        heroCtx.beginPath();
+        heroCtx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+        heroCtx.fill();
+
+        for (let j = i + 1; j < floatingNodes.length; j++) {
+          const other = floatingNodes[j];
+          const dist = Math.hypot(node.x - other.x, node.y - other.y);
+          if (dist < 110) {
+            heroCtx.strokeStyle = `rgba(168, 85, 247, ${0.2 * (1 - dist / 110)})`;
+            heroCtx.beginPath();
+            heroCtx.moveTo(node.x, node.y);
+            heroCtx.lineTo(other.x, other.y);
+            heroCtx.stroke();
+          }
+        }
+      }
+
+      // Movimiento fluido del héroe global
+      const dx = topHero.targetX - topHero.x;
+      const dy = topHero.targetY - topHero.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 4) {
+        topHero.x += (dx / dist) * topHero.speed;
+        topHero.y += (dy / dist) * topHero.speed;
+        topHero.facingRight = dx >= 0;
+        topHero.moving = true;
+      } else {
+        topHero.moving = false;
+      }
+
+      topHero.x = Math.max(30, Math.min(hWidth - 30, topHero.x));
+      topHero.y = Math.max(30, Math.min(hHeight - 30, topHero.y));
+
+      // Estela de plasma del héroe
+      if (topHero.moving && Math.random() > 0.35) {
+        topHero.trail.push({ x: topHero.x, y: topHero.y, life: 1.0 });
+      }
+
+      for (let i = topHero.trail.length - 1; i >= 0; i--) {
+        const t = topHero.trail[i];
+        t.life -= dt * 3.2;
+        if (t.life <= 0) {
+          topHero.trail.splice(i, 1);
+          continue;
+        }
+        heroCtx.fillStyle = `rgba(192, 132, 252, ${t.life * 0.4})`;
+        heroCtx.beginPath();
+        heroCtx.arc(t.x, t.y, topHero.size * 0.75 * t.life, 0, Math.PI * 2);
+        heroCtx.fill();
+      }
+
+      // Dibujar Héroe
+      heroCtx.save();
+      heroCtx.translate(topHero.x, topHero.y);
+
+      // Aura de energía
+      const auraGradient = heroCtx.createRadialGradient(0, 0, 5, 0, 0, 38);
+      auraGradient.addColorStop(0, 'rgba(168, 85, 247, 0.65)');
+      auraGradient.addColorStop(0.5, 'rgba(6, 182, 212, 0.3)');
+      auraGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      heroCtx.fillStyle = auraGradient;
+      heroCtx.beginPath();
+      heroCtx.arc(0, 0, 38, 0, Math.PI * 2);
+      heroCtx.fill();
+
+      // Cuerpo cibernético
+      heroCtx.fillStyle = '#1e1b4b';
+      heroCtx.strokeStyle = '#c084fc';
+      heroCtx.lineWidth = 2.5;
+      heroCtx.beginPath();
+      heroCtx.roundRect(-13, -20, 26, 35, 7);
+      heroCtx.fill();
+      heroCtx.stroke();
+
+      // Visor de neón reactivo
+      heroCtx.fillStyle = '#38bdf8';
+      heroCtx.shadowColor = '#38bdf8';
+      heroCtx.shadowBlur = 12;
+      heroCtx.fillRect(topHero.facingRight ? -2 : -11, -14, 13, 6);
+      heroCtx.shadowBlur = 0;
+
+      // Espada de plasma oscilante
+      const swordOsc = Math.sin(now * 0.008) * 4.5;
+      heroCtx.strokeStyle = '#f472b6';
+      heroCtx.shadowColor = '#f472b6';
+      heroCtx.shadowBlur = 14;
+      heroCtx.lineWidth = 3.5;
+      heroCtx.beginPath();
+      const sX = topHero.facingRight ? 20 : -20;
+      heroCtx.moveTo(sX, -12 + swordOsc);
+      heroCtx.lineTo(sX, 16 + swordOsc);
+      heroCtx.stroke();
+      heroCtx.shadowBlur = 0;
+
+      heroCtx.restore();
+
+      // Partículas
+      for (let i = topHero.particles.length - 1; i >= 0; i--) {
+        const p = topHero.particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= dt * 2.0;
+        if (p.life <= 0) {
+          topHero.particles.splice(i, 1);
+          continue;
+        }
+        heroCtx.fillStyle = p.color;
+        heroCtx.shadowColor = p.color;
+        heroCtx.shadowBlur = 8;
+        heroCtx.beginPath();
+        heroCtx.arc(p.x, p.y, 2.5 * p.life, 0, Math.PI * 2);
+        heroCtx.fill();
+        heroCtx.shadowBlur = 0;
+      }
+
+      requestAnimationFrame(heroGameLoop);
+    }
+    requestAnimationFrame(heroGameLoop);
+
+
+    // --- 4. MASCOTA OFICIAL «FÉNYX» EN EL ARENA SANDBOX ---
+    const mCanvas = document.getElementById('mascotCanvas');
+    const mCtx = mCanvas.getContext('2d');
+    const arenaContainer = document.getElementById('arenaContainer');
+    let isMascotUnlocked = false;
+    let isMouseInArena = false;
+
+    arenaContainer.addEventListener('mouseenter', () => { isMouseInArena = true; });
+    arenaContainer.addEventListener('mouseleave', () => { isMouseInArena = false; });
+
+    function resizeMascotCanvas() {
+      if (!isMascotUnlocked) return;
+      const rect = arenaContainer.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        mCanvas.width = rect.width;
+        mCanvas.height = rect.height;
+      }
+    }
+    window.addEventListener('resize', resizeMascotCanvas);
+
+    // Mascota Fényx
+    const fenyx = {
+      x: 100,
+      y: 280,
+      vx: 0,
+      vy: 0,
+      speed: 5.5,
+      jumpForce: -12.5,
+      gravity: 0.65,
+      groundY: 300,
+      isGrounded: false,
+      jumpsLeft: 2,
+      facingRight: true,
+      state: 'idle',
+      slashTimer: 0,
+      slashCombo: 0,
+      slashAngle: 0,
+      trail: [],
+      particles: []
+    };
+
+    // Objetivos flotantes (Hologram Drones / Cristales)
+    let comboCount = 0;
+    let targetsDestroyed = 0;
+    const targets = [];
+
+    function spawnTarget() {
+      if (targets.length >= 4) return;
+      const w = mCanvas.width > 0 ? mCanvas.width : 800;
+      targets.push({
+        x: Math.random() * (w - 240) + 160,
+        y: Math.random() * 140 + 70,
+        baseY: 0,
+        radius: 18,
+        hp: 1,
+        color: Math.random() > 0.5 ? '#f43f5e' : '#38bdf8',
+        wobble: Math.random() * Math.PI * 2
+      });
+      targets[targets.length - 1].baseY = targets[targets.length - 1].y;
+    }
+
+    // Textos flotantes de daño (+100, CRITICAL!)
+    const damageTexts = [];
+
+    // Controles de teclado específicos para la Mascota con BLOQUEO DE SCROLL
+    const mKeys = { left: false, right: false, up: false, slash: false };
+
+    window.addEventListener('keydown', (e) => {
+      if (!isMascotUnlocked) return;
+      const k = e.key.toLowerCase();
+
+      // Si el mouse está sobre la arena o el juego está desbloqueado, bloquear el scroll de las teclas del juego
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'space', 'w', 's', 'a', 'd'].includes(k)) {
+        if (isMouseInArena || document.activeElement === document.body || document.activeElement === mCanvas) {
+          e.preventDefault();
+        }
+      }
+
+      if (k === 'arrowleft' || k === 'a') { mKeys.left = true; }
+      if (k === 'arrowright' || k === 'd') { mKeys.right = true; }
+      if (k === 'arrowup' || k === 'w') {
+        if (!mKeys.up) mascotJump();
+        mKeys.up = true;
+      }
+      if (e.code === 'Space' || k === 'j' || k === 'k') {
+        mascotSlash();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (!isMascotUnlocked) return;
+      const k = e.key.toLowerCase();
+      if (k === 'arrowleft' || k === 'a') { mKeys.left = false; }
+      if (k === 'arrowright' || k === 'd') { mKeys.right = false; }
+      if (k === 'arrowup' || k === 'w') { mKeys.up = false; }
+    });
+
+    // Clic en la Arena para atacar hacia el cursor
+    mCanvas.addEventListener('mousedown', (e) => {
+      if (!isMascotUnlocked) return;
+      const rect = mCanvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      fenyx.facingRight = mouseX >= fenyx.x;
+      mascotSlash();
+    });
+
+    // Botones Touch / UI
+    document.getElementById('btnMascotLeft').addEventListener('mousedown', () => { mKeys.left = true; });
+    document.getElementById('btnMascotLeft').addEventListener('mouseup', () => { mKeys.left = false; });
+    document.getElementById('btnMascotRight').addEventListener('mousedown', () => { mKeys.right = true; });
+    document.getElementById('btnMascotRight').addEventListener('mouseup', () => { mKeys.right = false; });
+    document.getElementById('btnMascotJump').addEventListener('click', mascotJump);
+    document.getElementById('btnMascotSlash').addEventListener('click', mascotSlash);
+
+    function mascotJump() {
+      if (!isMascotUnlocked) return;
+      if (fenyx.jumpsLeft > 0) {
+        fenyx.vy = fenyx.jumpForce;
+        fenyx.isGrounded = false;
+        fenyx.jumpsLeft--;
+        playSound('jump');
+
+        for (let i = 0; i < 12; i++) {
+          const angle = (i / 12) * Math.PI * 2;
+          fenyx.particles.push({
+            x: fenyx.x,
+            y: fenyx.y + 15,
+            vx: Math.cos(angle) * 3,
+            vy: Math.sin(angle) * 1.5,
+            life: 1.0,
+            color: '#38bdf8'
+          });
+        }
+      }
+    }
+
+    function mascotSlash() {
+      if (!isMascotUnlocked) return;
+      fenyx.slashTimer = 0.25;
+      fenyx.slashCombo = (fenyx.slashCombo % 3) + 1;
+      playSound('slash');
+
+      const hitReach = 70;
+      const attackX = fenyx.facingRight ? fenyx.x + 35 : fenyx.x - 35;
+      const attackY = fenyx.y - 10;
+
+      for (let i = 0; i < 18; i++) {
+        const spread = (Math.random() - 0.5) * 1.2;
+        const baseAngle = fenyx.facingRight ? 0 : Math.PI;
+        fenyx.particles.push({
+          x: attackX,
+          y: attackY,
+          vx: Math.cos(baseAngle + spread) * (Math.random() * 8 + 4),
+          vy: Math.sin(baseAngle + spread) * (Math.random() * 6 - 3),
+          life: 1.0,
+          color: fenyx.slashCombo === 3 ? '#ec4899' : '#38bdf8'
+        });
+      }
+
+      for (let i = targets.length - 1; i >= 0; i--) {
+        const t = targets[i];
+        const dist = Math.hypot(attackX - t.x, attackY - t.y);
+        if (dist < hitReach + t.radius) {
+          playSound('hit');
+          comboCount++;
+          targetsDestroyed++;
+          document.getElementById('comboCounter').innerText = `${comboCount} HITS!`;
+          document.getElementById('targetsSmashed').innerText = `${targetsDestroyed} DESTRUIDOS`;
+
+          damageTexts.push({
+            x: t.x,
+            y: t.y,
+            text: fenyx.slashCombo === 3 ? 'CRÍTICO! +500' : '+150',
+            color: fenyx.slashCombo === 3 ? '#f43f5e' : '#38bdf8',
+            life: 1.0
+          });
+
+          for (let p = 0; p < 25; p++) {
+            const angle = Math.random() * Math.PI * 2;
+            const spd = Math.random() * 6 + 2;
+            fenyx.particles.push({
+              x: t.x,
+              y: t.y,
+              vx: Math.cos(angle) * spd,
+              vy: Math.sin(angle) * spd,
+              life: 1.0,
+              color: t.color
+            });
+          }
+
+          targets.splice(i, 1);
+          setTimeout(spawnTarget, 1200);
+        }
+      }
+    }
+
+    let lastMascotTime = performance.now();
+
+    function mascotGameLoop(now) {
+      if (!isMascotUnlocked) {
+        requestAnimationFrame(mascotGameLoop);
+        return;
+      }
+
+      const dt = Math.min((now - lastMascotTime) / 1000, 0.1);
+      lastMascotTime = now;
+
+      fenyx.groundY = mCanvas.height - 55;
+
+      // Movimiento horizontal
+      if (mKeys.left) {
+        fenyx.vx = -fenyx.speed;
+        fenyx.facingRight = false;
+      } else if (mKeys.right) {
+        fenyx.vx = fenyx.speed;
+        fenyx.facingRight = true;
+      } else {
+        fenyx.vx *= 0.78;
+      }
+
+      fenyx.x += fenyx.vx;
+      fenyx.x = Math.max(30, Math.min(mCanvas.width - 30, fenyx.x));
+
+      // Gravedad y suelo
+      fenyx.vy += fenyx.gravity;
+      fenyx.y += fenyx.vy;
+
+      if (fenyx.y >= fenyx.groundY) {
+        fenyx.y = fenyx.groundY;
+        fenyx.vy = 0;
+        fenyx.isGrounded = true;
+        fenyx.jumpsLeft = 2;
+      } else {
+        fenyx.isGrounded = false;
+      }
+
+      // Actualizar estado del HUD
+      document.getElementById('doubleJumpTxt').innerText = fenyx.jumpsLeft > 0 ? `${fenyx.jumpsLeft} DISPONIBLE` : 'AGOTADO';
+      if (fenyx.slashTimer > 0) {
+        fenyx.slashTimer -= dt;
+        document.getElementById('mascotStateTxt').innerText = 'CORTE PLASMA';
+      } else if (!fenyx.isGrounded) {
+        document.getElementById('mascotStateTxt').innerText = fenyx.vy < 0 ? 'SALTO' : 'CAÍDA';
+      } else if (Math.abs(fenyx.vx) > 0.5) {
+        document.getElementById('mascotStateTxt').innerText = 'CORRIENDO';
+      } else {
+        document.getElementById('mascotStateTxt').innerText = 'IDLE';
+      }
+
+      // Estela
+      if ((Math.abs(fenyx.vx) > 1 || !fenyx.isGrounded) && Math.random() > 0.4) {
+        fenyx.trail.push({ x: fenyx.x, y: fenyx.y, life: 0.8 });
+      }
+
+      // RENDERIZADO
+      mCtx.clearRect(0, 0, mCanvas.width, mCanvas.height);
+
+      // Suelo
+      mCtx.strokeStyle = '#a855f7';
+      mCtx.lineWidth = 2;
+      mCtx.shadowColor = '#a855f7';
+      mCtx.shadowBlur = 12;
+      mCtx.beginPath();
+      mCtx.moveTo(0, fenyx.groundY + 24);
+      mCtx.lineTo(mCanvas.width, fenyx.groundY + 24);
+      mCtx.stroke();
+      mCtx.shadowBlur = 0;
+
+      // Patrón de rejilla en suelo
+      mCtx.strokeStyle = 'rgba(168, 85, 247, 0.15)';
+      mCtx.lineWidth = 1;
+      for (let x = 0; x < mCanvas.width; x += 40) {
+        mCtx.beginPath();
+        mCtx.moveTo(x, fenyx.groundY + 24);
+        mCtx.lineTo(x - 20, mCanvas.height);
+        mCtx.stroke();
+      }
+
+      // Objetivos flotantes
+      for (let i = 0; i < targets.length; i++) {
+        const t = targets[i];
+        t.wobble += dt * 3;
+        t.y = t.baseY + Math.sin(t.wobble) * 12;
+
+        mCtx.save();
+        mCtx.translate(t.x, t.y);
+
+        mCtx.fillStyle = t.color;
+        mCtx.shadowColor = t.color;
+        mCtx.shadowBlur = 15;
+
+        mCtx.beginPath();
+        mCtx.moveTo(0, -t.radius);
+        mCtx.lineTo(t.radius, 0);
+        mCtx.lineTo(0, t.radius);
+        mCtx.lineTo(-t.radius, 0);
+        mCtx.closePath();
+        mCtx.fill();
+
+        mCtx.strokeStyle = '#ffffff';
+        mCtx.lineWidth = 1.5;
+        mCtx.stroke();
+
+        mCtx.restore();
+      }
+
+      // Estela
+      for (let i = fenyx.trail.length - 1; i >= 0; i--) {
+        const tr = fenyx.trail[i];
+        tr.life -= dt * 3.5;
+        if (tr.life <= 0) {
+          fenyx.trail.splice(i, 1);
+          continue;
+        }
+        mCtx.fillStyle = `rgba(168, 85, 247, ${tr.life * 0.3})`;
+        mCtx.beginPath();
+        mCtx.arc(tr.x, tr.y, 16 * tr.life, 0, Math.PI * 2);
+        mCtx.fill();
+      }
+
+      // DIBUJAR MASCOTA FÉNYX
+      mCtx.save();
+      mCtx.translate(fenyx.x, fenyx.y);
+
+      // Alas
+      const wingFlap = Math.sin(now * 0.01) * 0.25;
+      mCtx.fillStyle = 'rgba(236, 72, 153, 0.7)';
+      mCtx.shadowColor = '#ec4899';
+      mCtx.shadowBlur = 20;
+
+      // Ala Izquierda
+      mCtx.beginPath();
+      mCtx.moveTo(-10, -8);
+      mCtx.quadraticCurveTo(-38, -35 + wingFlap * 20, -45, -10 + wingFlap * 15);
+      mCtx.quadraticCurveTo(-25, 0, -10, 5);
+      mCtx.fill();
+
+      // Ala Derecha
+      mCtx.beginPath();
+      mCtx.moveTo(10, -8);
+      mCtx.quadraticCurveTo(38, -35 + wingFlap * 20, 45, -10 + wingFlap * 15);
+      mCtx.quadraticCurveTo(25, 0, 10, 5);
+      mCtx.fill();
+
+      // Cuerpo
+      mCtx.fillStyle = '#0f172a';
+      mCtx.strokeStyle = '#a855f7';
+      mCtx.lineWidth = 2.5;
+      mCtx.beginPath();
+      mCtx.roundRect(-14, -22, 28, 36, 8);
+      mCtx.fill();
+      mCtx.stroke();
+
+      // Emblema
+      mCtx.fillStyle = '#fbbf24';
+      mCtx.shadowColor = '#fbbf24';
+      mCtx.shadowBlur = 8;
+      mCtx.beginPath();
+      mCtx.arc(0, -3, 5, 0, Math.PI * 2);
+      mCtx.fill();
+
+      // Visor
+      mCtx.fillStyle = '#06b6d4';
+      mCtx.shadowColor = '#06b6d4';
+      mCtx.shadowBlur = 12;
+      const eyeDir = fenyx.facingRight ? 2 : -6;
+      mCtx.fillRect(-8 + eyeDir, -16, 12, 6);
+
+      // Cresta
+      mCtx.fillStyle = '#a855f7';
+      mCtx.beginPath();
+      mCtx.moveTo(0, -22);
+      mCtx.lineTo(-6, -34);
+      mCtx.lineTo(0, -30);
+      mCtx.lineTo(6, -34);
+      mCtx.closePath();
+      mCtx.fill();
+
+      // Espada de Plasma
+      const swordX = fenyx.facingRight ? 20 : -20;
+      const swordAngle = fenyx.slashTimer > 0 ? (fenyx.facingRight ? 1.4 : -1.4) : (Math.sin(now * 0.008) * 0.15);
+
+      mCtx.save();
+      mCtx.translate(swordX, -5);
+      mCtx.rotate(swordAngle);
+
+      mCtx.strokeStyle = fenyx.slashTimer > 0 ? '#ec4899' : '#38bdf8';
+      mCtx.shadowColor = mCtx.strokeStyle;
+      mCtx.shadowBlur = 18;
+      mCtx.lineWidth = 4;
+      mCtx.beginPath();
+      mCtx.moveTo(0, 10);
+      mCtx.lineTo(0, -26);
+      mCtx.stroke();
+
+      mCtx.strokeStyle = '#fbbf24';
+      mCtx.lineWidth = 3;
+      mCtx.beginPath();
+      mCtx.moveTo(-3, 10);
+      mCtx.lineTo(3, 10);
+      mCtx.stroke();
+
+      mCtx.restore();
+
+      if (fenyx.slashTimer > 0) {
+        mCtx.strokeStyle = fenyx.slashCombo === 3 ? 'rgba(236, 72, 153, 0.9)' : 'rgba(56, 189, 248, 0.9)';
+        mCtx.lineWidth = 6;
+        mCtx.shadowColor = mCtx.strokeStyle;
+        mCtx.shadowBlur = 24;
+        mCtx.beginPath();
+        const startA = fenyx.facingRight ? -0.8 : 3.9;
+        const endA = fenyx.facingRight ? 0.8 : 2.3;
+        mCtx.arc(fenyx.facingRight ? 15 : -15, -8, 48, startA, endA, !fenyx.facingRight);
+        mCtx.stroke();
+      }
+
+      mCtx.restore();
+
+      // Partículas
+      for (let i = fenyx.particles.length - 1; i >= 0; i--) {
+        const p = fenyx.particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= dt * 2.2;
+        if (p.life <= 0) {
+          fenyx.particles.splice(i, 1);
+          continue;
+        }
+        mCtx.fillStyle = p.color;
+        mCtx.shadowColor = p.color;
+        mCtx.shadowBlur = 8;
+        mCtx.beginPath();
+        mCtx.arc(p.x, p.y, 3 * p.life, 0, Math.PI * 2);
+        mCtx.fill();
+      }
+
+      // Textos de daño
+      for (let i = damageTexts.length - 1; i >= 0; i--) {
+        const d = damageTexts[i];
+        d.y -= dt * 45;
+        d.life -= dt * 1.5;
+        if (d.life <= 0) {
+          damageTexts.splice(i, 1);
+          continue;
+        }
+        mCtx.font = 'bold 13px "Orbitron", monospace';
+        mCtx.fillStyle = d.color;
+        mCtx.shadowColor = d.color;
+        mCtx.shadowBlur = 10;
+        mCtx.fillText(d.text, d.x - 20, d.y);
+      }
+
+      requestAnimationFrame(mascotGameLoop);
+    }
+    requestAnimationFrame(mascotGameLoop);
+
+    // --- 5. SIMULADOR DE PIPELINE DE IA INTERACTIVO ---
+    const btnRunPipeline = document.getElementById('btnRunPipeline');
+    const simPromptInput = document.getElementById('simPromptInput');
+
+    const steps = [
+      { id: 'step1', prev: 'preview1', text: '✨ Prompt refinado: "Fényx Cyber-Phoenix Mascot, plasma katana, electric aura, 8-direction turnaround, Unreal Engine 5 PBR material, master quality"' },
+      { id: 'step2', prev: 'preview2', text: '🎨 Spritesheet 2D forjado con Flux + recorte alpha transparente de 32-bits (RMBG-1.4).' },
+      { id: 'step3', prev: 'preview3', text: '🧊 Malla 3D creada: 1,850 polígonos, 22 huesos de animación y alas dinámicas en GLTF 2.0.' },
+      { id: 'step4', prev: 'preview4', text: '⚡ Script Godot/Unity generado: "class_name FenyxMascot extends CharacterBody2D: func slash_plasma()..."' }
+    ];
+
+    btnRunPipeline.addEventListener('click', () => {
+      playSound('spell');
+      btnRunPipeline.disabled = true;
+      btnRunPipeline.innerHTML = '<span>⏳</span> FORJANDO ASSET...';
+
+      steps.forEach((s) => {
+        const stepEl = document.getElementById(s.id);
+        const prevEl = document.getElementById(s.prev);
+        stepEl.classList.remove('active', 'completed');
+        prevEl.innerHTML = '<span style="color:#64748b;">Encolado...</span>';
+      });
+
+      let current = 0;
+      function nextStep() {
+        if (current > 0) {
+          const prevEl = document.getElementById(steps[current - 1].id);
+          prevEl.classList.remove('active');
+          prevEl.classList.add('completed');
+          prevEl.querySelector('.step-status').innerText = '✓ COMPLETADO';
+        }
+
+        if (current < steps.length) {
+          const s = steps[current];
+          const stepEl = document.getElementById(s.id);
+          const prevEl = document.getElementById(s.prev);
+          stepEl.classList.add('active');
+          stepEl.querySelector('.step-status').innerText = 'EN PROCESO...';
+          prevEl.innerHTML = `<span style="color:#38bdf8;">${s.text}</span>`;
+          playSound('jump');
+          current++;
+          setTimeout(nextStep, 850);
+        } else {
+          btnRunPipeline.disabled = false;
+          btnRunPipeline.innerHTML = '<span>✨</span> FORJAR ASSET CON IA';
+          playSound('spell');
+          
+          // MATERIALIZAR POR SORPRESA EL MINI-JUEGO DE LA MASCOTA TRAS CULMINAR EL CICLO
+          isMascotUnlocked = true;
+          const mascotCard = document.getElementById('mascota');
+          mascotCard.style.display = 'block';
+          
+          resizeMascotCanvas();
+          if (targets.length === 0) {
+            for (let i = 0; i < 3; i++) spawnTarget();
+          }
+
+          // Scroll suave y animación de salto triunfal
+          mascotCard.scrollIntoView({ behavior: 'smooth' });
+          fenyx.x = mCanvas.width / 2;
+          setTimeout(() => {
+            mascotJump();
+            setTimeout(mascotSlash, 400);
+          }, 350);
+        }
+      }
+      setTimeout(nextStep, 250);
+    });
+  </script>
+</body>
 </html>
