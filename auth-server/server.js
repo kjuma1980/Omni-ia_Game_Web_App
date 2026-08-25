@@ -207,11 +207,9 @@ app.post('/api/proxy', rateLimit(60 * 1000, 120), (req, res) => {
 });
 
 app.use((req, res, next) => {
-  if (req.path.endsWith('.html') || req.path === '/' || req.path.startsWith('/downloads') || req.path.startsWith('/app')) {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-  }
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   next();
 });
 
