@@ -314,7 +314,7 @@ export interface ProjectData {
       omniDeployDeploymentId?: string;
     };
     image: {
-      provider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'lm-studio' | 'openai' | 'midjourney-api' | 'comfydeploy' | 'omnideploy' | 'other';
+      provider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'lm-studio' | 'openai' | 'midjourney-api' | 'comfydeploy' | 'omnideploy' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
       baseUrl: string;
       baseUrls?: { [provider: string]: string };
       model: string;
@@ -377,7 +377,7 @@ export interface ProjectData {
       };
     };
     video: {
-      provider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'llama-server' | 'lm-studio' | 'seedance' | 'kling' | 'openart' | 'youart' | 'comfydeploy' | 'omnideploy' | 'other';
+      provider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'llama-server' | 'lm-studio' | 'seedance' | 'kling' | 'openart' | 'youart' | 'comfydeploy' | 'omnideploy' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
       baseUrl: string;
       baseUrls?: { [provider: string]: string };
       model?: string;
@@ -400,7 +400,7 @@ export interface ProjectData {
       models?: { [provider: string]: string };
     };
     audio: {
-      ttsProvider: 'gemini' | 'ollama' | 'llama-server' | 'lm-studio' | 'comfyui' | 'elevenlabs' | 'suno' | 'local' | 'comfydeploy' | 'omnideploy' | 'other';
+      ttsProvider: 'gemini' | 'ollama' | 'llama-server' | 'lm-studio' | 'comfyui' | 'elevenlabs' | 'suno' | 'local' | 'comfydeploy' | 'omnideploy' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
       ttsUrl: string;
       ttsUrls?: { [provider: string]: string };
       ttsModel: string;
@@ -415,7 +415,7 @@ export interface ProjectData {
 
       ttsOmniDeployDeploymentId?: string;
  
-      musicProvider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'llama-server' | 'lm-studio' | 'suno' | 'udio' | 'meta-audiocraft' | 'local' | 'comfydeploy' | 'omnideploy' | 'other';
+      musicProvider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'llama-server' | 'lm-studio' | 'suno' | 'udio' | 'meta-audiocraft' | 'local' | 'comfydeploy' | 'omnideploy' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
       musicUrl: string;
       musicUrls?: { [provider: string]: string };
       musicModel: string;
@@ -449,7 +449,7 @@ export interface ProjectData {
       sfxModels?: { [provider: string]: string };
     };
     threeD: {
-      provider: 'tripo' | 'meshy' | 'comfydeploy' | 'omnideploy' | 'comfyui' | 'a1111';
+      provider: 'tripo' | 'meshy' | 'comfydeploy' | 'omnideploy' | 'comfyui' | 'a1111' | 'openrouter' | 'cometapi' | 'nvidia';
       baseUrl: string;
       baseUrls?: { [provider: string]: string };
       apiKey: string;
