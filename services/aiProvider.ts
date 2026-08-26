@@ -1958,16 +1958,18 @@ export const generateTTS = async (
   }
 
   if (provider === 'openrouter' || provider === 'cometapi' || provider === 'nvidia') {
-    if (!apiKey) throw new Error(`Se requiere una API Key para ${provider.toUpperCase()} TTS. Por favor, agrégala en Ajustes.`);
+    if (!apiKey) throw new Error(`Se requiere una API Key para ${provider.toUpperCase()} TTS. Por favor, agrégala en la pestaña de Ajustes (Tab Audio/Voz).`);
     const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
     if (!invokeFn) throw new Error("Entorno Tauri no disponible.");
-    
+
     if (provider === 'cometapi') {
+      const activeModel = settings?.audio?.ttsModel || 'tts-1';
+      console.log(`[Omni IA Game] Invocando CometAPI TTS | Modelo: ${activeModel}`);
       const result = await invokeFn('proxy_request', {
         url: 'https://api.cometapi.com/v1/audio/speech',
         method: 'POST',
         payload: {
-          model: settings?.audio?.ttsModel || 'tts-1',
+          model: activeModel,
           input: processedText,
           voice: 'alloy'
         },
@@ -1976,15 +1978,68 @@ export const generateTTS = async (
           'Content-Type': 'application/json'
         }
       });
-      if (typeof result === 'string' && result.startsWith('data:audio')) {
-        const parts = result.split(',');
-        return { data: parts[1], mimeType: 'audio/mp3' };
+      let b64 = '';
+      if (typeof result === 'string') {
+        if (result.startsWith('data:audio')) {
+          b64 = result.split(',')[1];
+        } else if (result.length > 20) {
+          try { b64 = btoa(result); } catch { b64 = result; }
+        }
       }
+      if (b64) return { data: b64, mimeType: 'audio/mp3' };
+      throw new Error(`CometAPI no devolvió audio MP3 válido para el modelo ${activeModel}.`);
     }
-    
-    // Fallback dinámico a Edge TTS local para voces de calidad si el proveedor no ofrece endpoint directo de voz mp3
-    console.log(`[Omni IA Game] ${provider.toUpperCase()} TTS enrutando a Edge TTS nativo para síntesis de voz en español...`);
-    return await generateTTS(text, voice, { ...settings, audio: { ...settings?.audio, ttsProvider: 'local' } }, lang, enthusiasm, useSpainSpanish, options);
+
+    if (provider === 'nvidia') {
+      const activeModel = settings?.audio?.ttsModel || 'nvidia/magpie-tts-multilingual';
+      console.log(`[Omni IA Game] Invocando NVIDIA Riva TTS | Modelo: ${activeModel}`);
+      const result = await invokeFn('proxy_request', {
+        url: 'https://integrate.api.nvidia.com/v1/audio/speech',
+        method: 'POST',
+        payload: {
+          model: activeModel,
+          input: processedText,
+          voice: 'English-US.Female-1'
+        },
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      let b64 = '';
+      if (typeof result === 'string') {
+        if (result.startsWith('data:audio')) {
+          b64 = result.split(',')[1];
+        } else if (result.length > 20) {
+          try { b64 = btoa(result); } catch { b64 = result; }
+        }
+      }
+      if (b64) return { data: b64, mimeType: 'audio/mp3' };
+      throw new Error(`NVIDIA Riva TTS no devolvió datos de voz válidos para el modelo ${activeModel}.`);
+    }
+
+    if (provider === 'openrouter') {
+      const activeModel = settings?.audio?.ttsModel || 'openai/gpt-4o-audio-preview';
+      console.log(`[Omni IA Game] Invocando OpenRouter TTS | Modelo: ${activeModel}`);
+      const result = await invokeFn('proxy_request', {
+        url: 'https://openrouter.ai/api/v1/chat/completions',
+        method: 'POST',
+        payload: {
+          model: activeModel,
+          modalities: ["text", "audio"],
+          audio: { voice: "alloy", format: "mp3" },
+          messages: [{ role: 'user', content: `Lee en voz alta claramente: ${processedText}` }]
+        },
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = typeof result === 'string' ? JSON.parse(result) : result;
+      const b64 = data?.choices?.[0]?.message?.audio?.data;
+      if (b64) return { data: b64, mimeType: 'audio/mp3' };
+      throw new Error(`OpenRouter no devolvió datos de voz para el modelo ${activeModel}.`);
+    }
   }
 
   if (provider === 'gemini') {
