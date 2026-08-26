@@ -4036,7 +4036,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             });
                           }}
                           className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 font-mono"
-                          placeholder="sk-..."
+                          placeholder={settings.image.provider === 'nvidia' ? 'nvapi-...' : settings.image.provider === 'openrouter' ? 'sk-or-v1-...' : settings.image.provider === 'cometapi' ? 'sk-comet-...' : 'sk-...'}
                         />
                       </div>
                     </Tooltip>
@@ -4381,7 +4381,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             });
                           }}
                           className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 font-mono"
-                          placeholder="sk-..."
+                          placeholder={settings.video.provider === 'nvidia' ? 'nvapi-...' : settings.video.provider === 'openrouter' ? 'sk-or-v1-...' : settings.video.provider === 'cometapi' ? 'sk-comet-...' : 'sk-...'}
                         />
                       </div>
                     </Tooltip>
@@ -4766,7 +4766,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                           value={settings.audio.apiKeys?.[settings.audio.ttsProvider] || ''}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateAudioSettings({ apiKey: e.target.value }, 'tts')}
                           className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 font-mono"
-                          placeholder="sk-..."
+                          placeholder={settings.audio.ttsProvider === 'nvidia' ? 'nvapi-...' : settings.audio.ttsProvider === 'openrouter' ? 'sk-or-v1-...' : settings.audio.ttsProvider === 'cometapi' ? 'sk-comet-...' : 'sk-...'}
                         />
                       </div>
                     </Tooltip>
@@ -5335,18 +5335,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {settings.audio.musicProvider !== 'gemini' && settings.audio.musicProvider !== 'comfydeploy' && settings.audio.musicProvider !== 'omnideploy' && settings.audio.musicProvider !== 'comfyui' && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                    {(settings.audio.musicProvider === 'suno' || settings.audio.musicProvider === 'udio') ? (
+                    {(['suno', 'udio', 'openrouter', 'cometapi', 'nvidia', 'meta-audiocraft'].includes(settings.audio.musicProvider)) ? (
                       <Tooltip id="settingsAudioMusicApiKey" showTooltips={showTooltips} className="block">
                         <div>
                           <label className="block text-xs text-slate-500 uppercase mb-1">
-                            API Key de {settings.audio.musicProvider === 'suno' ? 'Suno' : 'Udio'}
+                            API Key ({settings.audio.musicProvider.toUpperCase()})
                           </label>
                           <input
                             type="password"
                             value={settings.audio.apiKeys?.[settings.audio.musicProvider] || ''}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateAudioSettings({ apiKey: e.target.value }, 'music')}
                             className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 font-mono focus:border-amber-500 outline-none"
-                            placeholder="sk-..."
+                            placeholder={settings.audio.musicProvider === 'nvidia' ? 'nvapi-...' : settings.audio.musicProvider === 'openrouter' ? 'sk-or-v1-...' : settings.audio.musicProvider === 'cometapi' ? 'sk-comet-...' : 'sk-...'}
                           />
                         </div>
                       </Tooltip>
@@ -5855,21 +5855,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </label>
                 </Tooltip>
 
-                {/* Cloud Providers: Tripo 3D & Meshy */}
-                {(settings.threeD.provider === 'tripo' || settings.threeD.provider === 'meshy') && (
+                {/* Cloud Providers: Tripo 3D, Meshy, OpenRouter, CometAPI & NVIDIA NIM */}
+                {(settings.threeD.provider === 'tripo' || settings.threeD.provider === 'meshy' || settings.threeD.provider === 'openrouter' || settings.threeD.provider === 'cometapi' || settings.threeD.provider === 'nvidia') && (
                   <div className="space-y-4 pt-2 border-t border-slate-900">
                     <div className="grid grid-cols-2 gap-4">
                       <Tooltip id="settingsThreeDApiKey" showTooltips={showTooltips}>
                         <div>
                           <label className="block text-[10px] text-slate-500 uppercase mb-1">
-                            API Key de {settings.threeD.provider === 'tripo' ? 'Tripo 3D' : 'Meshy'}
+                            API Key ({settings.threeD.provider.toUpperCase()})
                           </label>
                           <input
                             type="password"
                             value={settings.threeD.apiKey || ''}
                             onChange={(e) => updateThreeDSettings({ apiKey: e.target.value })}
                             className="w-full bg-slate-900 border border-slate-800 rounded p-2 text-xs text-slate-300 font-mono"
-                            placeholder={settings.threeD.provider === 'meshy' ? "ej: msy_..." : "ej: tripo_..."}
+                            placeholder={settings.threeD.provider === 'nvidia' ? 'nvapi-...' : settings.threeD.provider === 'openrouter' ? 'sk-or-v1-...' : settings.threeD.provider === 'cometapi' ? 'sk-comet-...' : settings.threeD.provider === 'meshy' ? 'msy_...' : settings.threeD.provider === 'tripo' ? 'tripo_...' : 'sk-...'}
                           />
                         </div>
                       </Tooltip>
