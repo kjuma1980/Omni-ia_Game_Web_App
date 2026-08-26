@@ -6,6 +6,7 @@ Omni IA-Game es un estudio de desarrollo asistido por inteligencia artificial de
 
 ### 1. Generador de Assets (Sprites y Mundos)
 * **Diseño de Sprites:** Creación de sprites e imágenes coherentes orientadas a recursos 2D.
+* **Soporte de Proveedores Multimodelos:** Integración completa para modelos en la nube y locales mediante **OpenRouter**, **CometAPI**, **NVIDIA NIM**, **Gemini**, **OpenAI**, **ComfyUI**, **ComfyDeploy** y **OmniDeploy**.
 * **Generación de Mundos y Mapas:** Creación de mapas consistentes y autotiling lógico para escenarios y niveles de juego utilizando técnicas y algoritmos estructurados como Wang Tiles.
 * **Procesamiento Nativo:** Herramientas nativas en Rust para remoción de fondos y eliminación de bordes defectuosos (defringing) en sprites generados de manera automatizada.
 
