@@ -397,7 +397,9 @@ const NarrativeGenerator: React.FC<NarrativeGeneratorProps> = ({ state, updateSt
     reader.readAsDataURL(blob);
     reader.onloadend = async () => {
       const base64data = reader.result as string;
-      const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
+      const isNativeDesktopApp = typeof (window as any).__TAURI_INTERNALS__ !== 'undefined' && 
+                                 (window.location.protocol === 'tauri:' || window.location.hostname === 'tauri.localhost');
+      const invokeFn = isNativeDesktopApp ? ((window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke) : null;
       
       if (invokeFn) {
         try {
@@ -412,18 +414,42 @@ const NarrativeGenerator: React.FC<NarrativeGeneratorProps> = ({ state, updateSt
             alert("Audio guardado con éxito.");
           }
         } catch (e: any) {
-          if (e !== "Operación cancelada por el usuario") {
+          if (e !== "Operación cancelada por el usuario" && e !== "Operation cancelled by user") {
             alert("Error al guardar: " + e);
           }
         }
       } else {
-        // Web fallback
+        // Web fallback: Usar la API nativa del navegador para solicitar la ubicación de guardado y permitir renombrar
+        if ('showSaveFilePicker' in window) {
+          try {
+            const handle = await (window as any).showSaveFilePicker({
+              suggestedName: filename,
+              types: [{
+                description: 'Audio File',
+                accept: { 'audio/wav': ['.wav'], 'audio/mp3': ['.mp3'] }
+              }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            setIsProcessingDownload(false);
+            return;
+          } catch (err: any) {
+            if (err.name === 'AbortError') {
+              setIsProcessingDownload(false);
+              return;
+            }
+          }
+        }
+
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = filename;
+        document.body.appendChild(link);
         link.click();
-        URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 250);
       }
       setIsProcessingDownload(false);
     };

@@ -419,7 +419,9 @@ const AudioDesigner: React.FC<AudioDesignerProps> = ({ state, updateState, apiSe
     reader.readAsDataURL(blob);
     reader.onloadend = async () => {
       const base64data = reader.result as string;
-      const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
+      const isNativeDesktopApp = typeof (window as any).__TAURI_INTERNALS__ !== 'undefined' && 
+                                 (window.location.protocol === 'tauri:' || window.location.hostname === 'tauri.localhost');
+      const invokeFn = isNativeDesktopApp ? ((window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke) : null;
 
       if (invokeFn) {
         try {
@@ -439,6 +441,24 @@ const AudioDesigner: React.FC<AudioDesignerProps> = ({ state, updateState, apiSe
           }
         }
       } else {
+        if ('showSaveFilePicker' in window) {
+          try {
+            const handle = await (window as any).showSaveFilePicker({
+              suggestedName: filename,
+              types: [{
+                description: 'Audio File',
+                accept: { 'audio/wav': ['.wav'], 'audio/mp3': ['.mp3'] }
+              }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            return;
+          } catch (err: any) {
+            if (err.name === 'AbortError') return; // Cancelado por el usuario
+          }
+        }
+
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
