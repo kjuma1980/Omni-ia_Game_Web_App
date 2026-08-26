@@ -35,7 +35,7 @@ import {
   type LibraryEntry,
 } from '../services/workflowLibrary';
 import { publicarWorkflows } from '../services/publicarWorkflows';
-import { generateImage, refinePrompt } from '../services/aiProvider';
+import { generateImage, refinePrompt, ensureValidPngBase64DataUrl } from '../services/aiProvider';
 import { safeImageSrc } from '../utils/imageUtils';
 import PencilSparkleAnimation from './PencilSparkleAnimation';
 import {
@@ -273,9 +273,11 @@ const AssetGenerator: React.FC<AssetGeneratorProps> = ({ assets, setAssets, stat
     try {
       const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
 
+      const cleanB64 = await ensureValidPngBase64DataUrl(imageUrl);
+
       if (invokeFn) {
         const result = await invokeFn('save_image', {
-          b64Data: imageUrl,
+          b64Data: cleanB64,
           filename: `asset-${id}.png`
         });
         alert(result);

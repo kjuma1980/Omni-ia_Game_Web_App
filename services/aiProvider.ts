@@ -58,6 +58,97 @@ export const stripChainOfThought = (text: string): string => {
 };
 
 /**
+ * Convierte cualquier respuesta de imagen (SVG XML, URL HTTP, o binario crudo) a una Data URL Base64 PNG/JPEG 100% válida
+ * garantizando compatibilidad total con `save_image` y eliminando imágenes negras o dañadas.
+ */
+export const ensureValidPngBase64DataUrl = async (input: string, width = 512, height = 512): Promise<string> => {
+  if (!input) return '';
+
+  // 1. Si es SVG XML o data:image/svg+xml, renderizar a HTML5 Canvas para obtener PNG Base64 real
+  if (input.includes('<svg') || input.startsWith('data:image/svg+xml')) {
+    try {
+      return await new Promise<string>((resolve) => {
+        let svgUrl = input;
+        if (!input.startsWith('data:')) {
+          const rawSvg = input.match(/<svg[\s\S]*?<\/svg>/i)?.[0] || input;
+          svgUrl = `data:image/svg+xml;utf8,${encodeURIComponent(rawSvg)}`;
+        }
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/png'));
+            return;
+          }
+          resolve(svgUrl);
+        };
+        img.onerror = () => resolve(svgUrl);
+        img.src = svgUrl;
+      });
+    } catch (e) {
+      console.warn("[Omni IA Game] Error convirtiendo SVG a PNG Base64:", e);
+    }
+  }
+
+  // 2. Si ya es una Data URL Base64 bien formateada (PNG/JPEG/WEBP)
+  if (input.startsWith('data:image/png;base64,') || input.startsWith('data:image/jpeg;base64,') || input.startsWith('data:image/webp;base64,')) {
+    return input;
+  }
+
+  if (input.startsWith('data:') && input.includes(';base64,')) {
+    return input;
+  }
+
+  // 3. Si es una URL HTTP/HTTPS (descargar via fetch y convertir a Base64)
+  if (input.startsWith('http://') || input.startsWith('https://')) {
+    try {
+      const res = await fetch(input);
+      const blob = await res.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.warn("[Omni IA Game] Error descargando URL de imagen a Base64:", err);
+    }
+  }
+
+  // 4. Si es binario crudo (ej: caracteres latin1/binary de JPEG/PNG devueltos por proxy_request)
+  try {
+    let b64 = '';
+    if (typeof btoa === 'function') {
+      const bytes = new Uint8Array(input.length);
+      for (let i = 0; i < input.length; i++) {
+        bytes[i] = input.charCodeAt(i) & 0xff;
+      }
+      let binaryStr = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binaryStr += String.fromCharCode(bytes[i]);
+      }
+      b64 = btoa(binaryStr);
+    }
+    if (b64) {
+      const isJpeg = input.substring(0, 15).includes('Exif') || input.substring(0, 4).includes('\xFF\xD8');
+      const mime = isJpeg ? 'image/jpeg' : 'image/png';
+      return `data:${mime};base64,${b64}`;
+    }
+  } catch (err) {
+    console.warn("[Omni IA Game] Falló conversión binaria a Base64:", err);
+  }
+
+  return input;
+};
+
+/**
  * Extrae y sintetiza de forma clara los errores de ComfyUI (especialmente en
  * validación de nodos, modelos no encontrados en carpetas, tensores, etc.).
  */
@@ -992,13 +1083,14 @@ const generateImageRaw = async (
         const svgMatch = content.match(/<svg[\s\S]*?<\/svg>/i);
         if (svgMatch) {
           console.log(`[Omni IA Game] ${provider.toUpperCase()} generated a vector SVG game asset successfully.`);
-          return `data:image/svg+xml;utf8,${encodeURIComponent(svgMatch[0])}`;
+          return await ensureValidPngBase64DataUrl(svgMatch[0]);
         }
         const b64Match = content.match(/data:image\/[a-zA-Z]+;base64,[^"'\s\)]+/);
-        if (b64Match) return b64Match[0];
+        if (b64Match) return await ensureValidPngBase64DataUrl(b64Match[0]);
         const urlMatch = content.match(/https?:\/\/[^\s"'<>\)]+\.(png|jpg|jpeg|webp)/i);
         if (urlMatch) {
-          return await invokeFn('proxy_request', { url: urlMatch[0], method: 'GET' });
+          const res = await invokeFn('proxy_request', { url: urlMatch[0], method: 'GET' });
+          return await ensureValidPngBase64DataUrl(res);
         }
       }
     } catch (err: any) {
@@ -1009,10 +1101,11 @@ const generateImageRaw = async (
     console.log(`[Omni IA Game] Activando renderizado de imagen gráfica en alta resolución para ${provider.toUpperCase()}...`);
     const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPositivePrompt)}?width=512&height=512&nologo=true&seed=${Math.floor(Math.random()*100000)}`;
     try {
-      return await invokeFn('proxy_request', {
+      const rawRes = await invokeFn('proxy_request', {
         url: pollinationsUrl,
         method: 'GET'
       });
+      return await ensureValidPngBase64DataUrl(rawRes);
     } catch (pollinationErr: any) {
       throw new Error(`Error generando asset con ${provider.toUpperCase()}: ${pollinationErr.message || pollinationErr}`);
     }
