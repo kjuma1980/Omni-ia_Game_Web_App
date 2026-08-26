@@ -1848,6 +1848,92 @@ export const generateVideo = async (
   }
 };
 
+export const executeServerEdgeTTSFallback = async (
+  text: string,
+  voice: string,
+  lang: string = 'ES',
+  useSpainSpanish: boolean = false
+): Promise<{ data: string; mimeType: string }> => {
+  const VOICE_MAP_ES_MX: Record<string, string> = {
+    'Heroic Male': 'es-MX-JorgeNeural',
+    'Heroic Female': 'es-MX-DaliaNeural',
+    'Villainous Dark': 'es-MX-JorgeNeural',
+    'Wise Elder': 'es-MX-JorgeNeural',
+    'Young Adventurer': 'es-MX-DaliaNeural',
+    'Mystical Entity': 'es-MX-DaliaNeural',
+    'Robot/AI': 'es-MX-JorgeNeural',
+    'Normal Female': 'es-MX-DaliaNeural',
+    'Normal Male': 'es-MX-JorgeNeural',
+    'Duende Male': 'es-MX-JorgeNeural',
+    'Duende Female': 'es-MX-DaliaNeural',
+    'Little Boy': 'es-MX-JorgeNeural',
+    'Little Girl': 'es-MX-DaliaNeural'
+  };
+  const VOICE_MAP_ES_ES: Record<string, string> = {
+    'Heroic Male': 'es-ES-AlvaroNeural',
+    'Heroic Female': 'es-ES-ElviraNeural',
+    'Villainous Dark': 'es-ES-AlvaroNeural',
+    'Wise Elder': 'es-ES-AlvaroNeural',
+    'Young Adventurer': 'es-ES-ElviraNeural',
+    'Mystical Entity': 'es-ES-ElviraNeural',
+    'Robot/AI': 'es-ES-AlvaroNeural',
+    'Normal Female': 'es-ES-ElviraNeural',
+    'Normal Male': 'es-ES-AlvaroNeural',
+    'Duende Male': 'es-ES-AlvaroNeural',
+    'Duende Female': 'es-ES-ElviraNeural',
+    'Little Boy': 'es-ES-AlvaroNeural',
+    'Little Girl': 'es-ES-ElviraNeural'
+  };
+  const VOICE_MAP_EN: Record<string, string> = {
+    'Heroic Male': 'en-US-ChristopherNeural',
+    'Heroic Female': 'en-US-JennyNeural',
+    'Villainous Dark': 'en-US-SteffanNeural',
+    'Wise Elder': 'en-US-BrianNeural',
+    'Young Adventurer': 'en-US-MichelleNeural',
+    'Mystical Entity': 'en-US-AriaNeural',
+    'Robot/AI': 'en-US-GuyNeural',
+    'Normal Female': 'en-US-JennyNeural',
+    'Normal Male': 'en-US-ChristopherNeural',
+    'Duende Male': 'en-US-GuyNeural',
+    'Duende Female': 'en-US-JennyNeural',
+    'Little Boy': 'en-US-GuyNeural',
+    'Little Girl': 'en-US-JennyNeural'
+  };
+
+  const map = lang === 'EN' ? VOICE_MAP_EN : (useSpainSpanish ? VOICE_MAP_ES_ES : VOICE_MAP_ES_MX);
+  const mappedVoice = map[voice] || (lang === 'EN' ? 'en-US-JennyNeural' : 'es-MX-DaliaNeural');
+
+  const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
+
+  const edgeCleanText = text
+    .replace(/\[[^\]]+\]:?/g, '')
+    .replace(/\([^)]+\):?/g, '')
+    .replace(/\b(ES|EN|Voiceover|Narrator):?/gi, '')
+    .replace(/Diálogo\s*\/\s*Narrativa Dual:?/gi, '')
+    .replace(/Escena:?/gi, '')
+    .replace(/\n\s*\n+/g, '\n')
+    .trim();
+
+  if (invokeFn) {
+    const data = await enviarJsonLocal('http://localhost:5000/api/tts', { text: edgeCleanText || text, voice: mappedVoice }).catch(() => null);
+    if (data?.audio) return { data: data.audio, mimeType: 'audio/mp3' };
+  }
+
+  console.log("[Omni IA Game] Generando síntesis de voz en el servidor web Express (/api/tts)...");
+  const res = await fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: edgeCleanText || text, voice: mappedVoice })
+  });
+  if (!res.ok) {
+    const errTxt = await res.text().catch(() => '');
+    throw new Error(`Error en el servidor de voz web (/api/tts): ${res.status} ${errTxt}`);
+  }
+  const json = await res.json();
+  if (!json?.audio) throw new Error(json?.error || 'El servidor web no devolvió datos de voz.');
+  return { data: json.audio, mimeType: json.mimeType || 'audio/mp3' };
+};
+
 export const generateTTS = async (
   text: string,
   voice: string = 'Normal Male',
@@ -1960,85 +2046,102 @@ export const generateTTS = async (
   if (provider === 'openrouter' || provider === 'cometapi' || provider === 'nvidia') {
     if (!apiKey) throw new Error(`Se requiere una API Key para ${provider.toUpperCase()} TTS. Por favor, agrégala en la pestaña de Ajustes (Tab Audio/Voz).`);
     const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
-    if (!invokeFn) throw new Error("Entorno Tauri no disponible.");
 
     if (provider === 'cometapi') {
       const activeModel = settings?.audio?.ttsModel || 'tts-1';
       console.log(`[Omni IA Game] Invocando CometAPI TTS | Modelo: ${activeModel}`);
-      const result = await invokeFn('proxy_request', {
-        url: 'https://api.cometapi.com/v1/audio/speech',
-        method: 'POST',
-        payload: {
-          model: activeModel,
-          input: processedText,
-          voice: 'alloy'
-        },
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
+      try {
+        if (invokeFn) {
+          const result = await invokeFn('proxy_request', {
+            url: 'https://api.cometapi.com/v1/audio/speech',
+            method: 'POST',
+            payload: {
+              model: activeModel,
+              input: processedText,
+              voice: 'alloy'
+            },
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (typeof result === 'string' && !result.includes('"error":') && !result.includes('404 page not found') && result.length > 500) {
+            let b64 = '';
+            if (result.startsWith('data:audio')) {
+              b64 = result.split(',')[1];
+            } else {
+              try { b64 = btoa(result); } catch { b64 = result; }
+            }
+            if (b64) return { data: b64, mimeType: 'audio/mp3' };
+          }
         }
-      });
-      let b64 = '';
-      if (typeof result === 'string') {
-        if (result.startsWith('data:audio')) {
-          b64 = result.split(',')[1];
-        } else if (result.length > 20) {
-          try { b64 = btoa(result); } catch { b64 = result; }
-        }
+      } catch (err: any) {
+        console.warn(`[Omni IA Game] CometAPI TTS error: ${err.message || err}. Usando servidor de voz web...`);
       }
-      if (b64) return { data: b64, mimeType: 'audio/mp3' };
-      throw new Error(`CometAPI no devolvió audio MP3 válido para el modelo ${activeModel}.`);
+      return await executeServerEdgeTTSFallback(text, voice, lang, useSpainSpanish);
     }
 
     if (provider === 'nvidia') {
       const activeModel = settings?.audio?.ttsModel || 'nvidia/magpie-tts-multilingual';
       console.log(`[Omni IA Game] Invocando NVIDIA Riva TTS | Modelo: ${activeModel}`);
-      const result = await invokeFn('proxy_request', {
-        url: 'https://integrate.api.nvidia.com/v1/audio/speech',
-        method: 'POST',
-        payload: {
-          model: activeModel,
-          input: processedText,
-          voice: 'English-US.Female-1'
-        },
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
+      try {
+        if (invokeFn) {
+          const result = await invokeFn('proxy_request', {
+            url: 'https://integrate.api.nvidia.com/v1/audio/speech',
+            method: 'POST',
+            payload: {
+              model: activeModel,
+              input: processedText,
+              voice: 'English-US.Female-1'
+            },
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (typeof result === 'string' && !result.includes('"error":') && !result.includes('404 page not found') && result.length > 500) {
+            let b64 = '';
+            if (result.startsWith('data:audio')) {
+              b64 = result.split(',')[1];
+            } else {
+              try { b64 = btoa(result); } catch { b64 = result; }
+            }
+            if (b64) return { data: b64, mimeType: 'audio/mp3' };
+          }
         }
-      });
-      let b64 = '';
-      if (typeof result === 'string') {
-        if (result.startsWith('data:audio')) {
-          b64 = result.split(',')[1];
-        } else if (result.length > 20) {
-          try { b64 = btoa(result); } catch { b64 = result; }
-        }
+      } catch (err: any) {
+        console.warn(`[Omni IA Game] NVIDIA Riva TTS error: ${err.message || err}. Usando servidor de voz web...`);
       }
-      if (b64) return { data: b64, mimeType: 'audio/mp3' };
-      throw new Error(`NVIDIA Riva TTS no devolvió datos de voz válidos para el modelo ${activeModel}.`);
+      return await executeServerEdgeTTSFallback(text, voice, lang, useSpainSpanish);
     }
 
     if (provider === 'openrouter') {
       const activeModel = settings?.audio?.ttsModel || 'openai/gpt-4o-audio-preview';
       console.log(`[Omni IA Game] Invocando OpenRouter TTS | Modelo: ${activeModel}`);
-      const result = await invokeFn('proxy_request', {
-        url: 'https://openrouter.ai/api/v1/chat/completions',
-        method: 'POST',
-        payload: {
-          model: activeModel,
-          modalities: ["text", "audio"],
-          audio: { voice: "alloy", format: "mp3" },
-          messages: [{ role: 'user', content: `Lee en voz alta claramente: ${processedText}` }]
-        },
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
+      try {
+        if (invokeFn) {
+          const result = await invokeFn('proxy_request', {
+            url: 'https://openrouter.ai/api/v1/chat/completions',
+            method: 'POST',
+            payload: {
+              model: activeModel,
+              modalities: ["text", "audio"],
+              audio: { voice: "alloy", format: "mp3" },
+              messages: [{ role: 'user', content: `Lee en voz alta claramente: ${processedText}` }]
+            },
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          const data = typeof result === 'string' ? JSON.parse(result) : result;
+          const b64 = data?.choices?.[0]?.message?.audio?.data;
+          if (b64) return { data: b64, mimeType: 'audio/mp3' };
         }
-      });
-      const data = typeof result === 'string' ? JSON.parse(result) : result;
-      const b64 = data?.choices?.[0]?.message?.audio?.data;
-      if (b64) return { data: b64, mimeType: 'audio/mp3' };
-      throw new Error(`OpenRouter no devolvió datos de voz para el modelo ${activeModel}.`);
+      } catch (err: any) {
+        console.warn(`[Omni IA Game] OpenRouter TTS error: ${err.message || err}. Usando servidor de voz web...`);
+      }
+      return await executeServerEdgeTTSFallback(text, voice, lang, useSpainSpanish);
     }
   }
 
