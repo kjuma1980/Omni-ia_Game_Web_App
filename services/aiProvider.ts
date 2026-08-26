@@ -933,51 +933,116 @@ const generateImageRaw = async (
     if (!apiKey) {
       throw new Error(`Se requiere una API Key para ${provider.toUpperCase()} (Imagen). Por favor, agrégala en la pestaña de Ajustes.`);
     }
-    const model = settings?.image?.model || (provider === 'openrouter' ? 'openai/dall-e-3' : provider === 'nvidia' ? 'meta/llama-3.3-70b-instruct' : 'dall-e-3');
     const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
-
     if (!invokeFn) {
       throw new Error(`Entorno Tauri no disponible para la generación con ${provider.toUpperCase()}.`);
     }
 
-    const targetUrl = provider === 'openrouter'
-      ? 'https://openrouter.ai/api/v1/chat/completions'
-      : provider === 'nvidia'
-      ? 'https://integrate.api.nvidia.com/v1/chat/completions'
-      : 'https://api.cometapi.com/v1/images/generations';
-
-    console.log(`[Omni IA Game] Generating image using ${provider.toUpperCase()} | Model: ${model} | URL: ${targetUrl}`);
+    // Sanitizar modelo según proveedor para evitar 404 / 400 por modelos no soportados
+    let activeModel = settings?.image?.model;
+    if (provider === 'nvidia') {
+      // NVIDIA NIM chat/completions solo acepta modelos de chat de NVIDIA registrados
+      if (!activeModel || !activeModel.includes('/') || activeModel.includes('sdxl') || activeModel.includes('edify')) {
+        activeModel = 'meta/llama-3.3-70b-instruct';
+      }
+    } else if (provider === 'openrouter') {
+      if (!activeModel || activeModel === 'dall-e-3' || activeModel === 'openai/dall-e-3') {
+        activeModel = 'black-forest-labs/flux-1-schnell';
+      }
+    } else if (provider === 'cometapi') {
+      if (!activeModel || activeModel === 'dall-e-3') {
+        activeModel = 'flux-schnell';
+      }
+    }
 
     if (provider === 'cometapi') {
-      const result = await invokeFn('proxy_request', {
-        url: targetUrl,
-        method: 'POST',
-        payload: {
-          model: model,
-          prompt: cleanPositivePrompt,
-          n: 1,
-          size: '1024x1024'
-        },
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
+      const targetUrl = 'https://api.cometapi.com/v1/images/generations';
+      console.log(`[Omni IA Game] Generating image using COMETAPI | Model: ${activeModel} | URL: ${targetUrl}`);
+      try {
+        const result = await invokeFn('proxy_request', {
+          url: targetUrl,
+          method: 'POST',
+          payload: {
+            model: activeModel,
+            prompt: cleanPositivePrompt,
+            n: 1,
+            size: '1024x1024'
+          },
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const data = typeof result === 'string' ? JSON.parse(result) : result;
+        if (data?.error) throw new Error(data.error.message || JSON.stringify(data.error));
+        if (data?.data?.[0]?.b64_json) return `data:image/png;base64,${data.data[0].b64_json}`;
+        if (data?.data?.[0]?.url) {
+          return await invokeFn('proxy_request', { url: data.data[0].url, method: 'GET' });
         }
-      });
-      const data = typeof result === 'string' ? JSON.parse(result) : result;
-      if (data?.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      if (data?.data?.[0]?.b64_json) return `data:image/png;base64,${data.data[0].b64_json}`;
-      if (data?.data?.[0]?.url) {
-        return await invokeFn('proxy_request', { url: data.data[0].url, method: 'GET' });
+      } catch (err: any) {
+        console.warn(`[Omni IA Game] CometAPI /images/generations fallback to /chat/completions due to: ${err.message || err}`);
+        const chatUrl = 'https://api.cometapi.com/v1/chat/completions';
+        const chatRes = await invokeFn('proxy_request', {
+          url: chatUrl,
+          method: 'POST',
+          payload: {
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: `Generate image asset description: ${cleanPositivePrompt}` }]
+          },
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
+        });
+        const chatData = typeof chatRes === 'string' ? JSON.parse(chatRes) : chatRes;
+        if (chatData?.error) throw new Error(chatData.error.message || JSON.stringify(chatData.error));
+        const content = chatData?.choices?.[0]?.message?.content || '';
+        const match = content.match(/data:image\/[a-zA-Z]+;base64,[^"'\s\)]+/) || content.match(/https?:\/\/[^\s"'<>\)]+\.(png|jpg|jpeg|webp)/i);
+        if (match) {
+          if (match[0].startsWith('data:')) return match[0];
+          return await invokeFn('proxy_request', { url: match[0], method: 'GET' });
+        }
+        throw new Error(`CometAPI no pudo generar la imagen. Detalle: ${err.message || err}`);
       }
-      throw new Error(`${provider.toUpperCase()} no devolvió una imagen en formato válido.`);
+      throw new Error("CometAPI no devolvió una imagen en formato válido.");
+    } else if (provider === 'openrouter') {
+      const targetUrl = 'https://openrouter.ai/api/v1/chat/completions';
+      console.log(`[Omni IA Game] Generating image using OPENROUTER | Model: ${activeModel} | URL: ${targetUrl}`);
+      try {
+        const result = await invokeFn('proxy_request', {
+          url: targetUrl,
+          method: 'POST',
+          payload: {
+            model: activeModel,
+            messages: [
+              { role: 'user', content: `Generate visual sprite art for game asset: ${cleanPositivePrompt}` }
+            ]
+          },
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const data = typeof result === 'string' ? JSON.parse(result) : result;
+        if (data?.error) throw new Error(data.error.message || JSON.stringify(data.error));
+        const content = data?.choices?.[0]?.message?.content || '';
+        const match = content.match(/data:image\/[a-zA-Z]+;base64,[^"'\s\)]+/) || content.match(/https?:\/\/[^\s"'<>\)]+\.(png|jpg|jpeg|webp)/i);
+        if (match) {
+          if (match[0].startsWith('data:')) return match[0];
+          return await invokeFn('proxy_request', { url: match[0], method: 'GET' });
+        }
+        throw new Error(`OpenRouter (${activeModel}) respondió: ${content.substring(0, 150)}...`);
+      } catch (err: any) {
+        throw new Error(`Error en OpenRouter (${activeModel}): ${err.message || err}`);
+      }
     } else {
+      // NVIDIA NIM
+      const targetUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
+      console.log(`[Omni IA Game] Generating image using NVIDIA NIM | Model: ${activeModel} | URL: ${targetUrl}`);
       const result = await invokeFn('proxy_request', {
         url: targetUrl,
         method: 'POST',
         payload: {
-          model: model,
+          model: activeModel,
           messages: [
-            { role: 'user', content: `Generate a high quality game sprite/image for: ${cleanPositivePrompt}` }
+            { role: 'user', content: `Describe the visual asset and layout for: ${cleanPositivePrompt}` }
           ]
         },
         headers: {
@@ -993,7 +1058,7 @@ const generateImageRaw = async (
         if (match[0].startsWith('data:')) return match[0];
         return await invokeFn('proxy_request', { url: match[0], method: 'GET' });
       }
-      throw new Error(`Respuesta de ${provider.toUpperCase()} recibida: ${content.substring(0, 120)}...`);
+      throw new Error(`NVIDIA NIM (${activeModel}) respondió: ${content.substring(0, 150)}...`);
     }
   } else if (provider === 'comfyui' || provider === 'a1111' || (provider as string) === 'local' || provider === 'ollama') {
     baseUrl = baseUrl || settings?.image?.baseUrl || 'http://127.0.0.1:8188';

@@ -119,9 +119,9 @@ const PREDEFINED_IMAGE_MODELS: Record<string, string[]> = {
   gemini: ['imagen-3.0-generate-002', 'imagen-2.5-flash', 'imagen-2.0-pro'],
   openai: ['dall-e-3', 'dall-e-2', 'openai/dall-e-3'],
   'midjourney-api': ['midjourney-v6', 'midjourney-v5.2', 'midjourney-v5.1'],
-  openrouter: ['openai/dall-e-3', 'black-forest-labs/flux-1-schnell', 'stabilityai/stable-diffusion-xl-beta-v2-2'],
-  cometapi: ['dall-e-3', 'dall-e-2', 'midjourney'],
-  nvidia: ['stabilityai/sdxl-turbo', 'nvidia/edify-image'],
+  openrouter: ['black-forest-labs/flux-1-schnell', 'black-forest-labs/flux-1-dev', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini', 'meta-llama/llama-3.3-70b-instruct'],
+  cometapi: ['flux-schnell', 'flux-dev', 'gpt-4o', 'gpt-4o-mini', 'midjourney'],
+  nvidia: ['meta/llama-3.3-70b-instruct', 'deepseek-ai/deepseek-v4-flash-0731', 'nvidia/llama-3.1-nemotron-70b-instruct'],
   comfydeploy: ['sdxl-base-1.0', 'flux-1-schnell', 'flux-1-dev', 'sd-3.5-large'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
@@ -139,9 +139,9 @@ const PREDEFINED_VIDEO_MODELS: Record<string, string[]> = {
   kling: ['kling-v2-pro', 'kling-v1.5-standard', 'kling-v1.0-speed'],
   openart: ['openart-video-flux', 'openart-video-sdxl'],
   youart: ['youart-video-v2', 'youart-video-v1'],
-  openrouter: ['luma/ray-2', 'runway/gen-3'],
-  cometapi: ['sora-1.0', 'kling-v1-6', 'luma-dream-machine'],
-  nvidia: ['nvidia/cosmos-video', 'nvidia/edify-video'],
+  openrouter: ['meta-llama/llama-3.3-70b-instruct', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
+  cometapi: ['gpt-4o', 'gpt-4o-mini'],
+  nvidia: ['meta/llama-3.3-70b-instruct', 'deepseek-ai/deepseek-v4-flash-0731'],
   comfydeploy: ['svd-xt-1.1', 'animate-diff-v3', 'hunyuan-video', 'cogvideo-x-5b'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
@@ -157,9 +157,9 @@ const PREDEFINED_TTS_MODELS: Record<string, string[]> = {
   gemini: ['gemini-tts-v1', 'gemini-speech-v1'],
   elevenlabs: ['eleven_multilingual_v2', 'eleven_turbo_v2_5', 'eleven_monolingual_v1'],
   suno: ['bark-v2', 'bark-standard', 'suno-tts-v1'],
-  openrouter: ['openai/tts-1', 'openai/tts-1-hd'],
-  cometapi: ['tts-1', 'tts-1-hd', 'elevenlabs-v2'],
-  nvidia: ['nvidia/riva-tts-spanish', 'nvidia/riva-tts-english'],
+  openrouter: ['meta-llama/llama-3.3-70b-instruct', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
+  cometapi: ['tts-1', 'gpt-4o-mini'],
+  nvidia: ['meta/llama-3.3-70b-instruct', 'deepseek-ai/deepseek-v4-flash-0731'],
   comfydeploy: ['f5-tts', 'chat-tts', 'xtts-v2'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
@@ -176,9 +176,9 @@ const PREDEFINED_MUSIC_MODELS: Record<string, string[]> = {
   suno: ['chirp-v3-5', 'chirp-v3', 'chirp-v2'],
   udio: ['udio-v1.5', 'udio-v1.0'],
   'meta-audiocraft': ['musicgen-large', 'musicgen-medium', 'musicgen-melody', 'audiogen-medium'],
-  openrouter: ['suno-v3-5', 'udio-v1-5'],
-  cometapi: ['suno-v3-5', 'udio-v1-5'],
-  nvidia: ['nvidia/audiocraft-music'],
+  openrouter: ['meta-llama/llama-3.3-70b-instruct', 'google/gemini-2.0-flash-001'],
+  cometapi: ['gpt-4o', 'gpt-4o-mini'],
+  nvidia: ['meta/llama-3.3-70b-instruct', 'deepseek-ai/deepseek-v4-flash-0731'],
   comfydeploy: ['musicgen-comfy', 'audiocraft-node'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
@@ -196,9 +196,9 @@ const PREDEFINED_SFX_MODELS: Record<string, string[]> = {
   suno: ['sfx-suno-v1'],
   udio: ['sfx-udio-v1'],
   'meta-audiocraft': ['audiogen-medium'],
-  openrouter: ['sfx-openrouter-v1'],
-  cometapi: ['sfx-comet-v1'],
-  nvidia: ['nvidia/audiocraft-sfx'],
+  openrouter: ['meta-llama/llama-3.3-70b-instruct', 'google/gemini-2.0-flash-001'],
+  cometapi: ['gpt-4o', 'gpt-4o-mini'],
+  nvidia: ['meta/llama-3.3-70b-instruct', 'deepseek-ai/deepseek-v4-flash-0731'],
   comfydeploy: ['sfx-comfy-v1'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.

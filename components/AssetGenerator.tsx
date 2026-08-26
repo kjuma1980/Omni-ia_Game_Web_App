@@ -691,7 +691,7 @@ const AssetGenerator: React.FC<AssetGeneratorProps> = ({ assets, setAssets, stat
       }
     } catch (error: any) {
       console.error("Asset generation failed:", error);
-      alert(`Error creando asset: ${error.message || error}. Verifique su conexión con ComfyUI.`);
+      alert(`Error creando asset: ${error.message || error}`);
     } finally {
       // Red de seguridad: si algo lanzo antes de limpiarlo, aqui se cierra.
       if (progressIntervalRef.current) {
