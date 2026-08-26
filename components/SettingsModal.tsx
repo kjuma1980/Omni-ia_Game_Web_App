@@ -119,9 +119,6 @@ const PREDEFINED_IMAGE_MODELS: Record<string, string[]> = {
   gemini: ['imagen-3.0-generate-002', 'imagen-2.5-flash', 'imagen-2.0-pro'],
   openai: ['dall-e-3', 'dall-e-2', 'openai/dall-e-3'],
   'midjourney-api': ['midjourney-v6', 'midjourney-v5.2', 'midjourney-v5.1'],
-  openrouter: ['black-forest-labs/flux-1-schnell', 'black-forest-labs/flux-1-dev', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini', 'meta-llama/llama-3.3-70b-instruct'],
-  cometapi: ['flux-schnell', 'flux-dev', 'gpt-4o', 'gpt-4o-mini', 'midjourney'],
-  nvidia: ['meta/llama-3.3-70b-instruct', 'deepseek-ai/deepseek-v4-flash-0731', 'nvidia/llama-3.1-nemotron-70b-instruct'],
   comfydeploy: ['sdxl-base-1.0', 'flux-1-schnell', 'flux-1-dev', 'sd-3.5-large'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
@@ -139,9 +136,6 @@ const PREDEFINED_VIDEO_MODELS: Record<string, string[]> = {
   kling: ['kling-v2-pro', 'kling-v1.5-standard', 'kling-v1.0-speed'],
   openart: ['openart-video-flux', 'openart-video-sdxl'],
   youart: ['youart-video-v2', 'youart-video-v1'],
-  openrouter: ['meta-llama/llama-3.3-70b-instruct', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
-  cometapi: ['gpt-4o', 'gpt-4o-mini'],
-  nvidia: ['meta/llama-3.3-70b-instruct', 'deepseek-ai/deepseek-v4-flash-0731'],
   comfydeploy: ['svd-xt-1.1', 'animate-diff-v3', 'hunyuan-video', 'cogvideo-x-5b'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
@@ -157,9 +151,6 @@ const PREDEFINED_TTS_MODELS: Record<string, string[]> = {
   gemini: ['gemini-tts-v1', 'gemini-speech-v1'],
   elevenlabs: ['eleven_multilingual_v2', 'eleven_turbo_v2_5', 'eleven_monolingual_v1'],
   suno: ['bark-v2', 'bark-standard', 'suno-tts-v1'],
-  openrouter: ['openai/gpt-4o-audio-preview', 'meta-llama/llama-3.3-70b-instruct'],
-  cometapi: ['tts-1', 'tts-1-hd'],
-  nvidia: ['nvidia/magpie-tts-multilingual', 'nvidia/chatterbox-tts-multilingual', 'nvidia/riva-tts-spanish'],
   comfydeploy: ['f5-tts', 'chat-tts', 'xtts-v2'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
@@ -176,9 +167,6 @@ const PREDEFINED_MUSIC_MODELS: Record<string, string[]> = {
   suno: ['chirp-v3-5', 'chirp-v3', 'chirp-v2'],
   udio: ['udio-v1.5', 'udio-v1.0'],
   'meta-audiocraft': ['musicgen-large', 'musicgen-medium', 'musicgen-melody', 'audiogen-medium'],
-  openrouter: ['openrouter-audio-synthesis'],
-  cometapi: ['suno-v3-5', 'udio-v1-5'],
-  nvidia: ['nvidia-audio-synthesis'],
   comfydeploy: ['musicgen-comfy', 'audiocraft-node'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
@@ -196,9 +184,6 @@ const PREDEFINED_SFX_MODELS: Record<string, string[]> = {
   suno: ['sfx-suno-v1'],
   udio: ['sfx-udio-v1'],
   'meta-audiocraft': ['audiogen-medium'],
-  openrouter: ['sfx-openrouter-v1'],
-  cometapi: ['sfx-comet-v1'],
-  nvidia: ['nvidia-sfx-v1'],
   comfydeploy: ['sfx-comfy-v1'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
@@ -4008,7 +3993,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label className="flex items-center justify-between mb-4 cursor-pointer">
                     <span className="font-bold text-slate-200">Generación de Imágenes</span>
                     <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 flex-wrap gap-1">
-                      {['gemini', 'openai', 'midjourney-api', 'openrouter', 'cometapi', 'nvidia', 'comfydeploy', 'omnideploy', 'comfyui', 'a1111', 'ollama', 'lm-studio', 'other'].map((p) => (
+                      {['gemini', 'openai', 'midjourney-api', 'comfydeploy', 'omnideploy', 'comfyui', 'a1111', 'ollama', 'lm-studio', 'other'].map((p) => (
                         <button
                           key={p}
                           onClick={() => updateImageSettings({ provider: p as any })}
@@ -4023,7 +4008,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                   {/* API Key (Cloud Providers) */}
-                  {(['gemini', 'openai', 'midjourney-api', 'openrouter', 'cometapi', 'nvidia', 'other'].includes(settings.image.provider)) && (
+                  {(['gemini', 'openai', 'midjourney-api', 'other'].includes(settings.image.provider)) && (
                     <Tooltip id="settingsTextApiKey" showTooltips={showTooltips} className="block">
                       <div>
                         <label className="block text-xs text-slate-500 uppercase mb-1">API Key (Opcional)</label>
@@ -4036,7 +4021,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             });
                           }}
                           className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 font-mono"
-                          placeholder={settings.image.provider === 'nvidia' ? 'nvapi-...' : settings.image.provider === 'openrouter' ? 'sk-or-v1-...' : settings.image.provider === 'cometapi' ? 'sk-comet-...' : 'sk-...'}
+                          placeholder="sk-..."
                         />
                       </div>
                     </Tooltip>
@@ -4124,7 +4109,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   )}
 
                   {/* Universal Image Model Selector */}
-                  {['gemini', 'openai', 'midjourney-api', 'openrouter', 'cometapi', 'nvidia', 'a1111', 'ollama', 'lm-studio', 'other'].includes(settings.image.provider) && (() => {
+                  {['gemini', 'openai', 'midjourney-api', 'a1111', 'ollama', 'lm-studio', 'other'].includes(settings.image.provider) && (() => {
                     const provider = settings.image.provider;
                     const predefined = PREDEFINED_IMAGE_MODELS[provider] || [];
                     const currentModel = settings.image.model || '';
@@ -4339,7 +4324,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label className="flex items-center justify-between mb-4 cursor-pointer">
                     <span className="font-bold text-slate-200">Generación de Animación (Video)</span>
                     <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 flex-wrap gap-1">
-                      {['gemini', 'seedance', 'kling', 'openart', 'youart', 'openrouter', 'cometapi', 'nvidia', 'comfydeploy', 'omnideploy', 'comfyui', 'a1111', 'ollama', 'llama-server', 'lm-studio', 'other'].map((p) => (
+                      {['gemini', 'seedance', 'kling', 'openart', 'youart', 'comfydeploy', 'omnideploy', 'comfyui', 'a1111', 'ollama', 'llama-server', 'lm-studio', 'other'].map((p) => (
                         <button
                           key={p}
                           onClick={() => {
@@ -4368,7 +4353,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                   {/* API Key (Cloud Providers) */}
-                  {(['gemini', 'seedance', 'kling', 'openart', 'youart', 'openrouter', 'cometapi', 'nvidia', 'other'].includes(settings.video.provider)) && (
+                  {(['gemini', 'seedance', 'kling', 'openart', 'youart', 'other'].includes(settings.video.provider)) && (
                     <Tooltip id="settingsTextApiKey" showTooltips={showTooltips} className="block">
                       <div>
                         <label className="block text-xs text-slate-500 uppercase mb-1">API Key (Opcional)</label>
@@ -4381,7 +4366,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             });
                           }}
                           className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 font-mono"
-                          placeholder={settings.video.provider === 'nvidia' ? 'nvapi-...' : settings.video.provider === 'openrouter' ? 'sk-or-v1-...' : settings.video.provider === 'cometapi' ? 'sk-comet-...' : 'sk-...'}
+                          placeholder="sk-..."
                         />
                       </div>
                     </Tooltip>
@@ -4629,7 +4614,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     </>
                   )}
                   {/* Universal Video Model Selector */}
-                  {['gemini', 'seedance', 'kling', 'openart', 'youart', 'openrouter', 'cometapi', 'nvidia', 'a1111', 'other'].includes(settings.video.provider) && (() => {
+                  {['gemini', 'seedance', 'kling', 'openart', 'youart', 'a1111', 'other'].includes(settings.video.provider) && (() => {
                     const provider = settings.video.provider;
                     const predefined = PREDEFINED_VIDEO_MODELS[provider] || [];
                     const currentModel = settings.video.model || '';
@@ -4732,7 +4717,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="mb-4">
                     <label className="block text-xs text-slate-500 uppercase mb-2">Proveedor TTS</label>
                     <div className="flex flex-wrap gap-2 bg-slate-900 p-1 rounded-lg border border-slate-800">
-                      {['gemini', 'elevenlabs', 'suno', 'openrouter', 'cometapi', 'nvidia', 'comfydeploy', 'omnideploy', 'comfyui', 'ollama', 'llama-server', 'lm-studio', 'local', 'other'].map((p) => (
+                      {['gemini', 'elevenlabs', 'suno', 'comfydeploy', 'omnideploy', 'comfyui', 'ollama', 'llama-server', 'lm-studio', 'local', 'other'].map((p) => (
                         <button
                           key={p}
                           onClick={() => {
@@ -4756,8 +4741,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </Tooltip>
 
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                  {/* GEMINI, ELEVENLABS, SUNO, OPENROUTER, COMETAPI & NVIDIA */}
-                  {(['gemini', 'elevenlabs', 'suno', 'openrouter', 'cometapi', 'nvidia', 'other'].includes(settings.audio.ttsProvider)) && (
+                  {/* GEMINI, ELEVENLABS, SUNO */}
+                  {(['gemini', 'elevenlabs', 'suno', 'other'].includes(settings.audio.ttsProvider)) && (
                     <Tooltip id="settingsTextApiKey" showTooltips={showTooltips} className="block">
                       <div>
                         <label className="block text-xs text-slate-500 uppercase mb-1">API Key</label>
@@ -4766,7 +4751,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                           value={settings.audio.apiKeys?.[settings.audio.ttsProvider] || ''}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateAudioSettings({ apiKey: e.target.value }, 'tts')}
                           className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 font-mono"
-                          placeholder={settings.audio.ttsProvider === 'nvidia' ? 'nvapi-...' : settings.audio.ttsProvider === 'openrouter' ? 'sk-or-v1-...' : settings.audio.ttsProvider === 'cometapi' ? 'sk-comet-...' : 'sk-...'}
+                          placeholder="sk-..."
                         />
                       </div>
                     </Tooltip>
@@ -5100,7 +5085,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   )}
                   {/* Universal TTS Model Selector */}
-                  {['gemini', 'elevenlabs', 'suno', 'openrouter', 'cometapi', 'nvidia', 'lm-studio', 'local', 'other'].includes(settings.audio.ttsProvider) && (() => {
+                  {['gemini', 'elevenlabs', 'suno', 'lm-studio', 'local', 'other'].includes(settings.audio.ttsProvider) && (() => {
                     const provider = settings.audio.ttsProvider;
                     const predefined = PREDEFINED_TTS_MODELS[provider] || [];
                     const currentModel = settings.audio.ttsModel || '';
@@ -5168,7 +5153,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="mb-4">
                     <label className="block text-xs text-slate-500 uppercase mb-2">Proveedor Música</label>
                     <div className="flex flex-wrap gap-2 bg-slate-900 p-1 rounded-lg border border-slate-800">
-                      {['gemini', 'suno', 'udio', 'meta-audiocraft', 'openrouter', 'cometapi', 'nvidia', 'comfydeploy', 'omnideploy', 'comfyui', 'a1111', 'ollama', 'lm-studio', 'llama-server', 'local', 'other'].map((p) => (
+                      {['gemini', 'suno', 'udio', 'meta-audiocraft', 'comfydeploy', 'omnideploy', 'comfyui', 'a1111', 'ollama', 'lm-studio', 'llama-server', 'local', 'other'].map((p) => (
                         <button
                           key={p}
                           onClick={() => updateAudioSettings({ musicProvider: p as any })}
@@ -5335,7 +5320,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {settings.audio.musicProvider !== 'gemini' && settings.audio.musicProvider !== 'comfydeploy' && settings.audio.musicProvider !== 'omnideploy' && settings.audio.musicProvider !== 'comfyui' && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                    {(['suno', 'udio', 'openrouter', 'cometapi', 'nvidia', 'meta-audiocraft'].includes(settings.audio.musicProvider)) ? (
+                    {(['suno', 'udio', 'meta-audiocraft'].includes(settings.audio.musicProvider)) ? (
                       <Tooltip id="settingsAudioMusicApiKey" showTooltips={showTooltips} className="block">
                         <div>
                           <label className="block text-xs text-slate-500 uppercase mb-1">
@@ -5346,7 +5331,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={settings.audio.apiKeys?.[settings.audio.musicProvider] || ''}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateAudioSettings({ apiKey: e.target.value }, 'music')}
                             className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-slate-300 font-mono focus:border-amber-500 outline-none"
-                            placeholder={settings.audio.musicProvider === 'nvidia' ? 'nvapi-...' : settings.audio.musicProvider === 'openrouter' ? 'sk-or-v1-...' : settings.audio.musicProvider === 'cometapi' ? 'sk-comet-...' : 'sk-...'}
+                            placeholder="sk-..."
                           />
                         </div>
                       </Tooltip>
@@ -5842,21 +5827,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label className="flex items-center justify-between mb-4 cursor-pointer">
                     <span className="font-bold text-slate-200">Proveedor del Modelador 3D</span>
                     <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 flex-wrap gap-1 font-bold">
-                      {(['tripo', 'meshy', 'openrouter', 'cometapi', 'nvidia', 'comfydeploy', 'omnideploy', 'comfyui', 'a1111'] as const).map((prov) => (
+                      {(['tripo', 'meshy', 'comfydeploy', 'omnideploy', 'comfyui', 'a1111'] as const).map((prov) => (
                         <button
                           key={prov}
                           onClick={() => updateThreeDSettings({ provider: prov as any })}
                           className={`px-3 py-1 text-xs rounded font-bold uppercase transition-all ${settings.threeD.provider === prov ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
                         >
-                          {prov === 'tripo' ? 'Tripo 3D' : prov === 'meshy' ? 'Meshy' : prov === 'openrouter' ? 'OpenRouter' : prov === 'cometapi' ? 'CometAPI' : prov === 'nvidia' ? 'NVIDIA NIM' : prov === 'comfydeploy' ? 'ComfyDeploy' : prov === 'omnideploy' ? 'OmniDeploy (GPU remota)' : prov === 'comfyui' ? 'ComfyUI (Local)' : 'A1111 (Local)'}
+                          {prov === 'tripo' ? 'Tripo 3D' : prov === 'meshy' ? 'Meshy' : prov === 'comfydeploy' ? 'ComfyDeploy' : prov === 'omnideploy' ? 'OmniDeploy (GPU remota)' : prov === 'comfyui' ? 'ComfyUI (Local)' : 'A1111 (Local)'}
                         </button>
                       ))}
                     </div>
                   </label>
                 </Tooltip>
 
-                {/* Cloud Providers: Tripo 3D, Meshy, OpenRouter, CometAPI & NVIDIA NIM */}
-                {(settings.threeD.provider === 'tripo' || settings.threeD.provider === 'meshy' || settings.threeD.provider === 'openrouter' || settings.threeD.provider === 'cometapi' || settings.threeD.provider === 'nvidia') && (
+                {/* Cloud Providers: Tripo 3D, Meshy */}
+                {(settings.threeD.provider === 'tripo' || settings.threeD.provider === 'meshy') && (
                   <div className="space-y-4 pt-2 border-t border-slate-900">
                     <div className="grid grid-cols-2 gap-4">
                       <Tooltip id="settingsThreeDApiKey" showTooltips={showTooltips}>
@@ -5869,7 +5854,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             value={settings.threeD.apiKey || ''}
                             onChange={(e) => updateThreeDSettings({ apiKey: e.target.value })}
                             className="w-full bg-slate-900 border border-slate-800 rounded p-2 text-xs text-slate-300 font-mono"
-                            placeholder={settings.threeD.provider === 'nvidia' ? 'nvapi-...' : settings.threeD.provider === 'openrouter' ? 'sk-or-v1-...' : settings.threeD.provider === 'cometapi' ? 'sk-comet-...' : settings.threeD.provider === 'meshy' ? 'msy_...' : settings.threeD.provider === 'tripo' ? 'tripo_...' : 'sk-...'}
+                            placeholder={settings.threeD.provider === 'meshy' ? 'msy_...' : 'tripo_...'}
                           />
                         </div>
                       </Tooltip>

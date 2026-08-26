@@ -1020,95 +1020,6 @@ const generateImageRaw = async (
     }
 
     throw new Error("OpenAI no devolvió una imagen en formato válido.");
-  } else if (provider === 'openrouter' || provider === 'cometapi' || provider === 'nvidia') {
-    if (!apiKey) {
-      throw new Error(`Se requiere una API Key para ${provider.toUpperCase()} (Imagen). Por favor, agrégala en la pestaña de Ajustes.`);
-    }
-    const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
-    if (!invokeFn) {
-      throw new Error(`Entorno Tauri no disponible para la generación con ${provider.toUpperCase()}.`);
-    }
-
-    let activeModel = settings?.image?.model;
-    if (provider === 'nvidia') {
-      if (!activeModel || !activeModel.includes('/') || activeModel.includes('sdxl') || activeModel.includes('edify')) {
-        activeModel = 'meta/llama-3.3-70b-instruct';
-      }
-    } else if (provider === 'openrouter') {
-      if (!activeModel || activeModel === 'dall-e-3' || activeModel === 'openai/dall-e-3') {
-        activeModel = 'meta-llama/llama-3.3-70b-instruct';
-      }
-    } else if (provider === 'cometapi') {
-      if (!activeModel || activeModel === 'dall-e-3') {
-        activeModel = 'gpt-4o-mini';
-      }
-    }
-
-    const targetUrl = provider === 'openrouter'
-      ? 'https://openrouter.ai/api/v1/chat/completions'
-      : provider === 'nvidia'
-      ? 'https://integrate.api.nvidia.com/v1/chat/completions'
-      : 'https://api.cometapi.com/v1/chat/completions';
-
-    console.log(`[Omni IA Game] Generating 2D Game Asset via ${provider.toUpperCase()} | Model: ${activeModel} | URL: ${targetUrl}`);
-
-    try {
-      // 1. Intentar generación directa o de SVG Vector Sprite mediante el modelo
-      const result = await invokeFn('proxy_request', {
-        url: targetUrl,
-        method: 'POST',
-        payload: {
-          model: activeModel,
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a 2D Vector Game Sprite Engine. Output ONLY valid raw SVG XML inside an <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">...</svg> tag representing a colorful 2D game asset sprite. No markdown code blocks, no text.'
-            },
-            {
-              role: 'user',
-              content: `Generate a 2D game sprite asset for: ${cleanPositivePrompt}`
-            }
-          ]
-        },
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = typeof result === 'string' ? JSON.parse(result) : result;
-      const content = data?.choices?.[0]?.message?.content || data?.data?.[0]?.b64_json || '';
-      
-      if (typeof content === 'string') {
-        const svgMatch = content.match(/<svg[\s\S]*?<\/svg>/i);
-        if (svgMatch) {
-          console.log(`[Omni IA Game] ${provider.toUpperCase()} generated a vector SVG game asset successfully.`);
-          return await ensureValidPngBase64DataUrl(svgMatch[0]);
-        }
-        const b64Match = content.match(/data:image\/[a-zA-Z]+;base64,[^"'\s\)]+/);
-        if (b64Match) return await ensureValidPngBase64DataUrl(b64Match[0]);
-        const urlMatch = content.match(/https?:\/\/[^\s"'<>\)]+\.(png|jpg|jpeg|webp)/i);
-        if (urlMatch) {
-          const res = await invokeFn('proxy_request', { url: urlMatch[0], method: 'GET' });
-          return await ensureValidPngBase64DataUrl(res);
-        }
-      }
-    } catch (err: any) {
-      console.warn(`[Omni IA Game] ${provider.toUpperCase()} LLM call failed or returned text: ${err.message || err}. Activando motor de imagen de alta velocidad...`);
-    }
-
-    // 2. Motor de respaldo de generación gráfica instantánea (Pollinations AI Engine)
-    console.log(`[Omni IA Game] Activando renderizado de imagen gráfica en alta resolución para ${provider.toUpperCase()}...`);
-    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanPositivePrompt)}?width=512&height=512&nologo=true&seed=${Math.floor(Math.random()*100000)}`;
-    try {
-      const rawRes = await invokeFn('proxy_request', {
-        url: pollinationsUrl,
-        method: 'GET'
-      });
-      return await ensureValidPngBase64DataUrl(rawRes);
-    } catch (pollinationErr: any) {
-      throw new Error(`Error generando asset con ${provider.toUpperCase()}: ${pollinationErr.message || pollinationErr}`);
-    }
   } else if (provider === 'comfyui' || provider === 'a1111' || (provider as string) === 'local' || provider === 'ollama') {
     baseUrl = baseUrl || settings?.image?.baseUrl || 'http://127.0.0.1:8188';
 
@@ -1779,41 +1690,6 @@ export const generateVideo = async (
       return await geminiVideo(prompt, initImageBase64, '16:9', apiKey);
     }
 
-    if (provider === 'openrouter' || provider === 'cometapi' || provider === 'nvidia') {
-      if (!apiKey) throw new Error(`Se requiere una API Key para ${provider.toUpperCase()} Video. Por favor, agrégala en Ajustes.`);
-      const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
-      if (!invokeFn) throw new Error("Entorno Tauri no disponible.");
-      const targetUrl = provider === 'openrouter'
-        ? 'https://openrouter.ai/api/v1/chat/completions'
-        : provider === 'nvidia'
-        ? 'https://integrate.api.nvidia.com/v1/chat/completions'
-        : 'https://api.cometapi.com/v1/chat/completions';
-
-      console.log(`[Omni IA Game] Generating video using ${provider.toUpperCase()} | Model: ${activeVideoModel} | URL: ${targetUrl}`);
-
-      const result = await invokeFn('proxy_request', {
-        url: targetUrl,
-        method: 'POST',
-        payload: {
-          model: activeVideoModel,
-          messages: [{ role: 'user', content: `Generate a video animation sequence for: ${prompt}` }]
-        },
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      const data = typeof result === 'string' ? JSON.parse(result) : result;
-      if (data?.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      const content = data?.choices?.[0]?.message?.content || '';
-      const match = content.match(/https?:\/\/[^\s"'<>\)]+\.(mp4|webm|gif)/i) || content.match(/data:video\/[a-zA-Z]+;base64,[^"'\s\)]+/);
-      if (match) {
-        if (match[0].startsWith('data:')) return match[0];
-        return await invokeFn('proxy_request', { url: match[0], method: 'GET' });
-      }
-      return initImageBase64 || '';
-    }
-
     if (provider === 'openart' || provider === 'youart') {
       const endpoint = provider === 'openart' ? 'https://openart.ai/api/v1/generate' : 'https://api.youart.ai/v1/video';
       return await generateLocalVideo(
@@ -2043,107 +1919,7 @@ export const generateTTS = async (
     return { data: b64, mimeType: 'audio/wav' };
   }
 
-  if (provider === 'openrouter' || provider === 'cometapi' || provider === 'nvidia') {
-    if (!apiKey) throw new Error(`Se requiere una API Key para ${provider.toUpperCase()} TTS. Por favor, agrégala en la pestaña de Ajustes (Tab Audio/Voz).`);
-    const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
 
-    if (provider === 'cometapi') {
-      const activeModel = settings?.audio?.ttsModel || 'tts-1';
-      console.log(`[Omni IA Game] Invocando CometAPI TTS | Modelo: ${activeModel}`);
-      try {
-        if (invokeFn) {
-          const result = await invokeFn('proxy_request', {
-            url: 'https://api.cometapi.com/v1/audio/speech',
-            method: 'POST',
-            payload: {
-              model: activeModel,
-              input: processedText,
-              voice: 'alloy'
-            },
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          if (typeof result === 'string' && !result.includes('"error":') && !result.includes('404 page not found') && result.length > 500) {
-            let b64 = '';
-            if (result.startsWith('data:audio')) {
-              b64 = result.split(',')[1];
-            } else {
-              try { b64 = btoa(result); } catch { b64 = result; }
-            }
-            if (b64) return { data: b64, mimeType: 'audio/mp3' };
-          }
-        }
-      } catch (err: any) {
-        console.warn(`[Omni IA Game] CometAPI TTS error: ${err.message || err}. Usando servidor de voz web...`);
-      }
-      return await executeServerEdgeTTSFallback(text, voice, lang, useSpainSpanish);
-    }
-
-    if (provider === 'nvidia') {
-      const activeModel = settings?.audio?.ttsModel || 'nvidia/magpie-tts-multilingual';
-      console.log(`[Omni IA Game] Invocando NVIDIA Riva TTS | Modelo: ${activeModel}`);
-      try {
-        if (invokeFn) {
-          const result = await invokeFn('proxy_request', {
-            url: 'https://integrate.api.nvidia.com/v1/audio/speech',
-            method: 'POST',
-            payload: {
-              model: activeModel,
-              input: processedText,
-              voice: 'English-US.Female-1'
-            },
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          if (typeof result === 'string' && !result.includes('"error":') && !result.includes('404 page not found') && result.length > 500) {
-            let b64 = '';
-            if (result.startsWith('data:audio')) {
-              b64 = result.split(',')[1];
-            } else {
-              try { b64 = btoa(result); } catch { b64 = result; }
-            }
-            if (b64) return { data: b64, mimeType: 'audio/mp3' };
-          }
-        }
-      } catch (err: any) {
-        console.warn(`[Omni IA Game] NVIDIA Riva TTS error: ${err.message || err}. Usando servidor de voz web...`);
-      }
-      return await executeServerEdgeTTSFallback(text, voice, lang, useSpainSpanish);
-    }
-
-    if (provider === 'openrouter') {
-      const activeModel = settings?.audio?.ttsModel || 'openai/gpt-4o-audio-preview';
-      console.log(`[Omni IA Game] Invocando OpenRouter TTS | Modelo: ${activeModel}`);
-      try {
-        if (invokeFn) {
-          const result = await invokeFn('proxy_request', {
-            url: 'https://openrouter.ai/api/v1/chat/completions',
-            method: 'POST',
-            payload: {
-              model: activeModel,
-              modalities: ["text", "audio"],
-              audio: { voice: "alloy", format: "mp3" },
-              messages: [{ role: 'user', content: `Lee en voz alta claramente: ${processedText}` }]
-            },
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          const data = typeof result === 'string' ? JSON.parse(result) : result;
-          const b64 = data?.choices?.[0]?.message?.audio?.data;
-          if (b64) return { data: b64, mimeType: 'audio/mp3' };
-        }
-      } catch (err: any) {
-        console.warn(`[Omni IA Game] OpenRouter TTS error: ${err.message || err}. Usando servidor de voz web...`);
-      }
-      return await executeServerEdgeTTSFallback(text, voice, lang, useSpainSpanish);
-    }
-  }
 
   if (provider === 'gemini') {
     const geminiVoice = VOICE_MAP_GEMINI[voice] || 'Fenrir';
@@ -2606,39 +2382,7 @@ export const generateAtmosphere = async (
     );
   }
 
-  if (provider === 'openrouter' || provider === 'cometapi' || provider === 'nvidia') {
-    if (!apiKey) throw new Error(`Se requiere una API Key para ${provider.toUpperCase()} (Música/SFX). Por favor, agrégala en Ajustes.`);
-    const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
-    if (!invokeFn) throw new Error("Entorno Tauri no disponible.");
-    const targetUrl = provider === 'openrouter'
-      ? 'https://openrouter.ai/api/v1/chat/completions'
-      : provider === 'nvidia'
-      ? 'https://integrate.api.nvidia.com/v1/chat/completions'
-      : 'https://api.cometapi.com/v1/chat/completions';
 
-    console.log(`[Omni IA Game] Generating music/SFX using ${provider.toUpperCase()} | URL: ${targetUrl}`);
-
-    const result = await invokeFn('proxy_request', {
-      url: targetUrl,
-      method: 'POST',
-      payload: {
-        model: settings?.audio?.musicModel || (isSfx ? 'sfx-model' : 'music-model'),
-        messages: [{ role: 'user', content: `Generate ${isSfx ? 'sound effect' : 'music track'} for: ${prompt}` }]
-      },
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    const data = typeof result === 'string' ? JSON.parse(result) : result;
-    if (data?.error) throw new Error(data.error.message || JSON.stringify(data.error));
-    const content = data?.choices?.[0]?.message?.content || '';
-    const match = content.match(/https?:\/\/[^\s"'<>\)]+\.(mp3|wav|ogg|flac)/i);
-    if (match) {
-      return await invokeFn('proxy_request', { url: match[0], method: 'GET' });
-    }
-    throw new Error(`Respuesta de ${provider.toUpperCase()} recibida: ${content.substring(0, 120)}...`);
-  }
 
   if (provider === 'gemini') {
     return await geminiAtmosphere(prompt, apiKey, isSfx);
@@ -3944,39 +3688,7 @@ export const generate3DModel = async (
 
   const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
 
-  if (provider === 'openrouter' || provider === 'cometapi' || provider === 'nvidia') {
-    if (!apiKey) throw new Error(`Se requiere una API Key para ${provider.toUpperCase()} 3D. Por favor, agrégala en Ajustes.`);
-    if (!invokeFn) throw new Error("Entorno Tauri no disponible.");
-    const targetUrl = provider === 'openrouter'
-      ? 'https://openrouter.ai/api/v1/chat/completions'
-      : provider === 'nvidia'
-      ? 'https://integrate.api.nvidia.com/v1/chat/completions'
-      : 'https://api.cometapi.com/v1/chat/completions';
 
-    console.log(`[Omni IA Game] Generating 3D model using ${provider.toUpperCase()} | URL: ${targetUrl}`);
-
-    const result = await invokeFn('proxy_request', {
-      url: targetUrl,
-      method: 'POST',
-      payload: {
-        model: settings?.threeD?.model || '3d-model',
-        messages: [{ role: 'user', content: `Generate 3D model GLB for: ${prompt}` }]
-      },
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    const data = typeof result === 'string' ? JSON.parse(result) : result;
-    if (data?.error) throw new Error(data.error.message || JSON.stringify(data.error));
-    const content = data?.choices?.[0]?.message?.content || '';
-    const match = content.match(/https?:\/\/[^\s"'<>\)]+\.(glb|gltf|obj)/i);
-    if (match) {
-      const proxiedUrl = await proxyModelUrlIfNeeded(match[0], invokeFn);
-      return { modelUrl: proxiedUrl, modelType: 'glb' };
-    }
-    throw new Error(`Respuesta de ${provider.toUpperCase()} recibida: ${content.substring(0, 120)}...`);
-  }
 
   if (provider === 'comfyui' || provider === 'a1111') {
     const resPayload = await generateLocal3DModel(
