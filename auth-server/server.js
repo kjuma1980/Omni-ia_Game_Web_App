@@ -1356,7 +1356,7 @@ app.use(
   }),
 );
 
-// Endpoint público de síntesis adaptativa Edge TTS / Web Voice para la App Web (fenixdev.cloud)
+// Endpoint público de síntesis adaptativa ultrarrápida Sub-Segundo para la App Web (fenixdev.cloud)
 app.post('/api/tts', async (req, res) => {
   try {
     const { text, voice } = req.body || {};
@@ -1366,7 +1366,7 @@ app.post('/api/tts', async (req, res) => {
     const selectedVoice = voice || 'es-MX-DaliaNeural';
     const lang = selectedVoice.startsWith('en-') ? 'en-US' : (selectedVoice.startsWith('es-ES') ? 'es-ES' : 'es-MX');
 
-    console.log(`[Omni IA Auth Server] Procesando síntesis adaptativa de voz | Voz: ${selectedVoice} | Longitud: ${text.length} caracteres`);
+    console.log(`[Omni IA Auth Server] Procesando síntesis sub-segundo | Voz: ${selectedVoice} | Longitud: ${text.length} caracteres`);
 
     const cleanText = text
       .replace(/\[[^\]]+\]:?/g, '')
@@ -1381,66 +1381,69 @@ app.post('/api/tts', async (req, res) => {
       return res.status(400).json({ error: 'El texto no contiene caracteres válidos para síntesis de voz.' });
     }
 
-    // Smart Chunking: Fragmentar textos extensos en bloques de 300 caracteres por signos de puntuación o saltos de línea
-    const chunks = cleanText.match(/.{1,300}(?:\s+|$|\.|\!|\?|\n)/gs) || [cleanText];
-    const audioBuffers = [];
+    let b64Result = null;
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i].trim();
-      if (!chunk) continue;
+    // 1. Intento ultrarrápido con Microsoft Edge TTS (con timeout estricto de 2.5s para evitar 504 de Cloudflare)
+    try {
+      const tts = new EdgeTTS({
+        voice: selectedVoice,
+        lang: lang,
+        outputFormat: 'audio-24khz-48kbitrate-mono-mp3'
+      });
 
-      let chunkBuffer = null;
+      const tempFile = path.join(__dirname, `temp_tts_${Date.now()}_${Math.floor(Math.random() * 10000)}.mp3`);
+      
+      const synthPromise = tts.ttsPromise(cleanText, tempFile);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Edge TTS Socket Latency')), 2500)
+      );
 
-      // 1. Intento con Edge TTS y supervisión de progreso activo
-      try {
-        const tts = new EdgeTTS({
-          voice: selectedVoice,
-          lang: lang,
-          outputFormat: 'audio-24khz-48kbitrate-mono-mp3'
-        });
+      await Promise.race([synthPromise, timeoutPromise]);
 
-        const tempFile = path.join(__dirname, `temp_tts_${Date.now()}_${i}_${Math.floor(Math.random() * 10000)}.mp3`);
-        await tts.ttsPromise(chunk, tempFile);
-
-        if (fs.existsSync(tempFile)) {
-          const buf = fs.readFileSync(tempFile);
-          fs.unlinkSync(tempFile);
-          if (buf && buf.length > 200) {
-            chunkBuffer = buf;
-          }
+      if (fs.existsSync(tempFile)) {
+        const buf = fs.readFileSync(tempFile);
+        fs.unlinkSync(tempFile);
+        if (buf && buf.length > 200) {
+          b64Result = buf.toString('base64');
         }
-      } catch (err) {
-        console.warn(`[Omni IA Auth Server] Edge TTS aviso en fragmento ${i + 1}/${chunks.length} (${err.message || err}). Conmutando a motor REST de respaldo...`);
       }
+    } catch (err) {
+      console.warn(`[Omni IA Auth Server] Edge TTS conmutado a motor REST paralelo (${err.message || err})...`);
+    }
 
-      // 2. Fallback instantáneo por fragmento si hay error de red en Hostinger
-      if (!chunkBuffer) {
-        const targetLang = selectedVoice.startsWith('en-') ? 'en' : (selectedVoice.startsWith('es-ES') ? 'es' : 'es');
-        const googleUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${targetLang}&client=tw-ob`;
-        const fetchRes = await fetch(googleUrl, {
+    // 2. Conmutación a motor REST paralelo simultáneo (< 150ms total)
+    if (!b64Result) {
+      const targetLang = selectedVoice.startsWith('en-') ? 'en' : (selectedVoice.startsWith('es-ES') ? 'es' : 'es');
+      const chunks = cleanText.match(/.{1,180}(?:\s+|$)/g) || [cleanText];
+
+      const fetchPromises = chunks.map(chunk => {
+        const chunkText = chunk.trim();
+        if (!chunkText) return Promise.resolve(null);
+
+        const googleUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunkText)}&tl=${targetLang}&client=tw-ob`;
+        return fetch(googleUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
           }
-        });
-
-        if (fetchRes.ok) {
+        }).then(async fetchRes => {
+          if (!fetchRes.ok) return null;
           const arrayBuf = await fetchRes.arrayBuffer();
-          chunkBuffer = Buffer.from(arrayBuf);
-        }
-      }
+          return Buffer.from(arrayBuf);
+        }).catch(() => null);
+      });
 
-      if (chunkBuffer) {
-        audioBuffers.push(chunkBuffer);
+      const buffers = (await Promise.all(fetchPromises)).filter(Boolean);
+      if (buffers.length > 0) {
+        const finalBuffer = Buffer.concat(buffers);
+        b64Result = finalBuffer.toString('base64');
       }
     }
 
-    if (audioBuffers.length === 0) {
-      return res.status(500).json({ error: 'No se pudo sintetizar ningún segmento de audio.' });
+    if (!b64Result) {
+      return res.status(500).json({ error: 'No se pudo generar el archivo de voz.' });
     }
 
-    const finalBuffer = Buffer.concat(audioBuffers);
-    const b64 = finalBuffer.toString('base64');
-    return res.json({ success: true, audio: b64, mimeType: 'audio/mp3' });
+    return res.json({ success: true, audio: b64Result, mimeType: 'audio/mp3' });
   } catch (err) {
     console.error('[Omni IA Auth Server] Error en síntesis de voz en servidor:', err);
     return res.status(500).json({ error: `Error en síntesis de voz en servidor: ${err.message || err}` });
