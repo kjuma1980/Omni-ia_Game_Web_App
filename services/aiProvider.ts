@@ -2258,9 +2258,11 @@ export const generateTTS = async (
     const map = lang === 'EN' ? VOICE_MAP_EN : (useSpainSpanish ? VOICE_MAP_ES_ES : VOICE_MAP_ES_MX);
     mappedVoice = map[voice]?.local || (lang === 'EN' ? 'en-US-JennyNeural' : 'es-MX-DaliaNeural');
 
-    const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
+    const isNativeDesktopApp = typeof (window as any).__TAURI_INTERNALS__ !== 'undefined' && 
+                               (window.location.protocol === 'tauri:' || window.location.hostname === 'tauri.localhost');
+    const invokeFn = isNativeDesktopApp ? ((window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke) : null;
 
-    if (invokeFn) {
+    if (isNativeDesktopApp && invokeFn) {
       console.log("[Omni IA Game] On-Demand: Encendiendo Edge TTS...");
       // EL ERROR NO SE TRAGA. Iba a `console.error` y el usuario solo veia el
       // timeout de 15 s, que es el sintoma y no la causa: si `spawn` falla por
@@ -2306,7 +2308,7 @@ export const generateTTS = async (
         .replace(/\n\s*\n+/g, '\n')
         .trim();
 
-      if (invokeFn) {
+      if (isNativeDesktopApp && invokeFn) {
         const data = await enviarJsonLocal(`${baseUrl}/api/tts`, { text: edgeCleanText || text, voice: mappedVoice });
         if (!data?.audio) {
           throw new Error(data?.error || 'TTS local falló en la generación.');
@@ -2330,7 +2332,7 @@ export const generateTTS = async (
         return { data: json.audio, mimeType: json.mimeType || mimeType };
       }
     } finally {
-      if (invokeFn) {
+      if (isNativeDesktopApp && invokeFn) {
         console.log("[Omni IA Game] On-Demand: Apagando Edge TTS (Limpieza)...");
         await invokeFn('stop_edge_tts').catch((e: any) => console.error("Error al detener Edge TTS:", e));
       }

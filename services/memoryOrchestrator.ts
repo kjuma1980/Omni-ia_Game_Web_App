@@ -187,6 +187,19 @@ export const ensureExclusiveMemoryContext = async (
   const normalizedProvider = (targetProvider || '').toLowerCase().trim();
   const normalizedModel = (targetModel || '').toLowerCase().trim();
 
+  // En la aplicación Web (fenixdev.cloud), no existen servidores locales ComfyUI, Ollama o llama-server instalados en la PC del cliente.
+  // Omitir peticiones HTTP inservibles a 127.0.0.1:8188 y localhost:11434 para evitar errores net::ERR_CONNECTION_REFUSED en consola.
+  const isNativeDesktopApp = typeof (window as any).__TAURI_INTERNALS__ !== 'undefined' && 
+                             (window.location.protocol === 'tauri:' || window.location.hostname === 'tauri.localhost');
+
+  if (!isNativeDesktopApp) {
+    activeContext.provider = normalizedProvider;
+    activeContext.model = normalizedModel;
+    activeContext.category = category;
+    activeContext.lastUsedTimestamp = Date.now();
+    return { switched: false };
+  }
+
   const isManagedProvider = ['comfyui', 'ollama', 'llama-server', 'lm-studio', 'local', 'omnideploy'].includes(normalizedProvider);
 
   // Si no es un proveedor gestionado (ej. Gemini, OpenAI, Claude), no compite por VRAM
@@ -250,6 +263,10 @@ export const releasePostGenerationMemory = async (
   settings?: any,
   model?: string
 ): Promise<void> => {
+  const isNativeDesktopApp = typeof (window as any).__TAURI_INTERNALS__ !== 'undefined' && 
+                             (window.location.protocol === 'tauri:' || window.location.hostname === 'tauri.localhost');
+  if (!isNativeDesktopApp) return;
+
   const normalizedProvider = (provider || '').toLowerCase().trim();
   const isManaged = ['ollama', 'comfyui', 'llama-server', 'lm-studio', 'local'].includes(normalizedProvider);
   if (!isManaged) return;
