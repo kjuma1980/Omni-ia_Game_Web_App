@@ -157,9 +157,9 @@ const PREDEFINED_TTS_MODELS: Record<string, string[]> = {
   gemini: ['gemini-tts-v1', 'gemini-speech-v1'],
   elevenlabs: ['eleven_multilingual_v2', 'eleven_turbo_v2_5', 'eleven_monolingual_v1'],
   suno: ['bark-v2', 'bark-standard', 'suno-tts-v1'],
-  openrouter: ['meta-llama/llama-3.3-70b-instruct', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
-  cometapi: ['tts-1', 'gpt-4o-mini'],
-  nvidia: ['meta/llama-3.3-70b-instruct', 'deepseek-ai/deepseek-v4-flash-0731'],
+  openrouter: ['openai/gpt-4o-audio-preview', 'meta-llama/llama-3.3-70b-instruct'],
+  cometapi: ['tts-1', 'tts-1-hd'],
+  nvidia: ['nvidia/magpie-tts-multilingual', 'nvidia/chatterbox-tts-multilingual', 'nvidia/riva-tts-spanish'],
   comfydeploy: ['f5-tts', 'chat-tts', 'xtts-v2'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
@@ -176,9 +176,9 @@ const PREDEFINED_MUSIC_MODELS: Record<string, string[]> = {
   suno: ['chirp-v3-5', 'chirp-v3', 'chirp-v2'],
   udio: ['udio-v1.5', 'udio-v1.0'],
   'meta-audiocraft': ['musicgen-large', 'musicgen-medium', 'musicgen-melody', 'audiogen-medium'],
-  openrouter: ['meta-llama/llama-3.3-70b-instruct', 'google/gemini-2.0-flash-001'],
-  cometapi: ['gpt-4o', 'gpt-4o-mini'],
-  nvidia: ['meta/llama-3.3-70b-instruct', 'deepseek-ai/deepseek-v4-flash-0731'],
+  openrouter: ['openrouter-audio-synthesis'],
+  cometapi: ['suno-v3-5', 'udio-v1-5'],
+  nvidia: ['nvidia-audio-synthesis'],
   comfydeploy: ['musicgen-comfy', 'audiocraft-node'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
@@ -196,9 +196,9 @@ const PREDEFINED_SFX_MODELS: Record<string, string[]> = {
   suno: ['sfx-suno-v1'],
   udio: ['sfx-udio-v1'],
   'meta-audiocraft': ['audiogen-medium'],
-  openrouter: ['meta-llama/llama-3.3-70b-instruct', 'google/gemini-2.0-flash-001'],
-  cometapi: ['gpt-4o', 'gpt-4o-mini'],
-  nvidia: ['meta/llama-3.3-70b-instruct', 'deepseek-ai/deepseek-v4-flash-0731'],
+  openrouter: ['sfx-openrouter-v1'],
+  cometapi: ['sfx-comet-v1'],
+  nvidia: ['nvidia-sfx-v1'],
   comfydeploy: ['sfx-comfy-v1'],
 
   // La GPU del proveedor corre ComfyUI, asi que ofrece lo mismo.
