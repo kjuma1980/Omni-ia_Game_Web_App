@@ -1356,7 +1356,7 @@ app.use(
   }),
 );
 
-// Endpoint público de síntesis Edge TTS nativa para la App Web (fenixdev.cloud)
+// Endpoint público de síntesis adaptativa Edge TTS / Web Voice para la App Web (fenixdev.cloud)
 app.post('/api/tts', async (req, res) => {
   try {
     const { text, voice } = req.body || {};
@@ -1366,27 +1366,84 @@ app.post('/api/tts', async (req, res) => {
     const selectedVoice = voice || 'es-MX-DaliaNeural';
     const lang = selectedVoice.startsWith('en-') ? 'en-US' : (selectedVoice.startsWith('es-ES') ? 'es-ES' : 'es-MX');
 
-    console.log(`[Omni IA Auth Server] Generando Edge TTS para la App Web | Voz: ${selectedVoice} | Texto: ${text.substring(0, 30)}...`);
+    console.log(`[Omni IA Auth Server] Procesando síntesis adaptativa de voz | Voz: ${selectedVoice} | Longitud: ${text.length} caracteres`);
 
-    const tts = new EdgeTTS({
-      voice: selectedVoice,
-      lang: lang,
-      outputFormat: 'audio-24khz-48kbitrate-mono-mp3'
-    });
+    const cleanText = text
+      .replace(/\[[^\]]+\]:?/g, '')
+      .replace(/\([^)]+\):?/g, '')
+      .replace(/\b(ES|EN|Voiceover|Narrator):?/gi, '')
+      .replace(/Diálogo\s*\/\s*Narrativa Dual:?/gi, '')
+      .replace(/Escena:?/gi, '')
+      .replace(/\n\s*\n+/g, '\n')
+      .trim();
 
-    const tempFile = path.join(__dirname, `temp_tts_${Date.now()}_${Math.floor(Math.random() * 10000)}.mp3`);
-    await tts.ttsPromise(text, tempFile);
-
-    const buffer = fs.readFileSync(tempFile);
-    if (fs.existsSync(tempFile)) {
-      fs.unlinkSync(tempFile);
+    if (!cleanText) {
+      return res.status(400).json({ error: 'El texto no contiene caracteres válidos para síntesis de voz.' });
     }
 
-    const b64 = buffer.toString('base64');
+    // Smart Chunking: Fragmentar textos extensos en bloques de 300 caracteres por signos de puntuación o saltos de línea
+    const chunks = cleanText.match(/.{1,300}(?:\s+|$|\.|\!|\?|\n)/gs) || [cleanText];
+    const audioBuffers = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i].trim();
+      if (!chunk) continue;
+
+      let chunkBuffer = null;
+
+      // 1. Intento con Edge TTS y supervisión de progreso activo
+      try {
+        const tts = new EdgeTTS({
+          voice: selectedVoice,
+          lang: lang,
+          outputFormat: 'audio-24khz-48kbitrate-mono-mp3'
+        });
+
+        const tempFile = path.join(__dirname, `temp_tts_${Date.now()}_${i}_${Math.floor(Math.random() * 10000)}.mp3`);
+        await tts.ttsPromise(chunk, tempFile);
+
+        if (fs.existsSync(tempFile)) {
+          const buf = fs.readFileSync(tempFile);
+          fs.unlinkSync(tempFile);
+          if (buf && buf.length > 200) {
+            chunkBuffer = buf;
+          }
+        }
+      } catch (err) {
+        console.warn(`[Omni IA Auth Server] Edge TTS aviso en fragmento ${i + 1}/${chunks.length} (${err.message || err}). Conmutando a motor REST de respaldo...`);
+      }
+
+      // 2. Fallback instantáneo por fragmento si hay error de red en Hostinger
+      if (!chunkBuffer) {
+        const targetLang = selectedVoice.startsWith('en-') ? 'en' : (selectedVoice.startsWith('es-ES') ? 'es' : 'es');
+        const googleUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${targetLang}&client=tw-ob`;
+        const fetchRes = await fetch(googleUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+          }
+        });
+
+        if (fetchRes.ok) {
+          const arrayBuf = await fetchRes.arrayBuffer();
+          chunkBuffer = Buffer.from(arrayBuf);
+        }
+      }
+
+      if (chunkBuffer) {
+        audioBuffers.push(chunkBuffer);
+      }
+    }
+
+    if (audioBuffers.length === 0) {
+      return res.status(500).json({ error: 'No se pudo sintetizar ningún segmento de audio.' });
+    }
+
+    const finalBuffer = Buffer.concat(audioBuffers);
+    const b64 = finalBuffer.toString('base64');
     return res.json({ success: true, audio: b64, mimeType: 'audio/mp3' });
   } catch (err) {
-    console.error('[Omni IA Auth Server] Error en síntesis Edge TTS en servidor:', err);
-    return res.status(500).json({ error: `Error en síntesis Edge TTS en servidor: ${err.message || err}` });
+    console.error('[Omni IA Auth Server] Error en síntesis de voz en servidor:', err);
+    return res.status(500).json({ error: `Error en síntesis de voz en servidor: ${err.message || err}` });
   }
 });
 
