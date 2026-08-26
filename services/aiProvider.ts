@@ -2427,11 +2427,29 @@ export const generateTTS = async (
         .replace(/\n\s*\n+/g, '\n')
         .trim();
 
-      const data = await enviarJsonLocal(`${baseUrl}/api/tts`, { text: edgeCleanText || text, voice: mappedVoice });
-      if (!data?.audio) {
-        throw new Error(data?.error || 'TTS local falló en la generación.');
+      if (invokeFn) {
+        const data = await enviarJsonLocal(`${baseUrl}/api/tts`, { text: edgeCleanText || text, voice: mappedVoice });
+        if (!data?.audio) {
+          throw new Error(data?.error || 'TTS local falló en la generación.');
+        }
+        return { data: data.audio, mimeType: mimeType };
+      } else {
+        console.log("[Omni IA Game] Invocando Edge TTS nativo en el servidor Express web (/api/tts)...");
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: edgeCleanText || text, voice: mappedVoice })
+        });
+        if (!res.ok) {
+          const errTxt = await res.text().catch(() => '');
+          throw new Error(`Error sintetizando voz en el servidor: ${res.status} ${errTxt}`);
+        }
+        const json = await res.json();
+        if (!json?.audio) {
+          throw new Error(json?.error || 'El servidor web no devolvió audio.');
+        }
+        return { data: json.audio, mimeType: json.mimeType || mimeType };
       }
-      return { data: data.audio, mimeType: mimeType };
     } finally {
       if (invokeFn) {
         console.log("[Omni IA Game] On-Demand: Apagando Edge TTS (Limpieza)...");

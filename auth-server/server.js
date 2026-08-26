@@ -41,6 +41,7 @@ const { sendVerificationCode, sendPasswordResetCode, sendLicenseEmail, buildIssu
 const geo = require('./geo');
 const { startReminders } = require('./reminders');
 const { generateLicense, DURATIONS, MODULES, CAPS, resolveDuration } = require('./license');
+const { EdgeTTS } = require('node-edge-tts');
 
 /** Como se llama cada nivel de acceso de cara al cliente. */
 const CAPS_ETIQUETA = {
@@ -1354,6 +1355,40 @@ app.use(
     resolverDuracion: resolveDuration,
   }),
 );
+
+// Endpoint público de síntesis Edge TTS nativa para la App Web (fenixdev.cloud)
+app.post('/api/tts', async (req, res) => {
+  try {
+    const { text, voice } = req.body || {};
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({ error: 'Se requiere el texto para síntesis de voz.' });
+    }
+    const selectedVoice = voice || 'es-MX-DaliaNeural';
+    const lang = selectedVoice.startsWith('en-') ? 'en-US' : (selectedVoice.startsWith('es-ES') ? 'es-ES' : 'es-MX');
+
+    console.log(`[Omni IA Auth Server] Generando Edge TTS para la App Web | Voz: ${selectedVoice} | Texto: ${text.substring(0, 30)}...`);
+
+    const tts = new EdgeTTS({
+      voice: selectedVoice,
+      lang: lang,
+      outputFormat: 'audio-24khz-48kbitrate-mono-mp3'
+    });
+
+    const tempFile = path.join(__dirname, `temp_tts_${Date.now()}_${Math.floor(Math.random() * 10000)}.mp3`);
+    await tts.ttsPromise(text, tempFile);
+
+    const buffer = fs.readFileSync(tempFile);
+    if (fs.existsSync(tempFile)) {
+      fs.unlinkSync(tempFile);
+    }
+
+    const b64 = buffer.toString('base64');
+    return res.json({ success: true, audio: b64, mimeType: 'audio/mp3' });
+  } catch (err) {
+    console.error('[Omni IA Auth Server] Error en síntesis Edge TTS en servidor:', err);
+    return res.status(500).json({ error: `Error en síntesis Edge TTS en servidor: ${err.message || err}` });
+  }
+});
 
 async function start() {
   await bootstrapAdmin();

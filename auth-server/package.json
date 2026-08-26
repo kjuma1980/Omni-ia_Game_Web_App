@@ -16,6 +16,8 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^6.9.16"
+    "node-edge-tts": "^1.2.10",
+    "nodemailer": "^6.9.16",
+    "ws": "^8.21.3"
   }
 }
