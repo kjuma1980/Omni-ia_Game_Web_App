@@ -534,7 +534,7 @@ const App: React.FC = () => {
 
   // Monitor de Instancias Concurrentes (Control Estricto: Regular 1 / Premium 2 = 1 Escritorio + 1 Web)
   useEffect(() => {
-    const isDesktopEnv = hayEntornoTauri();
+    const isDesktopEnv = hayEntornoTauri() || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const currentInstanceId = currentInstanceIdRef.current;
     const token = readStoredToken();
 
@@ -591,7 +591,7 @@ const App: React.FC = () => {
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
-        const res = await fetch(`${getAuthServerUrl()}/api/session/heartbeat`, {
+        const res = await fetch(`https://fenixdev.cloud/api/session/heartbeat`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
