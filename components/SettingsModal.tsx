@@ -88,7 +88,18 @@ const PREDEFINED_CODE_MODELS: Record<string, string[]> = {
   kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
   cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner'],
-  nvidia: ['deepseek-ai/deepseek-v4-flash-0731', 'meta/llama-3.3-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'deepseek-ai/deepseek-r1', 'mistralai/mistral-large-2-instruct']
+  nvidia: [
+    'deepseek-ai/deepseek-coder-6.7b-instruct',
+    'mistralai/codestral-22b-instruct-v0.1',
+    'bigcode/starcoder2-15b',
+    'ibm/granite-34b-code-instruct',
+    'ibm/granite-8b-code-instruct',
+    'meta/codellama-70b',
+    'google/codegemma-7b',
+    'google/codegemma-1.1-7b',
+    'deepseek-ai/deepseek-v4-pro-0813',
+    'deepseek-ai/deepseek-v4-flash-0731'
+  ]
 };
 
 const PREDEFINED_NPC_MODELS: Record<string, string[]> = {
@@ -100,7 +111,22 @@ const PREDEFINED_NPC_MODELS: Record<string, string[]> = {
   kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
   cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner'],
-  nvidia: ['deepseek-ai/deepseek-v4-flash-0731', 'meta/llama-3.3-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'deepseek-ai/deepseek-r1', 'mistralai/mistral-large-2-instruct']
+  nvidia: [
+    'deepseek-ai/deepseek-v4-pro-0813',
+    'deepseek-ai/deepseek-v4-flash-0731',
+    'mistralai/mistral-large-2-instruct',
+    'mistralai/mistral-7b-instruct-v0.3',
+    'google/gemma-3-12b-it',
+    'google/gemma-3-4b-it',
+    'google/gemma-4-31b-it',
+    'moonshotai/kimi-k3',
+    'moonshotai/kimi-k2.6',
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b',
+    'stepfun-ai/step-3.7-flash',
+    'writer/palmyra-creative-122b',
+    'ai21labs/jamba-1.5-large-instruct'
+  ]
 };
 
 const PREDEFINED_TEXT_MODELS: Record<string, string[]> = {
@@ -112,7 +138,29 @@ const PREDEFINED_TEXT_MODELS: Record<string, string[]> = {
   kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
   cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner'],
-  nvidia: ['deepseek-ai/deepseek-v4-flash-0731', 'meta/llama-3.3-70b-instruct', 'nvidia/llama-3.1-nemotron-70b-instruct', 'deepseek-ai/deepseek-r1', 'mistralai/mistral-large-2-instruct']
+  nvidia: [
+    'deepseek-ai/deepseek-v4-pro-0813',
+    'deepseek-ai/deepseek-v4-flash-0731',
+    'deepseek-ai/deepseek-coder-6.7b-instruct',
+    'mistralai/codestral-22b-instruct-v0.1',
+    'mistralai/mistral-large-2-instruct',
+    'mistralai/mistral-7b-instruct-v0.3',
+    'google/gemma-3-12b-it',
+    'google/gemma-3-4b-it',
+    'google/gemma-4-31b-it',
+    'bigcode/starcoder2-15b',
+    'ibm/granite-34b-code-instruct',
+    'ibm/granite-8b-code-instruct',
+    'meta/codellama-70b',
+    'google/codegemma-7b',
+    'moonshotai/kimi-k3',
+    'moonshotai/kimi-k2.6',
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b',
+    'stepfun-ai/step-3.7-flash',
+    'writer/palmyra-creative-122b',
+    'ai21labs/jamba-1.5-large-instruct'
+  ]
 };
 
 const PREDEFINED_IMAGE_MODELS: Record<string, string[]> = {
