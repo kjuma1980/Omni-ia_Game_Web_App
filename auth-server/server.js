@@ -621,8 +621,8 @@ app.post('/api/session/heartbeat', (req, res) => {
   }
 
   if (!isPremium) {
-    // Usuario Regular: Máximo 1 instancia total
-    if ((isDesktop && webCount > 0) || (!isDesktop && (webCount > 0 || desktopCount > 0))) {
+    // Usuario Regular: Máximo 1 instancia total (Escritorio O Web)
+    if (webCount > 0 || desktopCount > 0) {
       userMap.delete(instanceId);
       return res.status(409).json({
         ok: false,
@@ -631,13 +631,21 @@ app.post('/api/session/heartbeat', (req, res) => {
       });
     }
   } else {
-    // Usuario Premium: Máximo 2 instancias (1 Escritorio + 1 Web). Prohibido tener 2 Webs abiertas.
+    // Usuario Premium: Máximo 2 instancias (Estrictamente 1 App de Escritorio + 1 App Web)
+    if (isDesktop && desktopCount > 0) {
+      userMap.delete(instanceId);
+      return res.status(409).json({
+        ok: false,
+        code: 'CONCURRENCY_LIMIT_EXCEEDED',
+        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium permite máximo 1 App de Escritorio activa simultáneamente. Se ha cerrado la sesión en esta ventana porque ya tienes una App de Escritorio ejecutándose.'
+      });
+    }
     if (!isDesktop && webCount > 0) {
       userMap.delete(instanceId);
       return res.status(409).json({
         ok: false,
         code: 'CONCURRENCY_LIMIT_EXCEEDED',
-        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium permite máximo 1 App de Escritorio y 1 App Web activa simultáneamente. Se ha cerrado la sesión en esta ventana porque ya tienes una instancia activa en ese entorno.'
+        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium permite máximo 1 App Web activa simultáneamente. Se ha cerrado la sesión en esta ventana porque ya tienes una App Web ejecutándose.'
       });
     }
   }
