@@ -527,20 +527,22 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const knownWebInstancesRef = useRef<Set<string>>(new Set());
+  const knownDesktopInstancesRef = useRef<Set<string>>(new Set());
+  const currentInstanceIdRef = useRef<string>(Math.random().toString(36).substring(2, 9));
+
   // Monitor de Instancias Concurrentes (Control Estricto: Regular 1 / Premium 2 = 1 Escritorio + 1 Web)
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const isDesktopEnv = hayEntornoTauri();
-    const currentInstanceId = Math.random().toString(36).substring(2, 9);
+    const currentInstanceId = currentInstanceIdRef.current;
     const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('omni_instance_channel') : null;
-    const knownWebInstances = new Set<string>();
-    const knownDesktopInstances = new Set<string>();
 
     const checkConcurrencyRules = () => {
       const isPremium = premiumUnlocked;
-      const webCount = knownWebInstances.size;
-      const desktopCount = knownDesktopInstances.size;
+      const webCount = knownWebInstancesRef.current.size;
+      const desktopCount = knownDesktopInstancesRef.current.size;
 
       if (!isPremium) {
         // Usuario Regular: Máximo 1 instancia activa a la vez
@@ -565,9 +567,9 @@ const App: React.FC = () => {
         const { instanceId, isDesktop, action } = ev.data;
         if (action === 'ping' && instanceId !== currentInstanceId) {
           if (isDesktop) {
-            knownDesktopInstances.add(instanceId);
+            knownDesktopInstancesRef.current.add(instanceId);
           } else {
-            knownWebInstances.add(instanceId);
+            knownWebInstancesRef.current.add(instanceId);
           }
           channel.postMessage({
             type: 'omni_instance_ping',
@@ -578,9 +580,9 @@ const App: React.FC = () => {
           checkConcurrencyRules();
         } else if (action === 'pong' && instanceId !== currentInstanceId) {
           if (isDesktop) {
-            knownDesktopInstances.add(instanceId);
+            knownDesktopInstancesRef.current.add(instanceId);
           } else {
-            knownWebInstances.add(instanceId);
+            knownWebInstancesRef.current.add(instanceId);
           }
           checkConcurrencyRules();
         }
@@ -600,7 +602,8 @@ const App: React.FC = () => {
           isDesktop: isDesktopEnv,
           action: 'ping'
         });
-      }, 4000);
+        checkConcurrencyRules();
+      }, 3000);
 
       return () => {
         clearInterval(interval);

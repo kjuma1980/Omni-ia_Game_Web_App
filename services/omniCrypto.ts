@@ -210,22 +210,43 @@ export async function importarProyectoOmni(
   const iv = bytes.slice(21, 33);
   const ciphertext = bytes.slice(33);
 
-  const passphrase = construirFraseIdentidad(currentEmail, currentLicenseKey);
-  const key = await derivarClaveAES(passphrase, salt);
+  const emailLwr = (currentEmail || '').toLowerCase().trim();
+  const licTrim = (currentLicenseKey || '').trim();
 
-  let decryptedBuffer: ArrayBuffer;
-  try {
-    decryptedBuffer = await crypto.subtle.decrypt(
-      {
-        name: "AES-GCM",
-        iv: iv,
-      },
-      key,
-      ciphertext
-    );
-  } catch (err) {
+  // Candidatos de frase de derivación para garantizar retrocompatibilidad total
+  const candidatePassphrases = Array.from(new Set([
+    `${BASE_MASTER_SECRET}:${emailLwr}`,
+    `${BASE_MASTER_SECRET}:${emailLwr}:${licTrim}`,
+    `${BASE_MASTER_SECRET}:${emailLwr}:free`,
+    `${BASE_MASTER_SECRET}:anonymous:${licTrim}`,
+    `${BASE_MASTER_SECRET}:anonymous:free`,
+    `${BASE_MASTER_SECRET}:anonymous`
+  ].filter(Boolean)));
+
+  let decryptedBuffer: ArrayBuffer | null = null;
+  for (const passphrase of candidatePassphrases) {
+    try {
+      const key = await derivarClaveAES(passphrase, salt);
+      const res = await crypto.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: iv,
+        },
+        key,
+        ciphertext
+      );
+      if (res) {
+        decryptedBuffer = res;
+        break;
+      }
+    } catch {
+      // Probar siguiente frase
+    }
+  }
+
+  if (!decryptedBuffer) {
     throw new Error(
-      "🔒 ACCESO DENEGADO DE PROPIEDAD: No se pudo descifrar este archivo .omni. Este proyecto pertenece a otra cuenta de usuario o clave de licencia distinta."
+      "🔒 ACCESO DENEGADO DE PROPIEDAD: No se pudo descifrar este archivo .omni. Este proyecto pertenece a otra cuenta de usuario."
     );
   }
 
