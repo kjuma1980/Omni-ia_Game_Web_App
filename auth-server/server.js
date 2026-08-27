@@ -589,10 +589,14 @@ app.post('/api/session/heartbeat', (req, res) => {
   }
 
   if (userEmail) {
+    if (userEmail === 'omni_test') userEmail = 'omni_test@fenixdev.cloud';
+    if (userEmail === 'omnitest_premium') userEmail = 'omnitest_premium@fenixdev.cloud';
+
     const user = findUserByEmail(userEmail);
+    const activeLic = user ? findActiveLicenseForUser(user.id, user.email) : null;
     if (user) {
-      isPremium = user.tier === 'premium' || user.role === 'admin' || user.is_premium === 1 || user.is_admin === 1 || userEmail === 'jaimearangoia@gmail.com';
-    } else if (userEmail.includes('jaimearangoia') || userEmail.includes('admin') || userEmail.includes('fenixdev')) {
+      isPremium = user.tier === 'premium' || user.role === 'admin' || user.is_premium === 1 || user.is_admin === 1 || userEmail.includes('jaimearangoia') || userEmail.includes('omnitest_premium') || Boolean(activeLic && activeLic.capability === 'full');
+    } else if (userEmail.includes('jaimearangoia') || userEmail.includes('omnitest_premium') || userEmail.includes('admin') || userEmail.includes('fenixdev')) {
       isPremium = true;
     }
   }
@@ -660,8 +664,11 @@ app.post('/api/session/heartbeat', (req, res) => {
 
 const handleLogin = async (req, res) => {
   try {
-    const email = String((req.body.email || '').trim().toLowerCase());
+    let email = String((req.body.email || '').trim().toLowerCase());
     const password = String(req.body.password || '');
+
+    if (email === 'omni_test') email = 'omni_test@fenixdev.cloud';
+    if (email === 'omnitest_premium') email = 'omnitest_premium@fenixdev.cloud';
 
     const user = findUserByEmail(email);
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
@@ -1553,8 +1560,68 @@ app.post('/api/tts', async (req, res) => {
   }
 });
 
+async function bootstrapTestUsers() {
+  try {
+    // 1. Usuario Regular de Pruebas: omni_test / omni_test
+    const emailRegular = 'omni_test@fenixdev.cloud';
+    const passRegular = 'omni_test';
+    let userRegular = findUserByEmail(emailRegular);
+    if (!userRegular) {
+      const passwordHash = await bcrypt.hash(passRegular, 10);
+      userRegular = createUser({
+        email: emailRegular,
+        passwordHash,
+        profile: { first_name: 'Omni', last_name: 'Test Regular', personal_email: emailRegular }
+      });
+      setUserActive(emailRegular);
+      console.log(`[test_users] Usuario regular de prueba creado: ${emailRegular}`);
+    } else if (userRegular.status !== 'active') {
+      setUserActive(emailRegular);
+    }
+
+    // 2. Usuario Premium de Pruebas: omnitest_premium / omni_test_premium
+    const emailPremium = 'omnitest_premium@fenixdev.cloud';
+    const passPremium = 'omni_test_premium';
+    let userPremium = findUserByEmail(emailPremium);
+    if (!userPremium) {
+      const passwordHash = await bcrypt.hash(passPremium, 10);
+      userPremium = createUser({
+        email: emailPremium,
+        passwordHash,
+        profile: { first_name: 'OmniTest', last_name: 'Premium', personal_email: emailPremium }
+      });
+      setUserActive(emailPremium);
+      console.log(`[test_users] Usuario premium de prueba creado: ${emailPremium}`);
+    } else if (userPremium.status !== 'active') {
+      setUserActive(emailPremium);
+    }
+
+    // Licencia Premium Ilimitada con Creador 2D
+    let activeLic = findActiveLicenseForUser(userPremium.id, emailPremium);
+    if (!activeLic) {
+      const generated = generateLicense('OMNI-HW-TEST-PREMIUM-001', '5', 'full', ['creador2d'], emailPremium);
+      registerLicense({
+        licenseKey: generated.token,
+        hwid: 'OMNI-HW-TEST-PREMIUM-001',
+        capability: 'full',
+        durationDays: null,
+        expiresAt: 'UNLIMITED',
+        uptimeLimit: 0,
+        contactEmail: emailPremium,
+        notes: 'Licencia Premium de prueba perpetua ilimitada con creador2d',
+        billingMode: 'calendar'
+      });
+      linkLicenseToUser(generated.token, userPremium.id, emailPremium);
+      console.log(`[test_users] Licencia ilimitada full + creador2d asignada a ${emailPremium}`);
+    }
+  } catch (err) {
+    console.error('[test_users] Error registrando usuarios de prueba:', err);
+  }
+}
+
 async function start() {
   await bootstrapAdmin();
+  await bootstrapTestUsers();
   startReminders();
   if (process.env.PORT) {
     app.listen(process.env.PORT, () => {
