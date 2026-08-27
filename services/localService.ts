@@ -560,8 +560,8 @@ export const generateOpenAICompletion = async (
     if (!model || model === 'custom') model = 'gpt-4o-mini';
   } else if (provider === 'nvidia') {
     baseUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
-    if (!model || model === 'custom') {
-      model = 'meta/llama-3.3-70b-instruct';
+    if (!model || model === 'custom' || model.includes('llama-3.3') || model.includes('nemotron')) {
+      model = 'deepseek-ai/deepseek-v4-pro-0813';
     }
   } else {
     throw new Error(`Proveedor ${provider} no soportado en generateOpenAICompletion.`);

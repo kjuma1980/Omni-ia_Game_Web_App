@@ -3557,7 +3557,7 @@ Generate the professional prompts in JSON format:`;
           let terms = neg.split(',').map((t: string) => t.trim()).filter(Boolean);
           terms = terms.filter((term: string) => {
             const low = term.toLowerCase();
-            return !forbiddenInNegative.some(f => low === f || low.includes(f));
+            return !forbiddenInNegative.some((item: string) => low === item || low.includes(item));
           });
           
           // Deduplicar términos manteniendo el orden

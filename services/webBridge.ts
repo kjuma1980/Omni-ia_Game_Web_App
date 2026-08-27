@@ -99,67 +99,47 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
 
       let statusResult = false;
 
-      if (isComfyUrl) {
-        const testComfy = async (base: string): Promise<boolean> => {
-          try {
-            const clean = base.replace(/\/$/, '');
-            const controller = new AbortController();
-            const t = setTimeout(() => controller.abort(), 1500);
-            await fetch(`${clean}/system_stats`, { method: 'GET', mode: 'no-cors', signal: controller.signal });
-            clearTimeout(t);
-            return true;
-          } catch {
-            try {
-              const clean = base.replace(/\/$/, '');
-              const controller = new AbortController();
-              const t = setTimeout(() => controller.abort(), 1500);
-              await fetch(clean, { method: 'GET', mode: 'no-cors', signal: controller.signal });
-              clearTimeout(t);
-              return true;
-            } catch {
-              return false;
-            }
-          }
-        };
+      const pingUrl = async (u: string, path: string = ''): Promise<boolean> => {
+        return new Promise<boolean>((resolve) => {
+          const clean = u.replace(/\/$/, '');
+          const target = path ? `${clean}${path}` : clean;
+          const ctrl = new AbortController();
+          const timerId = setTimeout(() => {
+            ctrl.abort();
+            resolve(false);
+          }, 1500);
+          fetch(target, { method: 'GET', mode: 'no-cors', signal: ctrl.signal })
+            .then(() => {
+              clearTimeout(timerId);
+              resolve(true);
+            })
+            .catch(() => {
+              clearTimeout(timerId);
+              resolve(false);
+            });
+        });
+      };
 
-        statusResult = await testComfy(targetUrl);
+      if (isComfyUrl) {
+        statusResult = await pingUrl(targetUrl, '/system_stats');
+        if (!statusResult) statusResult = await pingUrl(targetUrl);
         if (!statusResult) {
           const alt = targetUrl.includes('localhost')
             ? targetUrl.replace('localhost', '127.0.0.1')
             : targetUrl.replace('127.0.0.1', 'localhost');
-          statusResult = await testComfy(alt);
+          statusResult = await pingUrl(alt, '/system_stats');
+          if (!statusResult) statusResult = await pingUrl(alt);
         }
       } else if (isOllamaUrl) {
-        const testOllama = async (base: string): Promise<boolean> => {
-          try {
-            const clean = base.replace(/\/$/, '');
-            const controller = new AbortController();
-            const t = setTimeout(() => controller.abort(), 1500);
-            await fetch(`${clean}/api/tags`, { method: 'GET', mode: 'no-cors', signal: controller.signal });
-            clearTimeout(t);
-            return true;
-          } catch {
-            return false;
-          }
-        };
-
-        statusResult = await testOllama(targetUrl);
+        statusResult = await pingUrl(targetUrl, '/api/tags');
         if (!statusResult) {
           const alt = targetUrl.includes('localhost')
             ? targetUrl.replace('localhost', '127.0.0.1')
             : targetUrl.replace('127.0.0.1', 'localhost');
-          statusResult = await testOllama(alt);
+          statusResult = await pingUrl(alt, '/api/tags');
         }
       } else {
-        try {
-          const controller = new AbortController();
-          const t = setTimeout(() => controller.abort(), 1500);
-          await fetch(targetUrl, { method: 'GET', mode: 'no-cors', signal: controller.signal });
-          clearTimeout(t);
-          statusResult = true;
-        } catch {
-          statusResult = false;
-        }
+        statusResult = await pingUrl(targetUrl);
       }
 
       serviceStatusCache.set(targetUrl, { result: statusResult, time: Date.now() });
