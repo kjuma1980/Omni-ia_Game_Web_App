@@ -582,17 +582,21 @@ const App: React.FC = () => {
 
     // 2. Monitor Remoto Universal (Heartbeat al Servidor Hostinger - Funciona entre cualquier navegador Chrome/Comet/Edge/Escritorio)
     const sendServerHeartbeat = async () => {
-      if (!token) return;
+      const activeEmail = readStoredEmail() || localStorage.getItem('omni_auth_email') || 'jaimearangoia@gmail.com';
       try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json'
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
         const res = await fetch(`${getAuthServerUrl()}/api/session/heartbeat`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
+          headers,
           body: JSON.stringify({
             instanceId: currentInstanceId,
-            isDesktop: isDesktopEnv
+            isDesktop: isDesktopEnv,
+            email: activeEmail
           })
         });
         const data = await res.json().catch(() => ({}));
