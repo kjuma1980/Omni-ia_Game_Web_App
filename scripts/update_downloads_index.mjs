@@ -43,18 +43,20 @@ async function main() {
   const indexHtml = path.join(distDir, 'index.html');
   const assetsDir = path.join(distDir, 'assets');
   const filesInAssets = fs.readdirSync(assetsDir);
-  const indexJsName = filesInAssets.find(f => f.startsWith('index-') && f.endsWith('.js'));
-  const assetJs = path.join(assetsDir, indexJsName);
 
-  // Subir a public/downloads/ (donde Express sirve /app/*)
-  await updateFile(indexHtml, 'public/downloads/index.html');
-  await updateFile(assetJs, `public/downloads/assets/${indexJsName}`);
+  const targets = ['public/downloads', 'public/app', 'auth-server/public/downloads', 'auth-server/public/app'];
 
-  // Subir a auth-server/public/downloads/
-  await updateFile(indexHtml, 'auth-server/public/downloads/index.html');
-  await updateFile(assetJs, `auth-server/public/downloads/assets/${indexJsName}`);
+  for (const targetPrefix of targets) {
+    await updateFile(indexHtml, `${targetPrefix}/index.html`);
+    for (const file of filesInAssets) {
+      const localFilePath = path.join(assetsDir, file);
+      if (fs.statSync(localFilePath).isFile()) {
+        await updateFile(localFilePath, `${targetPrefix}/assets/${file}`);
+      }
+    }
+  }
 
-  console.log('🎉 ¡Rutas /app/ de Hostinger actualizadas al nuevo bundle!');
+  console.log('🎉 ¡Todos los bundles CSS y JS subidos a las rutas de Hostinger!');
 }
 
 main().catch(err => {
