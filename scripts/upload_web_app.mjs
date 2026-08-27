@@ -65,22 +65,31 @@ async function uploadFile(filePath, remoteFilename) {
 
 async function main() {
   const rootDir = process.cwd();
-  const appDir = path.join(rootDir, 'auth-server', 'public', 'app');
+  const appDir = path.join(rootDir, 'dist');
 
   if (!fs.existsSync(appDir)) {
-    console.error('❌ No existe la carpeta auth-server/public/app. Ejecuta primero npm run build.');
+    console.error('❌ No existe la carpeta dist. Ejecuta primero npm run build.');
     process.exit(1);
   }
 
   const files = getAllFiles(appDir);
-  console.log(`🌐 Subiendo ${files.length} archivos de la versión Web a fenixdev.cloud/app/...`);
+  console.log(`🌐 Subiendo ${files.length} archivos de la versión Web a fenixdev.cloud/app/, downloads/ y public/...`);
 
   for (const file of files) {
-    const remotePath = file.relPath === 'index.html' ? 'downloads/index.html' : `downloads/${file.relPath}`;
-    await uploadFile(file.fullPath, remotePath);
+    // 1. Ruta /app/ (Web App principal)
+    const remotePathApp = `public/app/${file.relPath}`;
+    await uploadFile(file.fullPath, remotePathApp);
+
+    // 2. Ruta /downloads/ (Descargas y web universal)
+    const remotePathDownloads = `public/downloads/${file.relPath}`;
+    await uploadFile(file.fullPath, remotePathDownloads);
+
+    // 3. Ruta raíz /
+    const remotePathPublic = `public/${file.relPath}`;
+    await uploadFile(file.fullPath, remotePathPublic);
   }
 
-  console.log('\n🎉 ¡Versión Web Universal subida e instalada exitosamente en https://fenixdev.cloud/downloads/index.html !');
+  console.log('\n🎉 ¡Versión Web subida e instalada exitosamente en todas las rutas de https://fenixdev.cloud/ !');
 }
 
 main().catch(err => {

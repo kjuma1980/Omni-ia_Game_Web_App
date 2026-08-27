@@ -555,6 +555,87 @@ app.post('/api/password-reset/confirm', rateLimit(15 * 60 * 1000, 10), async (re
   }
 });
 
+// Monitor de Sesiones de Instancias Concurrentes (En memoria del servidor)
+const activeSessionsMap = new Map(); // key: userEmail -> Map(instanceId -> { isDesktop, lastPing })
+
+function cleanupStaleSessions() {
+  const now = Date.now();
+  for (const [email, userMap] of activeSessionsMap.entries()) {
+    for (const [instId, data] of userMap.entries()) {
+      if (now - data.lastPing > 12000) { // Expirar si no hay ping en 12 segundos
+        userMap.delete(instId);
+      }
+    }
+    if (userMap.size === 0) activeSessionsMap.delete(email);
+  }
+}
+setInterval(cleanupStaleSessions, 5000);
+
+app.post('/api/session/heartbeat', (req, res) => {
+  cleanupStaleSessions();
+  const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
+  let userEmail = '';
+  let isPremium = false;
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      userEmail = (decoded.email || '').toLowerCase().trim();
+      const user = findUserByEmail(userEmail);
+      if (user) {
+        isPremium = user.tier === 'premium' || user.role === 'admin' || user.is_premium === 1;
+      }
+    } catch {}
+  }
+
+  const { instanceId, isDesktop } = req.body || {};
+  if (!userEmail || !instanceId) {
+    return res.json({ ok: true, status: 'ignored' });
+  }
+
+  let userMap = activeSessionsMap.get(userEmail);
+  if (!userMap) {
+    userMap = new Map();
+    activeSessionsMap.set(userEmail, userMap);
+  }
+
+  // Actualizar la instancia actual
+  userMap.set(instanceId, { isDesktop: Boolean(isDesktop), lastPing: Date.now() });
+
+  // Contar otras instancias activas
+  let webCount = 0;
+  let desktopCount = 0;
+  for (const [id, data] of userMap.entries()) {
+    if (id === instanceId) continue;
+    if (data.isDesktop) desktopCount++;
+    else webCount++;
+  }
+
+  if (!isPremium) {
+    // Usuario Regular: Máximo 1 instancia total
+    if ((isDesktop && webCount > 0) || (!isDesktop && (webCount > 0 || desktopCount > 0))) {
+      userMap.delete(instanceId);
+      return res.status(409).json({
+        ok: false,
+        code: 'CONCURRENCY_LIMIT_EXCEEDED',
+        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Regular solo permite 1 aplicación activa a la vez. Se ha cerrado la sesión en esta aplicación para proteger tu cuenta.'
+      });
+    }
+  } else {
+    // Usuario Premium: Máximo 2 instancias (1 Escritorio + 1 Web). Prohibido tener 2 Webs abiertas.
+    if (!isDesktop && webCount > 0) {
+      userMap.delete(instanceId);
+      return res.status(409).json({
+        ok: false,
+        code: 'CONCURRENCY_LIMIT_EXCEEDED',
+        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium permite máximo 1 App de Escritorio y 1 App Web activa simultáneamente. Se ha cerrado la sesión en esta ventana porque ya tienes una instancia activa en ese entorno.'
+      });
+    }
+  }
+
+  return res.json({ ok: true, activeWeb: webCount + (isDesktop ? 0 : 1), activeDesktop: desktopCount + (isDesktop ? 1 : 0) });
+});
+
 const handleLogin = async (req, res) => {
   try {
     const email = String((req.body.email || '').trim().toLowerCase());

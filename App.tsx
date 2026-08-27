@@ -537,22 +537,23 @@ const App: React.FC = () => {
 
     const isDesktopEnv = hayEntornoTauri();
     const currentInstanceId = currentInstanceIdRef.current;
+    const token = readStoredToken();
+
+    // 1. Monitor Local (Mismo Navegador / Mismo Origen via BroadcastChannel)
     const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('omni_instance_channel') : null;
 
-    const checkConcurrencyRules = () => {
+    const checkLocalConcurrencyRules = () => {
       const isPremium = premiumUnlocked;
       const webCount = knownWebInstancesRef.current.size;
       const desktopCount = knownDesktopInstancesRef.current.size;
 
       if (!isPremium) {
-        // Usuario Regular: Máximo 1 instancia activa a la vez
         if ((isDesktopEnv && webCount > 0) || (!isDesktopEnv && (webCount > 0 || desktopCount > 0))) {
           alert('⚠️ Límite de Instancias Alcanzado: Tu cuenta Regular solo permite 1 aplicación activa a la vez. Se ha cerrado la sesión en esta aplicación para proteger tu cuenta.');
           clearStoredAuth();
           window.location.reload();
         }
       } else {
-        // Usuario Premium: Máximo 2 instancias (1 Escritorio + 1 Web). Prohibido tener 2 Webs abiertas.
         if (!isDesktopEnv && webCount > 0) {
           alert('⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium permite máximo 1 App de Escritorio y 1 App Web activa simultáneamente. Se ha cerrado la sesión en esta ventana porque ya tienes una instancia activa en ese entorno.');
           clearStoredAuth();
@@ -566,50 +567,55 @@ const App: React.FC = () => {
         if (!ev.data) return;
         const { instanceId, isDesktop, action } = ev.data;
         if (action === 'ping' && instanceId !== currentInstanceId) {
-          if (isDesktop) {
-            knownDesktopInstancesRef.current.add(instanceId);
-          } else {
-            knownWebInstancesRef.current.add(instanceId);
-          }
-          channel.postMessage({
-            type: 'omni_instance_ping',
-            instanceId: currentInstanceId,
-            isDesktop: isDesktopEnv,
-            action: 'pong'
-          });
-          checkConcurrencyRules();
+          if (isDesktop) knownDesktopInstancesRef.current.add(instanceId);
+          else knownWebInstancesRef.current.add(instanceId);
+          channel.postMessage({ type: 'omni_instance_ping', instanceId: currentInstanceId, isDesktop: isDesktopEnv, action: 'pong' });
+          checkLocalConcurrencyRules();
         } else if (action === 'pong' && instanceId !== currentInstanceId) {
-          if (isDesktop) {
-            knownDesktopInstancesRef.current.add(instanceId);
-          } else {
-            knownWebInstancesRef.current.add(instanceId);
-          }
-          checkConcurrencyRules();
+          if (isDesktop) knownDesktopInstancesRef.current.add(instanceId);
+          else knownWebInstancesRef.current.add(instanceId);
+          checkLocalConcurrencyRules();
         }
       };
-
-      channel.postMessage({
-        type: 'omni_instance_ping',
-        instanceId: currentInstanceId,
-        isDesktop: isDesktopEnv,
-        action: 'ping'
-      });
-
-      const interval = setInterval(() => {
-        channel.postMessage({
-          type: 'omni_instance_ping',
-          instanceId: currentInstanceId,
-          isDesktop: isDesktopEnv,
-          action: 'ping'
-        });
-        checkConcurrencyRules();
-      }, 3000);
-
-      return () => {
-        clearInterval(interval);
-        channel.close();
-      };
+      channel.postMessage({ type: 'omni_instance_ping', instanceId: currentInstanceId, isDesktop: isDesktopEnv, action: 'ping' });
     }
+
+    // 2. Monitor Remoto Universal (Heartbeat al Servidor Hostinger - Funciona entre cualquier navegador Chrome/Comet/Edge/Escritorio)
+    const sendServerHeartbeat = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch(`${getAuthServerUrl()}/api/session/heartbeat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            instanceId: currentInstanceId,
+            isDesktop: isDesktopEnv
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 409 || data.code === 'CONCURRENCY_LIMIT_EXCEEDED') {
+          alert(data.message || '⚠️ Límite de Instancias Alcanzado: Se ha cerrado la sesión porque existe otra instancia activa en este entorno.');
+          clearStoredAuth();
+          window.location.reload();
+        }
+      } catch (err) {
+        // Ignorar fallos temporales de red
+      }
+    };
+
+    sendServerHeartbeat();
+    const interval = setInterval(() => {
+      if (channel) channel.postMessage({ type: 'omni_instance_ping', instanceId: currentInstanceId, isDesktop: isDesktopEnv, action: 'ping' });
+      sendServerHeartbeat();
+    }, 4000);
+
+    return () => {
+      clearInterval(interval);
+      if (channel) channel.close();
+    };
   }, [isAuthenticated, premiumUnlocked]);
 
   useEffect(() => {
