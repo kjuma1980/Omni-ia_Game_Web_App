@@ -21,10 +21,9 @@ const PBKDF2_ITERATIONS = 100_000;
 /**
  * Genera la frase de derivación dinámica combinando la Frase Maestra, el Correo y la Licencia del Usuario.
  */
-function construirFraseIdentidad(ownerEmail: string, licenseKey: string): string {
+function construirFraseIdentidad(ownerEmail: string, _licenseKey?: string): string {
   const emailLwr = (ownerEmail || 'anonymous').toLowerCase().trim();
-  const licTrim = (licenseKey || 'free').trim();
-  return `${BASE_MASTER_SECRET}:${emailLwr}:${licTrim}`;
+  return `${BASE_MASTER_SECRET}:${emailLwr}`;
 }
 
 /**

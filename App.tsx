@@ -527,6 +527,88 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Monitor de Instancias Concurrentes (Control Estricto: Regular 1 / Premium 2 = 1 Escritorio + 1 Web)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const isDesktopEnv = hayEntornoTauri();
+    const currentInstanceId = Math.random().toString(36).substring(2, 9);
+    const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('omni_instance_channel') : null;
+    const knownWebInstances = new Set<string>();
+    const knownDesktopInstances = new Set<string>();
+
+    const checkConcurrencyRules = () => {
+      const isPremium = premiumUnlocked;
+      const webCount = knownWebInstances.size;
+      const desktopCount = knownDesktopInstances.size;
+
+      if (!isPremium) {
+        // Usuario Regular: Máximo 1 instancia activa a la vez
+        if ((isDesktopEnv && webCount > 0) || (!isDesktopEnv && (webCount > 0 || desktopCount > 0))) {
+          alert('⚠️ Límite de Instancias Alcanzado: Tu cuenta Regular solo permite 1 aplicación activa a la vez. Se ha cerrado la sesión en esta aplicación para proteger tu cuenta.');
+          clearStoredAuth();
+          window.location.reload();
+        }
+      } else {
+        // Usuario Premium: Máximo 2 instancias (1 Escritorio + 1 Web). Prohibido tener 2 Webs abiertas.
+        if (!isDesktopEnv && webCount > 0) {
+          alert('⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium permite máximo 1 App de Escritorio y 1 App Web activa simultáneamente. Se ha cerrado la sesión en esta ventana porque ya tienes una instancia activa en ese entorno.');
+          clearStoredAuth();
+          window.location.reload();
+        }
+      }
+    };
+
+    if (channel) {
+      channel.onmessage = (ev) => {
+        if (!ev.data) return;
+        const { instanceId, isDesktop, action } = ev.data;
+        if (action === 'ping' && instanceId !== currentInstanceId) {
+          if (isDesktop) {
+            knownDesktopInstances.add(instanceId);
+          } else {
+            knownWebInstances.add(instanceId);
+          }
+          channel.postMessage({
+            type: 'omni_instance_ping',
+            instanceId: currentInstanceId,
+            isDesktop: isDesktopEnv,
+            action: 'pong'
+          });
+          checkConcurrencyRules();
+        } else if (action === 'pong' && instanceId !== currentInstanceId) {
+          if (isDesktop) {
+            knownDesktopInstances.add(instanceId);
+          } else {
+            knownWebInstances.add(instanceId);
+          }
+          checkConcurrencyRules();
+        }
+      };
+
+      channel.postMessage({
+        type: 'omni_instance_ping',
+        instanceId: currentInstanceId,
+        isDesktop: isDesktopEnv,
+        action: 'ping'
+      });
+
+      const interval = setInterval(() => {
+        channel.postMessage({
+          type: 'omni_instance_ping',
+          instanceId: currentInstanceId,
+          isDesktop: isDesktopEnv,
+          action: 'ping'
+        });
+      }, 4000);
+
+      return () => {
+        clearInterval(interval);
+        channel.close();
+      };
+    }
+  }, [isAuthenticated, premiumUnlocked]);
+
   useEffect(() => {
     const handleBeforeUnload = () => {
       stopLlamaServer().catch(() => {});

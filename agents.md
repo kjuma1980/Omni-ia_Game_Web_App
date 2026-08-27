@@ -1,3 +1,26 @@
+# AGENTS.md
+
+## Rol
+Asistente de desarrollo que ejecuta ÚNICAMENTE lo solicitado explícitamente por el usuario.
+
+## Reglas críticas (no negociables)
+1. NUNCA ejecutes acciones, comandos o cambios que no hayan sido pedidos explícitamente en el turno actual.
+2. NUNCA modifiques archivos fuera del alcance mencionado por el usuario.
+3. Si detectas una mejora posible pero no solicitada, PROPÓNLA en texto, NO la implementes.
+4. Antes de cualquier operación destructiva (borrar, sobrescribir, git push, cambiar esquemas, instalar dependencias nuevas), DETENTE y pide confirmación explícita.
+5. Lee GUARDRAILS.md al inicio de cada tarea; trata cada entrada como restricción inmutable.
+6. Si una instrucción es ambigua, pregunta antes de actuar; no asumas alcance.
+7. Nunca uses "Model Decision" para reglas de seguridad; estas reglas están en Always On.
+
+## Alcance de archivos
+- Solo puedes tocar archivos dentro de: [listar carpetas del proyecto]
+- Prohibido: node_modules, .git internals, archivos de configuración de sistema.
+
+## Estilo
+- Explicaciones técnicas concretas y accionables.
+- Scripts multiplataforma (Windows/Linux) cuando aplique.
+
+
 # Project Agents: OMNI-IA GAME AI Asset Studio
 
 ## 0. REGLA FUNDAMENTAL E INMUTABLE (MÁXIMA PRIORIDAD)
@@ -15,44 +38,17 @@
 > 4. **Validación de Tests**: Ejecuta la suite de pruebas/tests existentes tras cualquier cambio y reporta resultados antes de dar por terminada la tarea.
 > 5. **Aislamiento de Archivos**: No toques archivos que no estén directamente relacionados con la petición, aunque el editor los tenga abiertos.
 
-## 0.2 REGLA SUPREMA DE VERIFICACIÓN LOCAL Y PROHIBICIÓN DE DESPLIEGUES SIN PROBAR (OBLIGATORIA E INVARIABLE)
-> [!CAUTION]
-> **ESTRICTA PROHIBICIÓN DE DESPLIEGUES SIN VERIFICACIÓN EMPÍRICA PREVIA**
-> 1. **NUNCA ASUMIR QUE ALGO FUNCIONA**: Queda estrictamente prohibido dar por sentado, presuponer o declarar que un archivo, script, binario (`.exe`, `.bat`), endpoint o compilación funciona sin antes haberlo ejecutado y verificado empíricamente en el entorno local.
-> 2. **PROHIBIDO DESPLEGAR A HOSTINGER / SERVIDOR SIN PRUEBA Y APROBACIÓN MANIFIESTA**: Ningún cambio o ejecutable se subirá o desplegará al servidor de producción en Hostinger (`fenixdev.cloud`) hasta que:
->    - Se haya ejecutado localmente y verificado que no lanza errores de runtime ni de sintaxis.
->    - El usuario haya probado la solución o dado su aprobación explícita con un "sí" o "despliega".
-# Project Agents: OMNI-IA GAME AI Asset Studio
+Este documento define los agentes para la evolución de OMNI-IA GAME hacia un sistema híbrido masivo.
 
-## 0. REGLA FUNDAMENTAL E INMUTABLE (MÁXIMA PRIORIDAD)
-> [!CAUTION]
-> **PROHIBICIÓN ABSOLUTA DE MODIFICAR CREDENCIALES O BASES DE DATOS**
-> - **JAMÁS MODIFICAR CREDENCIALES**: Queda estrictamente prohibido alterar, cambiar, restablecer o eliminar credenciales de usuario o contraseñas del panel admin (`admin@fenixdev.cloud`) y de cuentas de usuario en el servidor.
-> - **PRESERVAR BASE DE DATOS `data.db`**: La base de datos persistente jamás se restablece, vacía o reemplaza.
-> - **MANTENER SERVIDOR NODEJS ACTIVO**: Todo despliegue debe asegurar que el servidor Express de autenticación permanezca en línea para evitar interrupciones.
+## 1. Omni-Director (Orquestador)
+- **Misión:** Decidir entre `geminiService` y `localService` basándose en la configuración del usuario.
+- **Implementación:** `services/aiProvider.ts` — Router Universal con funciones `generateText`, `generateImage`, `generateVideo`, `generateTTS`, `generateAtmosphere`.
+- **Estado:** ✅ Funcional. Soporta 7+ proveedores de texto, 8+ de imagen, 12+ de video, 7+ de audio.
 
-## 0.1 PROTOCOLO ESTRICTO DE MODIFICACIÓN Y ALCANCE (DIRECTRICES OBLIGATORIAS)
-> [!IMPORTANT]
-> 1. **Cambio Mínimo y Explícito**: Realiza únicamente el cambio explícitamente solicitado. No refactorices, renombres variables ni "mejores" código no relacionado.
-> 2. **Reporte de Bugs Ajenos**: Si detectas un bug fuera del alcance de la tarea, repórtalo en el chat pero no lo corrijas sin aprobación.
-> 3. **Diff Exacto y Confirmación**: Antes de finalizar, muestra un diff exacto de los archivos modificados y confirma que solo corresponde a lo pedido.
-> 4. **Validación de Tests**: Ejecuta la suite de pruebas/tests existentes tras cualquier cambio y reporta resultados antes de dar por terminada la tarea.
-> 5. **Aislamiento de Archivos**: No toques archivos que no estén directamente relacionados con la petición, aunque el editor los tenga abiertos.
-
-## 0.2 REGLA SUPREMA DE VERIFICACIÓN LOCAL Y PROHIBICIÓN DE DESPLIEGUES SIN PROBAR (OBLIGATORIA E INVARIABLE)
-> [!CAUTION]
-> **ESTRICTA PROHIBICIÓN DE DESPLIEGUES SIN VERIFICACIÓN EMPÍRICA PREVIA**
-> 1. **NUNCA ASUMIR QUE ALGO FUNCIONA**: Queda estrictamente prohibido dar por sentado, presuponer o declarar que un archivo, script, binario (`.exe`, `.bat`), endpoint o compilación funciona sin antes haberlo ejecutado y verificado empíricamente en el entorno local.
-> 2. **PROHIBIDO DESPLEGAR A HOSTINGER / SERVIDOR SIN PRUEBA Y APROBACIÓN MANIFIESTA**: Ningún cambio o ejecutable se subirá o desplegará al servidor de producción en Hostinger (`fenixdev.cloud`) hasta que:
->    - Se haya ejecutado localmente y verificado que no lanza errores de runtime ni de sintaxis.
->    - El usuario haya probado la solución o dado su aprobación explícita con un "sí" o "despliega".
-> 3. **PROBABILIDAD CERO DE ASUMIR ÉXITO POR SOLO EDITAR O COMPILAR**: La edición o compilación limpia de un archivo no equivale a éxito. Todo binario o ejecutable compilado debe probarse localmente mediante su ejecución real en la terminal antes de informar cualquier resultado.
-
-## 0.3 PROTOCOLO INMUTABLE DE DESPLIEGUE Y PROTECCIÓN DE CONFIGURACIONES (.ENV Y SMTP)
-> [!CAUTION]
-> **REGLA ABSOLUTA DE PROTECCIÓN DE CORREOS Y CONFIGURACIÓN DEL SERVIDOR**
-> 1. **INCLUSIÓN OBLIGATORIA DEL ARCHIVO `.env` COMPLETO**: Queda estrictamente prohibido excluir o borrar `auth-server/.env` del paquete `.zip` de despliegue para Hostinger (`omni_auth_code_deploy.zip`).
-> 2. **CHECK PRE-DESPLIEGUE AUTOMÁTICO**: El script `package_code_deploy.mjs` abortará inmediatamente cualquier empaquetado si falta el archivo `.env` o si la variable `SMTP_PASS` está vacía.
+## 2. Animation & Rigging Agent
+- **Misión:** Potenciar `AnimationStudio.tsx` mediante la generación de Video HD y Sprite Sheets.
+- **Proveedores Cloud:** Gemini (Veo 3.1), Seedance 2.0, Kling.ai, **OpenArt.ai**, **YouArt.ai**.
+- **Motores Locales:** **ComfyUI** (Workflows de AnimateDiff/SVD) y **A1111** (Deforum/ControlNet).
 - **Estado:** ✅ Keyframe + Video HD + Sprite Sheet 4x4 funcionando. Seedance/Kling son stubs.
 
 ## 3. Local Engine Manager (ComfyUI & A1111)
