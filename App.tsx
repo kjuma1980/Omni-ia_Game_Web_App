@@ -533,8 +533,6 @@ const App: React.FC = () => {
 
   // Monitor de Instancias Concurrentes (Control Estricto: Regular 1 / Premium 2 = 1 Escritorio + 1 Web)
   useEffect(() => {
-    if (!isAuthenticated) return;
-
     const isDesktopEnv = hayEntornoTauri();
     const currentInstanceId = currentInstanceIdRef.current;
     const token = readStoredToken();
