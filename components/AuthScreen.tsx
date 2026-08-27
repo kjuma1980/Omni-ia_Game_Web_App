@@ -75,6 +75,7 @@ export function clearStoredAuth() {
 
 interface AuthScreenProps {
   onLogin: () => void;
+  initialError?: string | null;
 }
 
 type Mode = 'login' | 'register';

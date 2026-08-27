@@ -608,10 +608,9 @@ app.post('/api/session/heartbeat', (req, res) => {
     activeSessionsMap.set(userEmail, userMap);
   }
 
-  // Actualizar la instancia actual
-  userMap.set(instanceId, { isDesktop: Boolean(isDesktop), lastPing: Date.now() });
+  const isAlreadyRegistered = userMap.has(instanceId);
 
-  // Contar otras instancias activas
+  // Contar OTRAS instancias activas (excluyendo la actual)
   let webCount = 0;
   let desktopCount = 0;
   for (const [id, data] of userMap.entries()) {
@@ -620,36 +619,42 @@ app.post('/api/session/heartbeat', (req, res) => {
     else webCount++;
   }
 
+  // 1. Si esta instancia YA ESTÁ REGISTRADA, es la dueña legítima del slot: renovar timestamp y retornar 200 OK
+  if (isAlreadyRegistered) {
+    userMap.set(instanceId, { isDesktop: Boolean(isDesktop), lastPing: Date.now() });
+    return res.json({ ok: true, activeWeb: webCount + (isDesktop ? 0 : 1), activeDesktop: desktopCount + (isDesktop ? 1 : 0) });
+  }
+
+  // 2. Si es una NUEVA instancia intentando ingresar, validar límites ANTES de registrarla:
   if (!isPremium) {
     // Usuario Regular: Máximo 1 instancia total (Escritorio O Web)
     if (webCount > 0 || desktopCount > 0) {
-      userMap.delete(instanceId);
       return res.status(409).json({
         ok: false,
         code: 'CONCURRENCY_LIMIT_EXCEEDED',
-        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Regular solo permite 1 aplicación activa a la vez. Se ha cerrado la sesión en esta aplicación para proteger tu cuenta.'
+        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Regular solo permite 1 aplicación activa a la vez. Se ha rechazado esta ventana porque ya tienes una sesión activa.'
       });
     }
   } else {
     // Usuario Premium: Máximo 2 instancias (Estrictamente 1 App de Escritorio + 1 App Web)
     if (isDesktop && desktopCount > 0) {
-      userMap.delete(instanceId);
       return res.status(409).json({
         ok: false,
         code: 'CONCURRENCY_LIMIT_EXCEEDED',
-        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium permite máximo 1 App de Escritorio activa simultáneamente. Se ha cerrado la sesión en esta ventana porque ya tienes una App de Escritorio ejecutándose.'
+        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium ya tiene 1 App de Escritorio ejecutándose.'
       });
     }
     if (!isDesktop && webCount > 0) {
-      userMap.delete(instanceId);
       return res.status(409).json({
         ok: false,
         code: 'CONCURRENCY_LIMIT_EXCEEDED',
-        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium permite máximo 1 App Web activa simultáneamente. Se ha cerrado la sesión en esta ventana porque ya tienes una App Web ejecutándose.'
+        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium ya tiene 1 App Web ejecutándose.'
       });
     }
   }
 
+  // Si pasa las validaciones, la registramos
+  userMap.set(instanceId, { isDesktop: Boolean(isDesktop), lastPing: Date.now() });
   return res.json({ ok: true, activeWeb: webCount + (isDesktop ? 0 : 1), activeDesktop: desktopCount + (isDesktop ? 1 : 0) });
 });
 

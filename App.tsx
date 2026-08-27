@@ -337,7 +337,7 @@ const App: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const [concurrencyBlockMessage, setConcurrencyBlockMessage] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   interface LicenseDetails {
     is_licensed: boolean;
@@ -550,15 +550,15 @@ const App: React.FC = () => {
         if ((isDesktopEnv && webCount > 0) || (!isDesktopEnv && (webCount > 0 || desktopCount > 0))) {
           const msg = '⚠️ Límite de Instancias Alcanzado: Tu cuenta Regular solo permite 1 aplicación activa a la vez. Se ha cerrado la sesión en esta aplicación para proteger tu cuenta.';
           clearStoredAuth();
+          setAuthError(msg);
           setIsAuthenticated(false);
-          setConcurrencyBlockMessage(msg);
         }
       } else {
         if (!isDesktopEnv && webCount > 0) {
           const msg = '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium permite máximo 1 App de Escritorio y 1 App Web activa simultáneamente. Se ha cerrado la sesión en esta ventana porque ya tienes una instancia activa en ese entorno.';
           clearStoredAuth();
+          setAuthError(msg);
           setIsAuthenticated(false);
-          setConcurrencyBlockMessage(msg);
         }
       }
     };
@@ -604,10 +604,10 @@ const App: React.FC = () => {
         console.log('[Omni Concurrency Heartbeat]', res.status, data);
         if (res.status === 409 || data.code === 'CONCURRENCY_LIMIT_EXCEEDED') {
           const msg = data.message || '⚠️ Límite de Instancias Alcanzado: Se ha cerrado la sesión porque existe otra instancia activa en este entorno.';
-          console.warn('🔒 INSTANCIA BLOQUEADA POR CONCURRENCIA:', msg);
+          console.warn('🔒 INSTANCIA RECHAZADA POR CONCURRENCIA:', msg);
           clearStoredAuth();
+          setAuthError(msg);
           setIsAuthenticated(false);
-          setConcurrencyBlockMessage(msg);
         }
       } catch (err) {
         console.error('[Omni Concurrency Heartbeat Error]', err);
@@ -1530,33 +1530,6 @@ const App: React.FC = () => {
 
   const handleLogin = useCallback(() => setIsAuthenticated(true), []);
 
-  if (concurrencyBlockMessage) {
-    return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-slate-100 p-6 z-[99999] relative">
-        <div className="bg-slate-900/90 border border-red-800/80 rounded-2xl p-8 max-w-md w-full shadow-2xl text-center backdrop-blur-md">
-          <div className="w-16 h-16 rounded-full bg-red-950/80 border border-red-700/60 flex items-center justify-center mx-auto mb-4 animate-bounce">
-            <Lock className="w-8 h-8 text-red-500" />
-          </div>
-          <h2 className="text-xl font-bold font-cinzel text-red-400 mb-3 uppercase tracking-wider">
-            Límite de Instancias Alcanzado
-          </h2>
-          <p className="text-sm text-slate-300 mb-6 font-sans leading-relaxed">
-            {concurrencyBlockMessage}
-          </p>
-          <button
-            onClick={() => {
-              setConcurrencyBlockMessage(null);
-              window.location.reload();
-            }}
-            className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm tracking-wide transition-all shadow-lg shadow-red-900/40"
-          >
-            Entendido — Volver al Inicio
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   if (!authChecked) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-slate-950 text-slate-400">
@@ -1572,6 +1545,7 @@ const App: React.FC = () => {
     return (
       <AuthScreen
         onLogin={handleLogin}
+        initialError={authError}
       />
     );
   }
