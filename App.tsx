@@ -601,14 +601,16 @@ const App: React.FC = () => {
           })
         });
         const data = await res.json().catch(() => ({}));
+        console.log('[Omni Concurrency Heartbeat]', res.status, data);
         if (res.status === 409 || data.code === 'CONCURRENCY_LIMIT_EXCEEDED') {
           const msg = data.message || '⚠️ Límite de Instancias Alcanzado: Se ha cerrado la sesión porque existe otra instancia activa en este entorno.';
+          console.warn('🔒 INSTANCIA BLOQUEADA POR CONCURRENCIA:', msg);
           clearStoredAuth();
           setIsAuthenticated(false);
           setConcurrencyBlockMessage(msg);
         }
       } catch (err) {
-        // Ignorar fallos temporales de red
+        console.error('[Omni Concurrency Heartbeat Error]', err);
       }
     };
 
