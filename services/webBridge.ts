@@ -211,9 +211,14 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
               const mime = url.includes('.jpg') || url.includes('.jpeg') ? 'image/jpeg' : 'image/png';
               return `data:${mime};base64,${b64}`;
             }
-            return await res.text();
           } catch (e: any) {
-            throw new Error("CORS bloqueado por ComfyUI: Reinicia ComfyUI en tu PC cerrando la consola actual y abriendo el archivo OMNI-IA_START.bat actualizado para activar --enable-cors-header *.");
+            if (url.includes('11434')) {
+              throw new Error("CORS bloqueado por Ollama: Configura la variable de entorno OLLAMA_ORIGINS=\"*\" en tu PC o inicia Ollama con OLLAMA_ORIGINS=\"*\" para permitir conexiones desde fenixdev.cloud.");
+            } else if (url.includes('8188')) {
+              throw new Error("CORS bloqueado por ComfyUI: Reinicia ComfyUI en tu PC cerrando la consola actual y abriendo el archivo OMNI-IA_START.bat actualizado para activar --enable-cors-header *.");
+            } else {
+              throw new Error(`Error de conexión o CORS bloqueado al contactar ${url}`);
+            }
           }
         }
       }
