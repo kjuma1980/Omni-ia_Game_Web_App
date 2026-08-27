@@ -239,8 +239,18 @@ export const getOllamaModels = async (baseUrl: string = 'http://localhost:11434'
     const data = await pedirJsonLocal(`${cleanBaseUrl}/api/tags`);
     return data.models || [];
   } catch (error) {
+    const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke || (window as any).webBridgeInvoke;
+    if (invokeFn) {
+      try {
+        const raw = await invokeFn('proxy_request', { url: `${cleanBaseUrl}/api/tags`, method: 'GET' });
+        const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (data && Array.isArray(data.models)) return data.models;
+      } catch (bridgeErr) {
+        console.warn("Ollama bridge fallback failed:", bridgeErr);
+      }
+    }
     console.error("Ollama connection error:", error);
-    throw error;
+    return [];
   }
 };
 

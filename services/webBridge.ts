@@ -213,7 +213,7 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
             }
           } catch (e: any) {
             if (url.includes('11434')) {
-              throw new Error("CORS bloqueado por Ollama: Configura la variable de entorno OLLAMA_ORIGINS=\"*\" en tu PC o inicia Ollama con OLLAMA_ORIGINS=\"*\" para permitir conexiones desde fenixdev.cloud.");
+              throw new Error("No se pudo conectar con Ollama en http://localhost:11434. Asegúrate de que el servicio de Ollama esté encendido.");
             } else if (url.includes('8188')) {
               throw new Error("CORS bloqueado por ComfyUI: Reinicia ComfyUI en tu PC cerrando la consola actual y abriendo el archivo OMNI-IA_START.bat actualizado para activar --enable-cors-header *.");
             } else {
