@@ -39,6 +39,60 @@ const NPCStudio: React.FC<NPCStudioProps> = ({ state, updateState, apiSettings, 
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const npcsRef = useRef<NPCProfile[]>(npcs);
+  const altCodeBufferRef = useRef<string>('');
+  const isAltPressedRef = useRef<boolean>(false);
+
+  // Gestor de combinaciones Alt + Código (ej: Alt + 124 para |)
+  const handleAltKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (e.key === 'Alt') {
+      isAltPressedRef.current = true;
+      altCodeBufferRef.current = '';
+      e.stopPropagation();
+    } else if (isAltPressedRef.current || e.altKey) {
+      let digit = '';
+      if (e.code && e.code.startsWith('Numpad') && !isNaN(parseInt(e.code.replace('Numpad', ''), 10))) {
+        digit = e.code.replace('Numpad', '');
+      } else if (e.key >= '0' && e.key <= '9') {
+        digit = e.key;
+      }
+      if (digit) {
+        altCodeBufferRef.current += digit;
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+  };
+
+  const handleAltKeyUp = (
+    e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+    onChangeCallback?: (newVal: string) => void
+  ) => {
+    if (e.key === 'Alt' || !e.altKey) {
+      if (altCodeBufferRef.current.length > 0) {
+        const code = parseInt(altCodeBufferRef.current, 10);
+        altCodeBufferRef.current = '';
+        isAltPressedRef.current = false;
+        if (!isNaN(code) && code > 0) {
+          const char = String.fromCharCode(code);
+          const target = e.currentTarget;
+          const start = target.selectionStart ?? target.value.length;
+          const end = target.selectionEnd ?? target.value.length;
+          const val = target.value;
+          const newVal = val.substring(0, start) + char + val.substring(end);
+          
+          target.value = newVal;
+          target.setSelectionRange(start + char.length, start + char.length);
+          
+          if (onChangeCallback) {
+            onChangeCallback(newVal);
+          }
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+      isAltPressedRef.current = false;
+    }
+  };
 
   // Mantener npcsRef actualizado con la lista de NPCs más fresca de cada render
   useEffect(() => {
@@ -1112,8 +1166,10 @@ void UNPCGameBrain::EvaluateAffinitiesLocally(const FString& PlayerMsg, const FS
                           value={chatInput}
                           onChange={(e) => updateState({ chatInput: e.target.value })}
                           onKeyDown={(e) => {
+                            handleAltKeyDown(e);
                             if (e.key === 'Enter') handleSendMessage();
                           }}
+                          onKeyUp={(e) => handleAltKeyUp(e, (val) => updateState({ chatInput: val }))}
                           placeholder={`Háblale a ${activeNpc.name}... (ej: ¿quién eres?, ¿qué sabes del protocolo?)`}
                           disabled={isGenerating}
                           className="w-full bg-transparent border-none outline-none font-mono text-xs px-3 text-slate-200 placeholder-slate-600 disabled:cursor-not-allowed"
@@ -1219,6 +1275,8 @@ void UNPCGameBrain::EvaluateAffinitiesLocally(const FString& PlayerMsg, const FS
                           type="text"
                           value={editingNpc?.name || ''}
                           onChange={(e) => setEditingNpc(prev => prev ? { ...prev, name: e.target.value } : null)}
+                          onKeyDown={handleAltKeyDown}
+                          onKeyUp={(e) => handleAltKeyUp(e, (val) => setEditingNpc(prev => prev ? { ...prev, name: val } : null))}
                           placeholder="ej: Kaelen, Nyx, Sentinel..."
                           className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 outline-none"
                         />
@@ -1232,6 +1290,8 @@ void UNPCGameBrain::EvaluateAffinitiesLocally(const FString& PlayerMsg, const FS
                           type="text"
                           value={editingNpc?.role || ''}
                           onChange={(e) => setEditingNpc(prev => prev ? { ...prev, role: e.target.value } : null)}
+                          onKeyDown={handleAltKeyDown}
+                          onKeyUp={(e) => handleAltKeyUp(e, (val) => setEditingNpc(prev => prev ? { ...prev, role: val } : null))}
                           placeholder="ej: Mercader, Netrunner, Guarda..."
                           className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 outline-none"
                         />
@@ -1247,6 +1307,8 @@ void UNPCGameBrain::EvaluateAffinitiesLocally(const FString& PlayerMsg, const FS
                           type="text"
                           value={editingNpc?.personality || ''}
                           onChange={(e) => setEditingNpc(prev => prev ? { ...prev, personality: e.target.value } : null)}
+                          onKeyDown={handleAltKeyDown}
+                          onKeyUp={(e) => handleAltKeyUp(e, (val) => setEditingNpc(prev => prev ? { ...prev, personality: val } : null))}
                           placeholder="ej: Desconfiado, sarcástico, bilingüe..."
                           className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 outline-none"
                         />
@@ -1260,6 +1322,8 @@ void UNPCGameBrain::EvaluateAffinitiesLocally(const FString& PlayerMsg, const FS
                           type="text"
                           value={editingNpc?.codeword || ''}
                           onChange={(e) => setEditingNpc(prev => prev ? { ...prev, codeword: e.target.value } : null)}
+                          onKeyDown={handleAltKeyDown}
+                          onKeyUp={(e) => handleAltKeyUp(e, (val) => setEditingNpc(prev => prev ? { ...prev, codeword: val } : null))}
                           placeholder="ej: NEON_SHADOW"
                           className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 outline-none"
                         />
@@ -1297,6 +1361,11 @@ void UNPCGameBrain::EvaluateAffinitiesLocally(const FString& PlayerMsg, const FS
                             const hints = e.target.value.split('|').map(s => s.trim()).filter(Boolean);
                             setEditingNpc(prev => prev ? { ...prev, clueHints: hints } : null);
                           }}
+                          onKeyDown={handleAltKeyDown}
+                          onKeyUp={(e) => handleAltKeyUp(e, (val) => {
+                            const hints = val.split('|').map(s => s.trim()).filter(Boolean);
+                            setEditingNpc(prev => prev ? { ...prev, clueHints: hints } : null);
+                          })}
                           placeholder="ej: El protocolo Alfa | La red oculta"
                           className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 outline-none"
                         />
@@ -1328,6 +1397,8 @@ void UNPCGameBrain::EvaluateAffinitiesLocally(const FString& PlayerMsg, const FS
                       <textarea
                         value={editingNpc?.systemPrompt || ''}
                         onChange={(e) => setEditingNpc(prev => prev ? { ...prev, systemPrompt: e.target.value } : null)}
+                        onKeyDown={handleAltKeyDown}
+                        onKeyUp={(e) => handleAltKeyUp(e, (val) => setEditingNpc(prev => prev ? { ...prev, systemPrompt: val } : null))}
                         className="w-full h-52 bg-slate-900 border border-slate-800 rounded-lg p-3 font-mono text-xs text-slate-100 placeholder-slate-500 leading-relaxed focus:border-indigo-500 outline-none resize-vertical"
                         placeholder={DEFAULT_SYSTEM_PROMPT}
                       />
@@ -1349,6 +1420,11 @@ void UNPCGameBrain::EvaluateAffinitiesLocally(const FString& PlayerMsg, const FS
                             const greets = e.target.value.split('|').map(s => s.trim()).filter(Boolean);
                             setEditingNpc(prev => prev ? { ...prev, greetings: greets } : null);
                           }}
+                          onKeyDown={handleAltKeyDown}
+                          onKeyUp={(e) => handleAltKeyUp(e, (val) => {
+                            const greets = val.split('|').map(s => s.trim()).filter(Boolean);
+                            setEditingNpc(prev => prev ? { ...prev, greetings: greets } : null);
+                          })}
                           placeholder="ej: Hola... ¿qué te trae por aquí? | ¿Buscas algo de valor?"
                           className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 outline-none"
                         />
@@ -1365,6 +1441,11 @@ void UNPCGameBrain::EvaluateAffinitiesLocally(const FString& PlayerMsg, const FS
                             const fails = e.target.value.split('|').map(s => s.trim()).filter(Boolean);
                             setEditingNpc(prev => prev ? { ...prev, failureConditions: fails } : null);
                           }}
+                          onKeyDown={handleAltKeyDown}
+                          onKeyUp={(e) => handleAltKeyUp(e, (val) => {
+                            const fails = val.split('|').map(s => s.trim()).filter(Boolean);
+                            setEditingNpc(prev => prev ? { ...prev, failureConditions: fails } : null);
+                          })}
                           placeholder="ej: Si el jugador defiende a MegaCorp | Si intenta intimidarte"
                           className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 outline-none"
                         />
