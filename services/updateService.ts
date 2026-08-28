@@ -1,6 +1,5 @@
+import { invoke } from '@tauri-apps/api/core';
 import { readStoredEmail } from '../components/AuthScreen';
-
-const getInvoke = () => (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
 
 export interface UpdateManifest {
   hasUpdate: boolean;
@@ -13,7 +12,7 @@ export interface UpdateManifest {
   pubDate?: string;
 }
 
-export const CURRENT_VERSION = '0.2.8';
+export const CURRENT_VERSION = '0.2.9';
 const PRIMARY_UPDATE_URL = 'https://fenixdev.cloud/updates.json';
 const FALLBACK_UPDATE_URL = 'https://fenixdev.cloud/api/updates/check/';
 const FALLBACK_UPDATE_URL_ALT = 'https://fenixdev.cloud/api/updates/check';
@@ -48,13 +47,10 @@ export async function checkForUpdates(): Promise<UpdateManifest> {
       let rawText = '';
       if (hayEntornoTauri()) {
         try {
-          const invokeFn = getInvoke();
-          if (invokeFn) {
-            rawText = await invokeFn('proxy_request', {
-              url: url,
-              method: 'GET',
-            });
-          }
+          rawText = await invoke<string>('proxy_request', {
+            url: url,
+            method: 'GET',
+          });
         } catch (tauriErr) {
           const res = await fetch(url);
           if (res.ok) {
