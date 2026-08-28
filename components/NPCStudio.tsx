@@ -470,15 +470,16 @@ No explanation. No markdown. Just the number.`;
     setRelationshipLogs([]);
   };
 
-  // Determinar color de la afinidad según HSL para un degradado suave premium
+  // Determinar color de la afinidad seg�  const escapeQuotes = (str: string) => str.replace(/"/g, '\"');
+
   const generateUnityScript = (npc: NPCProfile) => {
     const cleanSystemPrompt = npc.systemPrompt
       .replace(/{name}/g, npc.name)
       .replace(/{role}/g, npc.role)
       .replace(/{personality}/g, npc.personality)
-      .replace(/"/g, '\\"');
+      .replace(/"/g, '""');
 
-    const cleanGreetings = npc.greetings ? npc.greetings.map(g => `"${g.replace(/"/g, '\\"')}"`).join(',\n        ') : `"${npc.name} listo."`;
+    const cleanGreetings = npc.greetings ? npc.greetings.map(g => `"${g.replace(/"/g, '\"')}"`).join(',\n        ') : `"${npc.name} listo."`;
 
     return `using System;
 using System.Text;
@@ -519,12 +520,14 @@ public class NPCGameBrain : MonoBehaviour
         ${cleanGreetings}
     };
 
+    // Evento disparado automáticamente cuando el NPC responde para actualizar la UI del juego
+    public static event Action<string, string> OnResponseReceived;
+
     // Evento disparado automáticamente cuando se desbloquea el secreto
     public static event Action<string> OnSecretUnlocked;
 
     private static readonly HttpClient httpClient = new HttpClient();
 
-    // Clases serializables compatibles con JsonUtility de Unity
     [System.Serializable]
     private class OllamaRequestPayload
     {
@@ -546,16 +549,12 @@ public class NPCGameBrain : MonoBehaviour
     {
         try
         {
-            // Reemplazo dinámico del nivel de confianza en el prompt
             string activeSystemPrompt = systemPrompt.Replace("{trustLevel}", relationship.ToString());
-
-            // Construir el prompt inyectando el estado emocional (afinidad)
             string promptWithContext = $"SYSTEM: {activeSystemPrompt}\\n" +
                                        $"NPC TRUST LEVEL: {relationship}/100\\n" +
                                        $"PLAYER: {playerMessage}\\n" +
                                        $"NPC:";
 
-            // Instancia de clase serializable
             var payload = new OllamaRequestPayload
             {
                 model = modelName,
@@ -570,20 +569,16 @@ public class NPCGameBrain : MonoBehaviour
             if (response.IsSuccessStatusCode)
             {
                 string jsonResponse = await response.Content.ReadAsStringAsync();
-                
-                // Deserialización segura mediante API de Unity
                 OllamaResponsePayload resData = JsonUtility.FromJson<OllamaResponsePayload>(jsonResponse);
                 string npcResponse = resData != null ? resData.response : "";
 
                 if (string.IsNullOrEmpty(npcResponse))
                 {
-                    // Fallback seguro en caso de formato crudo
                     npcResponse = ExtractResponseFromJson(jsonResponse);
                 }
                 
-                // Evaluar afinidad localmente basada en palabras clave
                 EvaluateAffinitiesLocally(playerMessage, npcResponse);
-
+                OnResponseReceived?.Invoke(npcName, npcResponse);
                 return npcResponse;
             }
             return "*Estática de radio*... [Error de red en el módulo cognitivo]";
@@ -615,7 +610,6 @@ public class NPCGameBrain : MonoBehaviour
         playerMsg = playerMsg.ToLower();
         int delta = 0;
 
-        // Reglas simples de heurística de relación local
         if (playerMsg.Contains("ayuda") || playerMsg.Contains("gracias") || playerMsg.Contains("por favor"))
         {
             delta = UnityEngine.Random.Range(1, 4);
@@ -630,7 +624,6 @@ public class NPCGameBrain : MonoBehaviour
             relationship = Mathf.Clamp(relationship + delta, 0, 100);
             Debug.Log($"[Afinidad] Nueva afinidad con {npcName}: {relationship}/100 (Delta: {delta})");
 
-            // Si se alcanza el umbral, revelar el codeword
             if (relationship >= 75)
             {
                 Debug.LogWarning($"[DESBLOQUEADO] ¡Secreto revelado por {npcName}! Codeword: {codeword}");
@@ -655,6 +648,9 @@ public class NPCGameBrain : MonoBehaviour
 # Autogenerado por Omni IA Game.
 class_name NPCGameBrain
 extends Node
+
+## Señal emitida cuando el NPC responde para actualizar la interfaz del juego
+signal response_received(npc_response: String)
 
 ## Señal emitida cuando el jugador gana suficiente afinidad y se desbloquea el secreto
 signal secret_unlocked(codeword: String)
@@ -718,8 +714,9 @@ func _on_request_completed(result: int, response_code: int, headers: PackedStrin
 		
 	var response_data = json.get_data()
 	if response_data is Dictionary and response_data.has("response"):
-		var npc_response = response_data["response"]
+		var npc_response = String(response_data["response"])
 		_evaluate_relationship_locally(npc_response)
+		response_received.emit(npc_response)
 		print("%s responde: %s" % [npc_name, npc_response])
 
 func _evaluate_relationship_locally(npc_response: String) -> void:
@@ -736,7 +733,7 @@ func _evaluate_relationship_locally(npc_response: String) -> void:
 		relationship = clampi(relationship + delta, 0, 100)
 		print("[Afinidad] Nueva afinidad con %s: %d/100" % [npc_name, relationship])
 		if relationship >= 75:
-			emit_signal("secret_unlocked", codeword)
+			secret_unlocked.emit(codeword)
 			print_rich("[color=green][DESBLOQUEADO] ¡Secreto revelado por %s! Codeword: %s[/color]" % [npc_name, codeword])
 `;
   };
@@ -777,9 +774,11 @@ func _evaluate_relationship_locally(npc_response: String) -> void:
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
 #include "NPCGameBrain.generated.h"
 
-// Delegado dinámico multicast para notificar a Blueprints de Unreal cuando se desbloquea el secreto
+// Delegados dinámicos multicast para notificar a Blueprints de Unreal
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnNPCResponseReceived, const FString&, NPCName, const FString&, Response);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSecretUnlocked, const FString&, Codeword);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -822,6 +821,9 @@ public:
     TArray<FString> Greetings = {
         ${cleanGreetings}
     };
+
+    UPROPERTY(BlueprintAssignable, Category="NPC Events")
+    FOnNPCResponseReceived OnNPCResponseReceived;
 
     UPROPERTY(BlueprintAssignable, Category="NPC Events")
     FOnSecretUnlocked OnSecretUnlocked;
@@ -899,6 +901,7 @@ void UNPCGameBrain::OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr
         if (JsonResponseObject->TryGetStringField(TEXT("response"), NPCResponse))
         {
             EvaluateAffinitiesLocally(Request->GetContentAsString(), NPCResponse);
+            OnNPCResponseReceived.Broadcast(NPCName, NPCResponse);
             UE_LOG(LogTemp, Log, TEXT("%s responde: %s"), *NPCName, *NPCResponse);
         }
     }
