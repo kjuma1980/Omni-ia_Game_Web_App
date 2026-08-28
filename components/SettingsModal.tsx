@@ -88,18 +88,7 @@ const PREDEFINED_CODE_MODELS: Record<string, string[]> = {
   kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
   cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner'],
-  nvidia: [
-    'deepseek-ai/deepseek-coder-6.7b-instruct',
-    'mistralai/codestral-22b-instruct-v0.1',
-    'bigcode/starcoder2-15b',
-    'ibm/granite-34b-code-instruct',
-    'ibm/granite-8b-code-instruct',
-    'meta/codellama-70b',
-    'google/codegemma-7b',
-    'google/codegemma-1.1-7b',
-    'deepseek-ai/deepseek-v4-pro-0813',
-    'deepseek-ai/deepseek-v4-flash-0731'
-  ]
+  nvidia: ['deepseek-ai/deepseek-coder-6.7b-instruct', 'mistralai/codestral-22b-v0.1', 'bigcode/starcoder2-15b', 'ibm/granite-34b-code-instruct', 'meta/codellama-70b-instruct', 'google/codegemma-1.1-7b', 'deepseek-ai/deepseek-v4-pro-0813', 'deepseek-ai/deepseek-v4-flash-0731']
 };
 
 const PREDEFINED_NPC_MODELS: Record<string, string[]> = {
@@ -111,22 +100,7 @@ const PREDEFINED_NPC_MODELS: Record<string, string[]> = {
   kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
   cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner'],
-  nvidia: [
-    'deepseek-ai/deepseek-v4-pro-0813',
-    'deepseek-ai/deepseek-v4-flash-0731',
-    'mistralai/mistral-large-2-instruct',
-    'mistralai/mistral-7b-instruct-v0.3',
-    'google/gemma-3-12b-it',
-    'google/gemma-3-4b-it',
-    'google/gemma-4-31b-it',
-    'moonshotai/kimi-k3',
-    'moonshotai/kimi-k2.6',
-    'openai/gpt-oss-120b',
-    'openai/gpt-oss-20b',
-    'stepfun-ai/step-3.7-flash',
-    'writer/palmyra-creative-122b',
-    'ai21labs/jamba-1.5-large-instruct'
-  ]
+  nvidia: ['deepseek-ai/deepseek-v4-pro-0813', 'deepseek-ai/deepseek-v4-flash-0731', 'mistralai/mistral-large-2-instruct', 'google/gemma-3-27b-it', 'moonshotai/kimi-k3-instruct', 'palmyra/palmyra-creative-01', 'nvidia/llama-3.1-nemotron-70b-instruct']
 };
 
 const PREDEFINED_TEXT_MODELS: Record<string, string[]> = {
@@ -138,29 +112,7 @@ const PREDEFINED_TEXT_MODELS: Record<string, string[]> = {
   kimi: ['kimi-k2.6', 'kimi-k2.5', 'moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
   openrouter: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1', 'anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash-001', 'openai/gpt-4o-mini'],
   cometapi: ['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet-20241022', 'deepseek-chat', 'deepseek-reasoner'],
-  nvidia: [
-    'deepseek-ai/deepseek-v4-pro-0813',
-    'deepseek-ai/deepseek-v4-flash-0731',
-    'deepseek-ai/deepseek-coder-6.7b-instruct',
-    'mistralai/codestral-22b-instruct-v0.1',
-    'mistralai/mistral-large-2-instruct',
-    'mistralai/mistral-7b-instruct-v0.3',
-    'google/gemma-3-12b-it',
-    'google/gemma-3-4b-it',
-    'google/gemma-4-31b-it',
-    'bigcode/starcoder2-15b',
-    'ibm/granite-34b-code-instruct',
-    'ibm/granite-8b-code-instruct',
-    'meta/codellama-70b',
-    'google/codegemma-7b',
-    'moonshotai/kimi-k3',
-    'moonshotai/kimi-k2.6',
-    'openai/gpt-oss-120b',
-    'openai/gpt-oss-20b',
-    'stepfun-ai/step-3.7-flash',
-    'writer/palmyra-creative-122b',
-    'ai21labs/jamba-1.5-large-instruct'
-  ]
+  nvidia: ['deepseek-ai/deepseek-v4-pro-0813', 'deepseek-ai/deepseek-v4-flash-0731', 'mistralai/mistral-large-2-instruct', 'google/gemma-3-27b-it', 'moonshotai/kimi-k3-instruct', 'palmyra/palmyra-creative-01', 'nvidia/llama-3.1-nemotron-70b-instruct']
 };
 
 const PREDEFINED_IMAGE_MODELS: Record<string, string[]> = {
@@ -3071,7 +3023,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                               <button
                                 key={p}
                                 onClick={() => {
-                                  const updates: any = { ...settings.promptEngineer, provider: p as any };
+                                  const targetProvider = p as any;
+                                  const currentProvider = settings.promptEngineer?.provider || 'gemini';
+                                  const currentKey = settings.promptEngineer?.apiKey || '';
+                                  const existingApiKeys = { ...(settings.promptEngineer?.apiKeys || {}), [currentProvider]: currentKey };
+                                  const targetKey = existingApiKeys[targetProvider] || (targetProvider === currentProvider ? currentKey : '');
+                                  const updates: any = { 
+                                    ...settings.promptEngineer, 
+                                    provider: targetProvider,
+                                    apiKey: targetKey,
+                                    apiKeys: existingApiKeys
+                                  };
                                   if (p === 'ollama') {
                                     updates.baseUrl = (!settings.promptEngineer?.baseUrl || settings.promptEngineer?.baseUrl.includes(':8080') || settings.promptEngineer?.baseUrl.includes(':8088') || settings.promptEngineer?.baseUrl.includes(':1234')) ? 'http://localhost:11434' : settings.promptEngineer?.baseUrl;
                                   } else if (p === 'llama-server') {
@@ -3096,11 +3058,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                         {settings.promptEngineer?.provider !== 'ollama' && settings.promptEngineer?.provider !== 'lm-studio' && settings.promptEngineer?.provider !== 'llama-server' && (settings.promptEngineer?.provider as string) !== 'omnideploy' && (
                           <div>
-                            <label className="block text-xs text-slate-500 uppercase mb-1">API Key</label>
+                            <label className="block text-xs text-slate-500 uppercase mb-1">API Key ({settings.promptEngineer?.provider?.toUpperCase()})</label>
                             <input
                               type="password"
-                              value={settings.promptEngineer?.apiKey || ''}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => updateSettings({ promptEngineer: { ...settings.promptEngineer, apiKey: e.target.value } })}
+                              value={settings.promptEngineer?.apiKeys?.[settings.promptEngineer?.provider || 'gemini'] || settings.promptEngineer?.apiKey || ''}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+                                const val = e.target.value;
+                                const currentProvider = settings.promptEngineer?.provider || 'gemini';
+                                const newApiKeys = { ...(settings.promptEngineer?.apiKeys || {}), [currentProvider]: val };
+                                updateSettings({ 
+                                  promptEngineer: { 
+                                    ...settings.promptEngineer, 
+                                    apiKey: val, 
+                                    apiKeys: newApiKeys 
+                                  } 
+                                });
+                              }}
                               className="w-full bg-slate-900 border border-amber-700/50 rounded p-2 text-sm text-slate-300 font-mono"
                               placeholder={settings.promptEngineer?.provider === 'nvidia' ? 'nvapi-...' : settings.promptEngineer?.provider === 'anthropic' ? 'sk-ant-...' : 'sk-...'}
                             />
@@ -3151,7 +3124,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                           </>
                         )}
 
-                        {(['anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi', 'nvidia'].includes(settings.promptEngineer?.provider || '')) && (
+                        {(['anthropic', 'openai', 'deepseek', 'qwen', 'kimi', 'openrouter', 'cometapi'].includes(settings.promptEngineer?.provider || '')) && (
                           <div className="p-3 bg-amber-900/20 border border-amber-500/30 rounded text-xs text-amber-200">
                             <p className="font-bold mb-1 flex items-center gap-2"><Cloud className="w-3 h-3" /> {(settings.promptEngineer?.provider || '').toUpperCase()} Cloud</p>
                             <p className="text-[10px] text-slate-400">Solo necesitas la API Key. Se usará el modelo por defecto del proveedor.</p>
@@ -4789,8 +4762,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </Tooltip>
 
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                  {/* GEMINI, ELEVENLABS, SUNO */}
-                  {(['gemini', 'elevenlabs', 'suno', 'other'].includes(settings.audio.ttsProvider)) && (
+                  {/* GEMINI, ELEVENLABS & SUNO */}
+                  {(settings.audio.ttsProvider === 'gemini' || settings.audio.ttsProvider === 'elevenlabs' || settings.audio.ttsProvider === 'suno') && (
                     <Tooltip id="settingsTextApiKey" showTooltips={showTooltips} className="block">
                       <div>
                         <label className="block text-xs text-slate-500 uppercase mb-1">API Key</label>
@@ -5368,11 +5341,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {settings.audio.musicProvider !== 'gemini' && settings.audio.musicProvider !== 'comfydeploy' && settings.audio.musicProvider !== 'omnideploy' && settings.audio.musicProvider !== 'comfyui' && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                    {(['suno', 'udio', 'meta-audiocraft'].includes(settings.audio.musicProvider)) ? (
+                    {(settings.audio.musicProvider === 'suno' || settings.audio.musicProvider === 'udio') ? (
                       <Tooltip id="settingsAudioMusicApiKey" showTooltips={showTooltips} className="block">
                         <div>
                           <label className="block text-xs text-slate-500 uppercase mb-1">
-                            API Key ({settings.audio.musicProvider.toUpperCase()})
+                            API Key de {settings.audio.musicProvider === 'suno' ? 'Suno' : 'Udio'}
                           </label>
                           <input
                             type="password"
@@ -5878,7 +5851,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       {(['tripo', 'meshy', 'comfydeploy', 'omnideploy', 'comfyui', 'a1111'] as const).map((prov) => (
                         <button
                           key={prov}
-                          onClick={() => updateThreeDSettings({ provider: prov as any })}
+                          onClick={() => updateThreeDSettings({ provider: prov })}
                           className={`px-3 py-1 text-xs rounded font-bold uppercase transition-all ${settings.threeD.provider === prov ? 'bg-purple-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
                         >
                           {prov === 'tripo' ? 'Tripo 3D' : prov === 'meshy' ? 'Meshy' : prov === 'comfydeploy' ? 'ComfyDeploy' : prov === 'omnideploy' ? 'OmniDeploy (GPU remota)' : prov === 'comfyui' ? 'ComfyUI (Local)' : 'A1111 (Local)'}
@@ -5888,21 +5861,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </label>
                 </Tooltip>
 
-                {/* Cloud Providers: Tripo 3D, Meshy */}
+                {/* Cloud Providers: Tripo 3D & Meshy */}
                 {(settings.threeD.provider === 'tripo' || settings.threeD.provider === 'meshy') && (
                   <div className="space-y-4 pt-2 border-t border-slate-900">
                     <div className="grid grid-cols-2 gap-4">
                       <Tooltip id="settingsThreeDApiKey" showTooltips={showTooltips}>
                         <div>
                           <label className="block text-[10px] text-slate-500 uppercase mb-1">
-                            API Key ({settings.threeD.provider.toUpperCase()})
+                            API Key de {settings.threeD.provider === 'tripo' ? 'Tripo 3D' : 'Meshy'}
                           </label>
                           <input
                             type="password"
                             value={settings.threeD.apiKey || ''}
                             onChange={(e) => updateThreeDSettings({ apiKey: e.target.value })}
                             className="w-full bg-slate-900 border border-slate-800 rounded p-2 text-xs text-slate-300 font-mono"
-                            placeholder={settings.threeD.provider === 'meshy' ? 'msy_...' : 'tripo_...'}
+                            placeholder={settings.threeD.provider === 'meshy' ? "ej: msy_..." : "ej: tripo_..."}
                           />
                         </div>
                       </Tooltip>
@@ -6123,26 +6096,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   <div className="space-y-5">
-                    {/* HARDWARE ID BOX */}
-                    <div className="p-4 rounded-lg bg-slate-900/40 border border-slate-800/80">
-                      <label className="block text-[10px] font-bold text-slate-400 font-mono tracking-wider mb-2">TU IDENTIFICADOR DE HARDWARE:</label>
-                      <div className="flex items-center gap-2 bg-slate-950 p-3 rounded border border-slate-900 font-mono text-xs text-purple-300 select-all justify-between">
-                        <span>{hardwareId || "Generando identificador..."}</span>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(hardwareId);
-                            setLicenseSuccess("¡ID de Hardware copiado!");
-                            setTimeout(() => setLicenseSuccess(''), 3000);
-                          }}
-                          className="px-2.5 py-1 rounded bg-purple-950/40 border border-purple-800/40 hover:bg-purple-900/30 text-[9px] font-bold text-purple-400 uppercase tracking-wider transition-all"
-                        >
-                          Copiar
-                        </button>
-                      </div>
-                      <span className="block text-[9px] text-slate-500 mt-2 leading-relaxed">
-                        Envía este identificador al creador para obtener tu código de licencia (Ed25519/HMAC).
-                      </span>
-                    </div>
+
 
                     {/* LICENSE INPUT BOX */}
                     <div className="space-y-2">

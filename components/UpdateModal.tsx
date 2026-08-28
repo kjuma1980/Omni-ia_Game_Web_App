@@ -33,7 +33,7 @@ const UpdateModal: React.FC<UpdateModalProps> = ({
   useEffect(() => {
     let unlisten: (() => void) | undefined;
 
-    if (isOpen) {
+    if (isOpen && isTauri) {
       import('@tauri-apps/api/event')
         .then(({ listen }) => {
           listen<number>('update-download-progress', (event) => {

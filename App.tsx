@@ -495,6 +495,9 @@ const App: React.FC = () => {
       setAuthChecked(true);
       return;
     }
+    // Restauración inmediata de sesión almacenada (Persistencia absoluta al recargar F5 / Ctrl+F5)
+    setIsAuthenticated(true);
+
     fetch(`${getAuthServerUrl()}/api/me`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
@@ -505,20 +508,18 @@ const App: React.FC = () => {
         if (res.ok && data.ok !== false) {
           setIsAuthenticated(true);
           const serverLicense = data?.user?.license;
-          if (hayEntornoTauri()) {
-            if (serverLicense) {
-              invoke('save_license_key', { licenseKey: serverLicense }).catch(() => {});
-            } else {
-              invoke('save_license_key', { licenseKey: '' }).catch(() => {});
-            }
+          if (hayEntornoTauri() && serverLicense) {
+            invoke('save_license_key', { licenseKey: serverLicense }).catch(() => {});
           }
-        } else {
+        } else if (res.status === 401) {
+          // Solo cerrar sesión si el servidor responde explícitamente token inválido o expirado (401)
           clearStoredAuth();
+          setIsAuthenticated(false);
         }
       })
       .catch(() => {
-        if (cancelled) return;
-        clearStoredAuth();
+        // En caso de falla de red temporal o parpadeo en F5, mantener la sesión local activa
+        if (!cancelled) setIsAuthenticated(true);
       })
       .finally(() => {
         if (!cancelled) setAuthChecked(true);
@@ -534,7 +535,7 @@ const App: React.FC = () => {
 
   // Monitor de Instancias Concurrentes (Control Estricto: Regular 1 / Premium 2 = 1 Escritorio + 1 Web)
   useEffect(() => {
-    const isDesktopEnv = false;
+    const isDesktopEnv = true;
     const currentInstanceId = currentInstanceIdRef.current;
     const token = readStoredToken();
 
@@ -666,97 +667,100 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const fetchLicense = () => {
-      // Ver `hayEntornoTauri`: en `npm run dev` no hay licencia que leer y el
-      // fallo no es tal. Se marca comprobada -sin licencia- y se sale, para no
-      // repetir un TypeError cada 30 segundos en la consola.
+    const fetchLicense = async () => {
       if (!hayEntornoTauri()) {
         setLicenseChecked(true);
         setLicenseOnline({ checked: true, valid: true });
         return;
       }
-      invoke<LicenseDetails>('get_license_info')
-        .then(details => {
-          const currentEmail = (readStoredEmail() || '').trim().toLowerCase();
-          const licenseEmail = (details.email || '').trim().toLowerCase();
 
-          // Si la licencia física en disco contiene un email y NO coincide con la cuenta activa:
-          if (licenseEmail && currentEmail && licenseEmail !== currentEmail) {
-            invoke('save_license_key', { licenseKey: '' }).catch(() => {});
-            setLicenseDetails(prev => (prev ? { ...prev, is_licensed: false, license_key: '', cap: '', mods: [] } : null));
-            setLicenseChecked(true);
-            setLicenseOnline({ checked: true, valid: false, reason: 'Licencia vinculada a otra cuenta' });
-            return;
-          }
+      try {
+        let details = await invoke<LicenseDetails>('get_license_info');
+        const currentEmail = (readStoredEmail() || '').trim().toLowerCase();
 
-          if (licenseOnlineRef.current && licenseOnlineRef.current.checked && !licenseOnlineRef.current.valid) {
-            setLicenseDetails(prev => (prev ? { ...details, is_licensed: false } : { ...details, is_licensed: false }));
-          } else {
-            setLicenseDetails(details);
-          }
-          setLicenseChecked(true);
-          if (details.is_licensed && details.license_key) {
-            const validateRemoteLicense = async () => {
-              const url = `${getAuthServerUrl()}/api/licenses/validate`;
-              const payload = {
-                license_key: details.license_key,
-                hwid: details.hardware_id,
-                email: readStoredEmail() || '',
-                minutes_used: consumirMinutos(),
-                is_web_client: !hayEntornoTauri(),
-              };
-
-              try {
-                let data: any = {};
-                if (hayEntornoTauri()) {
-                  const resText = await invoke<string>('proxy_request', {
-                    url,
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                  });
-                  data = JSON.parse(resText || '{}');
-                } else {
-                  const ctrl = new AbortController();
-                  const timer = setTimeout(() => ctrl.abort(), 5000);
-                  const res = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                    signal: ctrl.signal,
-                  });
-                  clearTimeout(timer);
-                  data = await res.json().catch(() => ({}));
+        // Si localmente no hay licencia activa O la licencia en disco pertenece a otra cuenta de correo,
+        // y el usuario ha iniciado sesión: consultar al servidor por la licencia asociada a este correo
+        if ((!details.is_licensed || (details.email && currentEmail && details.email.trim().toLowerCase() !== currentEmail)) && currentEmail) {
+          try {
+            const token = readStoredToken();
+            if (token) {
+              const res = await fetch(`${getAuthServerUrl()}/api/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              if (res.ok) {
+                const meData = await res.json().catch(() => ({}));
+                if (meData?.user?.license) {
+                  await invoke('save_license_key', { licenseKey: meData.user.license });
+                  details = await invoke<LicenseDetails>('get_license_info');
                 }
-
-                if (data && data.valid === false) {
-                  invoke('save_license_key', { licenseKey: '' }).catch(() => {});
-                  localStorage.removeItem('omnideploy_relay_key');
-                  localStorage.removeItem('omnideploy_credentials');
-                  setLicenseDetails(prev => (prev ? { ...prev, is_licensed: false, license_key: '', cap: '', mods: [] } : prev));
-                  setLicenseOnline({ checked: true, valid: false, reason: data.reason || data.status || 'Rechazada por el servidor', estado: data.estado });
-                } else {
-                  const serverKey = data?.license?.license_key || data?.token || data?.new_license_key;
-                  if (serverKey && serverKey !== details.license_key) {
-                    invoke('save_license_key', { licenseKey: serverKey }).catch(() => {});
-                  }
-                  setLicenseOnline({ checked: true, valid: true, estado: data?.estado });
-                }
-              } catch {
-                // Si el servidor de licencias no responde o cierra la conexión, se mantiene la sesión local válida sin errores
-                setLicenseOnline({ checked: true, valid: true });
               }
-            };
+            }
+          } catch (err) {
+            console.warn("[LicenseAutoCheck] Error al verificar licencia remota por email:", err);
+          }
+        }
 
-            validateRemoteLicense();
-          } else {
+        setLicenseDetails(details);
+        setLicenseChecked(true);
+
+        if (details.is_licensed && details.license_key) {
+          const url = `${getAuthServerUrl()}/api/licenses/validate`;
+          const payload = {
+            license_key: details.license_key,
+            hwid: details.hardware_id,
+            email: readStoredEmail() || '',
+            minutes_used: consumirMinutos(),
+            is_web_client: !hayEntornoTauri(),
+          };
+
+          try {
+            let data: any = {};
+            if (hayEntornoTauri()) {
+              const resText = await invoke<string>('proxy_request', {
+                url,
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              data = JSON.parse(resText || '{}');
+            } else {
+              const ctrl = new AbortController();
+              const timer = setTimeout(() => ctrl.abort(), 5000);
+              const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: ctrl.signal,
+              });
+              clearTimeout(timer);
+              data = await res.json().catch(() => ({}));
+            }
+
+            if (data && data.valid === false && (data.status === 'revoked' || data.status === 'REVOKED')) {
+              invoke('save_license_key', { licenseKey: '' }).catch(() => {});
+              localStorage.removeItem('omnideploy_relay_key');
+              localStorage.removeItem('omnideploy_credentials');
+              setLicenseDetails(prev => (prev ? { ...prev, is_licensed: false, license_key: '', cap: '', mods: [] } : prev));
+              setLicenseOnline({ checked: true, valid: false, reason: data.reason || data.status || 'Rechazada por el servidor', estado: data.estado });
+            } else {
+              const serverKey = data?.license?.license_key || data?.token || data?.new_license_key;
+              if (serverKey && serverKey !== details.license_key) {
+                await invoke('save_license_key', { licenseKey: serverKey }).catch(() => {});
+                const updatedDetails = await invoke<LicenseDetails>('get_license_info').catch(() => null);
+                if (updatedDetails) setLicenseDetails(updatedDetails);
+              }
+              setLicenseOnline({ checked: true, valid: true, estado: data?.estado });
+            }
+          } catch {
             setLicenseOnline({ checked: true, valid: true });
           }
-        })
-        .catch(err => {
-          console.error("Error al obtener detalles de licencia en footer:", err);
-          setLicenseChecked(true);
-        });
+        } else {
+          setLicenseOnline({ checked: true, valid: true });
+        }
+      } catch (err) {
+        console.error("Error al obtener detalles de licencia:", err);
+        setLicenseChecked(true);
+      }
     };
 
     fetchLicense();
@@ -929,7 +933,7 @@ const App: React.FC = () => {
           setConsoleLogs(logs);
         } else {
           // Modo Web App: Consultar logs al servidor Node.js vía OmniDeploy API
-          const deploymentId = project.apiSettings.image?.deploymentId || project.apiSettings.video?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
+          const deploymentId = (project.apiSettings.image as any)?.deploymentId || (project.apiSettings.video as any)?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
           if (!deploymentId) {
             setConsoleLogs("Pestaña Web activa. Para monitorear logs remotos, asegúrate de configurar el deploymentId en la pestaña de Ajustes.");
             return;
@@ -963,7 +967,7 @@ const App: React.FC = () => {
         await invoke('launch_comfyui', { comfyuiPath });
       } else {
         // Modo Web App: Enviar orden de inicio al servidor Node.js vía OmniDeploy
-        const deploymentId = project.apiSettings.image?.deploymentId || project.apiSettings.video?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
+        const deploymentId = (project.apiSettings.image as any)?.deploymentId || (project.apiSettings.video as any)?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
         const apiKey = project.apiSettings.image?.apiKey || project.apiSettings.video?.apiKey || 'master';
         const res = await fetch('https://omni-api.fenixdev.cloud/api/omnideploy/control/launch-comfy', {
           method: 'POST',
@@ -994,7 +998,7 @@ const App: React.FC = () => {
         alert(result);
       } else {
         // Modo Web App: Enviar orden de detención al servidor Node.js
-        const deploymentId = project.apiSettings.image?.deploymentId || project.apiSettings.video?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
+        const deploymentId = (project.apiSettings.image as any)?.deploymentId || (project.apiSettings.video as any)?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
         const apiKey = project.apiSettings.image?.apiKey || project.apiSettings.video?.apiKey || 'master';
         const res = await fetch('https://omni-api.fenixdev.cloud/api/omnideploy/control/stop-comfy', {
           method: 'POST',
@@ -1271,18 +1275,8 @@ const App: React.FC = () => {
 
   const handleSave = async () => {
     try {
-      let includeKeys = true;
-      const isWebCheck = typeof window !== 'undefined' && ((window as any).__OMNI_IS_WEB__ === true || !((window as any).__TAURI_INTERNALS__?.invoke));
-      if (!isWebCheck && invoke && typeof invoke === 'function') {
-        const dialogResult = await invoke<string>('plugin:dialog|message', {
-          message: '¿Incluir tus API keys en el archivo exportado?\n\n• INCLUIR CLAVES = solo si el archivo es para tu uso personal\n• EXPORTAR SIN CLAVES = recomendado si vas a compartir el archivo',
-          title: '🔒 SEGURIDAD DE TUS CLAVES',
-          kind: 'warning',
-          buttons: { OkCancelCustom: ['Incluir claves', 'Exportar sin claves'] },
-        }).catch(() => 'Cancel');
-        includeKeys = dialogResult === 'Ok';
-      }
-      const projectToSave = includeKeys ? project : stripApiKeysFromProject(project);
+      // Cifrado y empaquetado binario AES-256-GCM (.omni) vinculado a la cuenta y licencia del usuario SIN PREGUNTAR
+      const projectToSave = project;
 
       // Empaquetar todos los mundos de Creador 2D dentro del archivo unico del proyecto
       let creador2dWorlds: any[] = [];
@@ -1330,8 +1324,13 @@ const App: React.FC = () => {
         return;
       }
 
-      // En Tauri/Desktop enviamos el binario codificado en base64
-      const binaryBase64 = btoa(String.fromCharCode(...omniBinary));
+      // En Tauri/Desktop enviamos el binario codificado en base64 de forma segura sin desbordar memoria
+      let binaryStr = '';
+      const chunkSize = 0x8000; // 32KB por bloque para evitar desbordamiento de pila
+      for (let i = 0; i < omniBinary.length; i += chunkSize) {
+        binaryStr += String.fromCharCode.apply(null, Array.from(omniBinary.subarray(i, i + chunkSize)));
+      }
+      const binaryBase64 = btoa(binaryStr);
       const result = await invoke('save_project_file', {
         content: binaryBase64,
         filename,
@@ -1357,7 +1356,7 @@ const App: React.FC = () => {
             throw new Error('Error al leer el archivo.');
           }
 
-          const activeEmail = readStoredEmail() || '';
+          const activeEmail = readStoredEmail() || localStorage.getItem('omni_auth_email') || sessionStorage.getItem('omni_auth_email') || '';
           const activeLicense = readStoredToken() || '';
 
           let data: any = null;
@@ -2013,7 +2012,7 @@ const App: React.FC = () => {
           sessionStorage.setItem('omni_update_dismissed', '1');
           setIsUpdateModalOpen(false);
         }}
-        updateData={updateManifest || { hasUpdate: false, version: '0.2.8', notes: [], url: '' }}
+        updateData={updateManifest || { hasUpdate: false, version: '0.2.9', notes: [], url: '' }}
         showTooltips={project.showTooltips}
       />
     </div>
