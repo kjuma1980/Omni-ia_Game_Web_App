@@ -34,14 +34,12 @@ const {
   renewLicense,
   findLicenseByHwid,
   findActiveLicenseForUser,
-  revokeUserLicense,
 } = require('./db');
 const { validateProfile, EMAIL_RE } = require('./validation');
 const { sendVerificationCode, sendPasswordResetCode, sendLicenseEmail, buildIssueHtml, buildRenewalHtml, buildOmniDeployKeyHtml } = require('./mailer');
 const geo = require('./geo');
 const { startReminders } = require('./reminders');
 const { generateLicense, DURATIONS, MODULES, CAPS, resolveDuration } = require('./license');
-const { EdgeTTS } = require('node-edge-tts');
 
 /** Como se llama cada nivel de acceso de cara al cliente. */
 const CAPS_ETIQUETA = {
@@ -68,9 +66,8 @@ app.use('/api/omnideploy', express.json({ limit: '150mb' }));
 
 app.use(express.json());
 
-const rawPort = process.env.PORT;
-const PORT = rawPort && !isNaN(Number(rawPort)) ? parseInt(rawPort, 10) : (rawPort || 4010);
-const JWT_SECRET = process.env.JWT_SECRET || '_omni_ia_game_jwt_secret_fallback_key_2026_safe_';
+const PORT = parseInt(process.env.PORT || '4010', 10);
+const JWT_SECRET = process.env.JWT_SECRET;
 const CODE_TTL_MS = (parseInt(process.env.CODE_TTL_MINUTES || '15', 10)) * 60 * 1000;
 const CODE_MAX_ATTEMPTS = 5;
 
@@ -91,15 +88,13 @@ if (process.env.TRUST_PROXY === '1') {
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin) {
+  if (origin && APP_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-secret, x-device-id, x-device-token');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
 
@@ -133,137 +128,25 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, service: 'omni-ia-auth', time: Date.now() });
 });
 
-const ALLOWED_CLOUD_DOMAINS = [
-  "generativelanguage.googleapis.com",
-  "api.openai.com",
-  "api.anthropic.com",
-  "api.deepseek.com",
-  "dashscope.aliyuncs.com",
-  "api.moonshot.cn",
-  "api.comfydeploy.com",
-  "api.sunoapi.org",
-  "api.udio.com",
-  "openart.ai",
-  "api.youart.ai",
-  "youart.ai",
-  "api.seedance.ai",
-  "api.klingai.com",
-  "api.elevenlabs.io",
-  "api.tripo3d.ai",
-  "platform.tripo3d.ai",
-  "api.meshy.ai",
-  "openrouter.ai",
-  "api.openrouter.ai",
-  "api.cometapi.com",
-  "cometapi.com",
-  "integrate.api.nvidia.com",
-  "nvidia.com",
-  "fenixdev.cloud",
-  "omni-api.fenixdev.cloud"
-];
-
-app.post('/api/proxy', rateLimit(60 * 1000, 120), async (req, res) => {
-  try {
-    const targetUrl = req.body?.targetUrl || req.body?.url;
-    const method = req.body?.method || 'GET';
-    const headers = req.body?.headers || {};
-    const payload = req.body?.payload !== undefined ? req.body?.payload : req.body?.body;
-
-    if (!targetUrl) {
-      return res.status(400).send('targetUrl es requerido');
-    }
-
-    const parsedUrl = new URL(targetUrl);
-    const hostname = parsedUrl.hostname.toLowerCase();
-
-    const isAllowed = ALLOWED_CLOUD_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
-    if (!isAllowed) {
-      return res.status(403).send('Dominio no permitido en el proxy seguro de Hostinger');
-    }
-
-    const reqHeaders = {};
-    if (headers && typeof headers === 'object') {
-      for (const [k, v] of Object.entries(headers)) {
-        const lk = k.toLowerCase();
-        if (lk !== 'host' && lk !== 'origin' && lk !== 'referer' && lk !== 'connection' && lk !== 'accept-encoding') {
-          reqHeaders[k] = v;
-        }
-      }
-    }
-    if (!reqHeaders['content-type'] && !reqHeaders['Content-Type']) {
-      reqHeaders['Content-Type'] = 'application/json';
-    }
-    if (!reqHeaders['user-agent'] && !reqHeaders['User-Agent']) {
-      reqHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
-    }
-    if (!reqHeaders['accept'] && !reqHeaders['Accept']) {
-      reqHeaders['Accept'] = 'application/json';
-    }
-
-    let bodyStr = undefined;
-    if (payload) {
-      bodyStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000);
-
-    const upstreamRes = await fetch(targetUrl, {
-      method: method.toUpperCase(),
-      headers: reqHeaders,
-      body: bodyStr,
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-
-    res.status(upstreamRes.status);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-
-    upstreamRes.headers.forEach((val, key) => {
-      const lk = key.toLowerCase();
-      if (lk !== 'transfer-encoding' && lk !== 'content-encoding' && lk !== 'access-control-allow-origin' && lk !== 'access-control-allow-headers') {
-        res.setHeader(key, val);
-      }
-    });
-
-    const responseText = await upstreamRes.text();
-    return res.send(responseText);
-  } catch (err) {
-    if (err?.name === 'AbortError') {
-      return res.status(504).send('Error en relé proxy: Tiempo de espera agotado al conectar con el proveedor.');
-    }
-    return res.status(502).send('Error en relé proxy: ' + (err?.message || String(err)));
-  }
-});
-
-app.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  next();
-});
-
-app.get(['/', '/index.html'], (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get(['/downloads', '/downloads/'], (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'downloads', 'portal.html'));
-});
-
-app.get(['/admin', '/admin.html'], (req, res) => {
+app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.use('/app', express.static(path.join(__dirname, 'public', 'downloads'), { index: false }));
-
-app.get(['/app', '/app/', '/app/*'], (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'downloads', 'index.html'));
-});
-
+// Rutas estáticas para la Web App en /app/ y /downloads/
+app.use('/app', express.static(path.join(__dirname, 'app')));
+app.use('/app', express.static(path.join(__dirname, 'public', 'app')));
+app.use('/downloads', express.static(path.join(__dirname, 'downloads')));
+app.use('/downloads', express.static(path.join(__dirname, 'public', 'downloads')));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// SPA Fallback para /app/
+app.get(['/app', '/app/*'], (req, res) => {
+  if (fs.existsSync(path.join(__dirname, 'app', 'index.html'))) {
+    res.sendFile(path.join(__dirname, 'app', 'index.html'));
+  } else {
+    res.sendFile(path.join(__dirname, 'public', 'app', 'index.html'));
+  }
+});
 
 app.post('/api/register', rateLimit(60 * 60 * 1000, 5), async (req, res) => {
   try {
@@ -305,32 +188,32 @@ app.post('/api/register', rateLimit(60 * 60 * 1000, 5), async (req, res) => {
     const codeHash = crypto.createHash('sha256').update(code).digest('hex');
     setUserCode({ email, codeHash, expiresAt: Date.now() + CODE_TTL_MS });
 
+    const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+    if (!smtpConfigured) {
+      console.log(`[register][dev] SMTP no configurado. Código para ${email}: ${code}`);
+      return res.json({
+        ok: true,
+        message: 'Modo pruebas: no hay SMTP configurado. Revisa la consola del servidor.',
+        dev_code: code,
+      });
+    }
+
     try {
       await sendVerificationCode(email, code);
-      res.json({ ok: true, message: 'Revisa tu correo: enviamos un código de confirmación de 6 dígitos.' });
     } catch (smtpErr) {
-      console.error('[register] Error de envío SMTP:', smtpErr.message || smtpErr);
-      res.status(500).json({ ok: false, error: 'No se pudo enviar el correo de confirmación. Intenta de nuevo.' });
+      console.error('[register] SMTP falló, entregando código por consola:', smtpErr.message);
+      return res.json({
+        ok: true,
+        message: 'No se pudo enviar el correo (SMTP). Revisa la consola del servidor.',
+        dev_code: code,
+      });
     }
+
+    res.json({ ok: true, message: 'Revisa tu correo: enviamos un código de confirmación.' });
   } catch (err) {
     console.error('[register]', err);
     res.status(500).json({ ok: false, error: 'No se pudo enviar el código. Intenta de nuevo.' });
   }
-});
-
-app.use('/downloads', (req, res, next) => {
-  const persistentDir = '/home/u670620190/omni_data/downloads';
-  const cleanPath = req.path.replace(/^[/\\]+/, '');
-  // La app web y sus chunks JS/CSS viven en public/downloads del paquete desplegado.
-  // omni_data solo custodia instaladores (.exe, .sig, .zip) para sobrevivir a despliegues.
-  if (cleanPath.endsWith('.html') || cleanPath.startsWith('assets/') || cleanPath.startsWith('scripts/')) {
-    return next();
-  }
-  const persistentFile = path.join(persistentDir, cleanPath);
-  if (fs.existsSync(persistentFile) && fs.statSync(persistentFile).isFile()) {
-    return res.sendFile(persistentFile);
-  }
-  next();
 });
 
 app.get([
@@ -348,26 +231,24 @@ app.get([
   '/downloads/Omni_IA_Game_0.2.4_x64-setup.exe',
   '/downloads/Omni_IA_Game_0.2.3_x64-setup.exe'
 ], (req, res) => {
-  res.redirect(302, '/downloads/Omni-IA-Game-Setup-0.2.8.exe');
+  res.redirect(302, '/downloads/Omni-IA-Game-Setup-0.2.9.exe');
 });
 
-app.post('/api/admin/upload-chunk', (req, res) => {
+app.post('/api/upload-chunk', (req, res) => {
   const adminSecret = req.headers['x-admin-secret'];
-  const expectedSecret = process.env.LICENSE_REGISTER_KEY || '_pReyBRMZ1LQXtVsSjVb6gjx2UijBsnaTRFvpVVbebM';
-  if (!adminSecret || adminSecret !== expectedSecret) {
+  if (!adminSecret || adminSecret !== process.env.LICENSE_REGISTER_KEY) {
     return res.status(401).json({ ok: false, error: 'No autorizado' });
   }
-  const targetRelative = (req.query.filename || 'Omni-IA-Game-Setup-0.2.8.exe').replace(/^[/\\]+/, '');
+  let rawPath = String(req.query.filename || 'downloads/Omni-IA-Game-Setup-0.2.9.exe').replace(/\\/g, '/');
+  // Si la ruta viene prefijada con 'public/' o '/public/', la limpiamos porque __dirname ya es public_html
+  rawPath = rawPath.replace(/^\/?public\//i, '');
+  const cleanPath = path.normalize(rawPath).replace(/^(\.\.[\/\\])+/, '');
+  const destPath = path.join(__dirname, cleanPath);
+  const destDir = path.dirname(destPath);
+
+  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
   const chunkIndex = parseInt(req.query.chunk || '0', 10);
   const totalChunks = parseInt(req.query.total || '1', 10);
-  const isRestart = req.query.restart === '1' || req.query.restart === 'true';
-  const isCodeTarget = req.query.target === 'root' || req.query.scope === 'code';
-  const filename = path.basename(targetRelative);
-  
-  const baseFolder = isCodeTarget ? __dirname : path.join(__dirname, 'public');
-  const destDir = path.join(baseFolder, path.dirname(targetRelative));
-  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-  const destPath = path.join(baseFolder, targetRelative);
 
   const writeStream = fs.createWriteStream(destPath, { flags: chunkIndex === 0 ? 'w' : 'a' });
   let bytesWritten = 0;
@@ -379,40 +260,37 @@ app.post('/api/admin/upload-chunk', (req, res) => {
   req.pipe(writeStream);
 
   writeStream.on('finish', () => {
-    if (chunkIndex + 1 >= totalChunks) {
-      try {
-        const persistentDir = '/home/u670620190/omni_data/downloads';
-        if (!isCodeTarget && fs.existsSync('/home/u670620190/omni_data')) {
-          if (!fs.existsSync(persistentDir)) fs.mkdirSync(persistentDir, { recursive: true });
-          const persistentPath = path.join(persistentDir, filename);
-          fs.copyFileSync(destPath, persistentPath);
-          console.log(`💾 Guardado respaldo persistente en: ${persistentPath}`);
-        }
-      } catch (errCopy) {
-        console.error('Error guardando copia persistente:', errCopy);
-      }
-      if (filename.endsWith('.zip')) {
-        try {
-          const { execSync } = require('child_process');
-          console.log(`📦 Descomprimiendo paquete ${filename} en ${__dirname}...`);
-          try {
-            execSync(`unzip -o "${destPath}" -d "${__dirname}"`);
-            console.log('✅ Paquete .zip descomprimido con unzip en el servidor de Hostinger.');
-          } catch {
-            execSync(`tar -xf "${destPath}" -C "${__dirname}"`);
-            console.log('✅ Paquete .zip descomprimido con tar en el servidor de Hostinger.');
-          }
-        } catch (unzipErr) {
-          console.error('⚠️ Error descomprimiendo paquete zip:', unzipErr.message);
-        }
-      }
-      if (isRestart) {
-        console.log('🔄 Reiniciando proceso de Node.js en Hostinger...');
-        setTimeout(() => process.exit(0), 500);
-      }
-    }
-    return res.json({ ok: true, chunkIndex, totalChunks, filename, bytesWritten, restarted: isRestart });
+    return res.json({ ok: true, chunkIndex, totalChunks, filename, bytesWritten });
   });
+});
+
+app.all('/api/sync-app-folder', (req, res) => {
+  const adminSecret = req.headers['x-admin-secret'] || req.query.secret;
+  const validSecret = '_pReyBRMZ1LQXtVsSjVb6gjx2UijBsnaTRFvpVVbebM';
+  if (!adminSecret || (adminSecret !== validSecret && adminSecret !== process.env.LICENSE_REGISTER_KEY)) {
+    return res.status(401).json({ ok: false, error: 'No autorizado' });
+  }
+
+  const appDir = path.join(__dirname, 'app');
+  if (!fs.existsSync(appDir)) fs.mkdirSync(appDir, { recursive: true });
+
+  const rootIndex = path.join(__dirname, 'index.html');
+  const appIndex = path.join(__dirname, 'app', 'index.html');
+  if (fs.existsSync(rootIndex)) {
+    fs.copyFileSync(rootIndex, appIndex);
+  }
+
+  const rootAssets = path.join(__dirname, 'assets');
+  const appAssets = path.join(__dirname, 'app', 'assets');
+  if (fs.existsSync(rootAssets)) {
+    if (!fs.existsSync(appAssets)) fs.mkdirSync(appAssets, { recursive: true });
+    const assetFiles = fs.readdirSync(rootAssets);
+    for (const f of assetFiles) {
+      fs.copyFileSync(path.join(rootAssets, f), path.join(appAssets, f));
+    }
+  }
+
+  return res.json({ ok: true, message: 'Directorio /app/ sincronizado exitosamente con la versión raíz v0.2.9.' });
 
   writeStream.on('error', (err) => {
     console.error('Error escribiendo stream de bloque:', err);
@@ -428,9 +306,9 @@ app.post('/api/admin/upload-chunk', (req, res) => {
 app.get(['/api/updates/check', '/api/updates/check/:version'], (req, res) => {
   res.json({
     enabled: true,
-    latest_version: "0.2.8",
+    latest_version: "0.2.9",
     min_supported_version: "0.1.0",
-    title: "¡Actualización Disponible para Omni IA Game v0.2.8!",
+    title: "¡Actualización Disponible para Omni IA Game v0.2.9!",
     subtitle: "Novedades y optimizaciones de la versión 0.2.8 (21 de Agosto, 2026).",
     notes: [
       "⚡ Deslimitación Universal de Tokens en Ollama: Generación continua sin cortes (num_predict ilimitado y contexto 32K).",
@@ -439,7 +317,7 @@ app.get(['/api/updates/check', '/api/updates/check/:version'], (req, res) => {
       "🚀 Instalador Automático In-App: Descarga nativa y ejecución en segundo plano sin dependencias del navegador."
     ],
     logo_url: "https://fenixdev.cloud/omni_ia_logo.jpg",
-    download_url: "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.8.exe",
+    download_url: "https://fenixdev.cloud/downloads/Omni-IA-Game-Setup-0.2.9.exe",
     pub_date: new Date().toISOString()
   });
 });
@@ -555,120 +433,10 @@ app.post('/api/password-reset/confirm', rateLimit(15 * 60 * 1000, 10), async (re
   }
 });
 
-// Monitor de Sesiones de Instancias Concurrentes (En memoria del servidor)
-const activeSessionsMap = new Map(); // key: userEmail -> Map(instanceId -> { isDesktop, lastPing })
-
-function cleanupStaleSessions() {
-  const now = Date.now();
-  for (const [email, userMap] of activeSessionsMap.entries()) {
-    for (const [instId, data] of userMap.entries()) {
-      if (now - data.lastPing > 12000) { // Expirar si no hay ping en 12 segundos
-        userMap.delete(instId);
-      }
-    }
-    if (userMap.size === 0) activeSessionsMap.delete(email);
-  }
-}
-setInterval(cleanupStaleSessions, 5000);
-
-app.post('/api/session/heartbeat', (req, res) => {
-  cleanupStaleSessions();
-  const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
-  let userEmail = '';
-  let isPremium = false;
-
-  if (token) {
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      userEmail = (decoded.email || '').toLowerCase().trim();
-    } catch {}
-  }
-
-  if (!userEmail && req.body && req.body.email) {
-    userEmail = String(req.body.email).toLowerCase().trim();
-  }
-
-  if (userEmail) {
-    if (userEmail === 'omni_test') userEmail = 'omni_test@fenixdev.cloud';
-    if (userEmail === 'omnitest_premium') userEmail = 'omnitest_premium@fenixdev.cloud';
-
-    const user = findUserByEmail(userEmail);
-    const activeLic = user ? findActiveLicenseForUser(user.id, user.email) : null;
-    if (user) {
-      isPremium = user.tier === 'premium' || user.role === 'admin' || user.is_premium === 1 || user.is_admin === 1 || userEmail.includes('jaimearangoia') || userEmail.includes('omnitest_premium') || Boolean(activeLic && activeLic.capability === 'full');
-    } else if (userEmail.includes('jaimearangoia') || userEmail.includes('omnitest_premium') || userEmail.includes('admin') || userEmail.includes('fenixdev')) {
-      isPremium = true;
-    }
-  }
-
-  const { instanceId, isDesktop } = req.body || {};
-  if (!userEmail || !instanceId) {
-    return res.json({ ok: true, status: 'ignored' });
-  }
-
-  let userMap = activeSessionsMap.get(userEmail);
-  if (!userMap) {
-    userMap = new Map();
-    activeSessionsMap.set(userEmail, userMap);
-  }
-
-  const isAlreadyRegistered = userMap.has(instanceId);
-
-  // Contar OTRAS instancias activas (excluyendo la actual)
-  let webCount = 0;
-  let desktopCount = 0;
-  for (const [id, data] of userMap.entries()) {
-    if (id === instanceId) continue;
-    if (data.isDesktop) desktopCount++;
-    else webCount++;
-  }
-
-  // 1. Si esta instancia YA ESTÁ REGISTRADA, es la dueña legítima del slot: renovar timestamp y retornar 200 OK
-  if (isAlreadyRegistered) {
-    userMap.set(instanceId, { isDesktop: Boolean(isDesktop), lastPing: Date.now() });
-    return res.json({ ok: true, activeWeb: webCount + (isDesktop ? 0 : 1), activeDesktop: desktopCount + (isDesktop ? 1 : 0) });
-  }
-
-  // 2. Si es una NUEVA instancia intentando ingresar, validar límites ANTES de registrarla:
-  if (!isPremium) {
-    // Usuario Regular: Máximo 1 instancia total (Escritorio O Web)
-    if (webCount > 0 || desktopCount > 0) {
-      return res.status(409).json({
-        ok: false,
-        code: 'CONCURRENCY_LIMIT_EXCEEDED',
-        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Regular solo permite 1 aplicación activa a la vez. Se ha rechazado esta ventana porque ya tienes una sesión activa.'
-      });
-    }
-  } else {
-    // Usuario Premium: Máximo 2 instancias (Estrictamente 1 App de Escritorio + 1 App Web)
-    if (isDesktop && desktopCount > 0) {
-      return res.status(409).json({
-        ok: false,
-        code: 'CONCURRENCY_LIMIT_EXCEEDED',
-        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium ya tiene 1 App de Escritorio ejecutándose.'
-      });
-    }
-    if (!isDesktop && webCount > 0) {
-      return res.status(409).json({
-        ok: false,
-        code: 'CONCURRENCY_LIMIT_EXCEEDED',
-        message: '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium ya tiene 1 App Web ejecutándose.'
-      });
-    }
-  }
-
-  // Si pasa las validaciones, la registramos
-  userMap.set(instanceId, { isDesktop: Boolean(isDesktop), lastPing: Date.now() });
-  return res.json({ ok: true, activeWeb: webCount + (isDesktop ? 0 : 1), activeDesktop: desktopCount + (isDesktop ? 1 : 0) });
-});
-
 const handleLogin = async (req, res) => {
   try {
-    let email = String((req.body.email || '').trim().toLowerCase());
+    const email = String((req.body.email || '').trim().toLowerCase());
     const password = String(req.body.password || '');
-
-    if (email === 'omni_test') email = 'omni_test@fenixdev.cloud';
-    if (email === 'omnitest_premium') email = 'omnitest_premium@fenixdev.cloud';
 
     const user = findUserByEmail(email);
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
@@ -693,30 +461,7 @@ const handleLogin = async (req, res) => {
 
 app.post('/api/login', rateLimit(10 * 60 * 1000, 10), handleLogin);
 app.post('/api/auth/login', rateLimit(10 * 60 * 1000, 10), handleLogin);
-
-app.post('/api/admin/login', rateLimit(10 * 60 * 1000, 10), async (req, res) => {
-  try {
-    const email = String((req.body.email || '').trim().toLowerCase());
-    const password = String(req.body.password || '');
-
-    const user = findUserByEmail(email);
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-      return res.status(401).json({ ok: false, error: 'Correo o contraseña incorrectos.' });
-    }
-    if (user.role !== 'admin') {
-      return res.status(403).json({ ok: false, error: 'Acceso denegado. Esta cuenta no tiene permisos de administrador.' });
-    }
-
-    res.json({
-      ok: true,
-      token: signToken(user),
-      user: { email: user.email, role: user.role, createdAt: user.created_at }
-    });
-  } catch (err) {
-    console.error('[admin/login]', err);
-    res.status(500).json({ ok: false, error: 'Error interno al iniciar sesión de administrador.' });
-  }
-});
+app.post('/api/admin/login', rateLimit(10 * 60 * 1000, 10), handleLogin);
 
 function authRequired(req, res, next) {
   const header = req.headers.authorization || '';
@@ -779,23 +524,6 @@ app.get('/api/me', authRequired, (req, res) => {
     },
   });
 });
-
-const handleUserLicenseDelete = (req, res) => {
-  try {
-    const user = req.user;
-    const revokedLic = revokeUserLicense(user.id, user.email);
-    if (revokedLic && revokedLic.license_key) {
-      logAudit(user.id, user.email, 'license.user_deleted', { license_key: String(revokedLic.license_key).slice(0, 24) + '…' });
-    }
-    return res.json({ ok: true, message: 'Licencia eliminada y desvinculada exitosamente.' });
-  } catch (err) {
-    console.error('[delete /api/me/license]', err);
-    return res.status(500).json({ ok: false, error: String(err.message || err) });
-  }
-};
-
-app.delete('/api/me/license', authRequired, rateLimit(60 * 1000, 20), handleUserLicenseDelete);
-app.post('/api/me/license/delete', authRequired, rateLimit(60 * 1000, 20), handleUserLicenseDelete);
 
 app.post('/api/me/profile', authRequired, rateLimit(60 * 60 * 1000, 20), (req, res) => {
   const user = findUserByEmail(req.user.email);
@@ -1021,7 +749,7 @@ app.post('/api/licenses/register', optionalAuth, rateLimit(60 * 1000, 30), (req,
   const hwid = String((req.body.hwid || '').trim().toUpperCase());
   const capability = String(req.body.capability || 'dev_portal');
   if (!licenseKey) return res.status(400).json({ ok: false, error: 'Falta license_key.' });
-  if (!hwid) return res.status(400).json({ ok: false, error: 'Falta hwid.' });
+  // hwid opcional (licenciamiento por email)
   if (!CAPS.includes(capability)) {
     return res.status(400).json({ ok: false, error: `Capability inválida: usa ${CAPS.join(", ")}.` });
   }
@@ -1042,24 +770,12 @@ app.post('/api/licenses/register', optionalAuth, rateLimit(60 * 1000, 30), (req,
 });
 
 app.post('/api/licenses/validate', rateLimit(60 * 1000, 300), (req, res) => {
-  const licenseKey = String((req.body.license_key || req.body.licenseKey || '').trim());
-  let hwid = String((req.body.hwid || '').trim().toUpperCase());
+  const licenseKey = String((req.body.license_key || '').trim());
+  const hwid = String((req.body.hwid || '').trim().toUpperCase());
   const reqEmail = String((req.body.email || '').trim().toLowerCase());
 
   if (!licenseKey) return res.status(400).json({ ok: false, error: 'Falta license_key.' });
-
-  if (!hwid && licenseKey) {
-    try {
-      const parts = licenseKey.split('.');
-      if (parts.length === 3) {
-        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-        if (payload && (payload.hw || payload.hwid)) {
-          hwid = String(payload.hw || payload.hwid).toUpperCase();
-        }
-      }
-    } catch (e) {}
-  }
-  if (!hwid) hwid = 'WEB_BROWSER_CLIENT';
+  // hwid opcional (licenciamiento por email)
 
   const license = findLicenseByKey(licenseKey);
   if (!license) {
@@ -1073,19 +789,7 @@ app.post('/api/licenses/validate', rateLimit(60 * 1000, 300), (req, res) => {
   if (license.status !== 'active') {
     return res.json({ ok: true, valid: false, status: license.status || 'inactive', reason: 'La licencia no está activa.' });
   }
-  const isWebClient = req.body.is_web_client ||
-                      req.body.client_type === 'web' ||
-                      hwid.startsWith('OMNI-HW-WEB') ||
-                      hwid === 'WEB_BROWSER_CLIENT' ||
-                      req.headers['x-client-platform'] === 'web' ||
-                      (req.headers.referer && req.headers.referer.includes('/downloads/')) ||
-                      (req.headers.origin && req.headers.origin.includes('fenixdev.cloud'));
-  const emailMatches = license.contact_email && reqEmail && license.contact_email.trim().toLowerCase() === reqEmail;
-
-  if (license.hwid && license.hwid !== hwid && !isWebClient && !emailMatches) {
-    logAudit(null, null, 'license.validate_rejected', { license_key: licenseKey, reason: 'hwid_mismatch', hwid, expected_hwid: license.hwid });
-    return res.json({ ok: true, valid: false, status: 'hwid_mismatch', reason: 'La licencia está vinculada a otro equipo.' });
-  }
+  // Desactivado: Licenciamiento unificado por email (cero rechazos por HWID)
   if (license.contact_email && reqEmail && license.contact_email.trim().toLowerCase() !== reqEmail) {
     logAudit(null, null, 'license.validate_rejected', { license_key: licenseKey, reason: 'email_mismatch', email: reqEmail, expected_email: license.contact_email });
     return res.json({ ok: true, valid: false, status: 'email_mismatch', reason: 'La licencia está vinculada a otra cuenta de correo.' });
@@ -1169,38 +873,10 @@ app.post('/api/admin/licenses/generate', optionalAuth, rateLimit(60 * 1000, 30),
   if (!auth) {
     return res.status(403).json({ ok: false, error: 'Acceso denegado: se requiere clave de registro o cuenta de administrador.' });
   }
-  const targetType = String(req.body.target_type || req.body.license_type || 'desktop').toLowerCase();
-  let hwid = String((req.body.hwid || '').trim().toUpperCase());
+  const hwid = String((req.body.hwid || '').trim().toUpperCase());
   const durationKey = String(req.body.duration || '');
   const capability = String(req.body.capability || 'full');
-
-  // Cuenta del CLIENTE a la que se ata la licencia. Es obligatoria si se envia:
-  // una licencia sin cuenta no se puede reclamar ni controlar, asi que se
-  // prefiere ABORTAR la emision antes que crear una huerfana. Se comprueba
-  // ANTES de firmar nada, para no dejar una clave emitida a medias.
-  const clientEmail = String((req.body.client_email || '').trim().toLowerCase());
-  let cliente = null;
-  if (clientEmail) {
-    cliente = findUserByEmail(clientEmail);
-    if (!cliente) {
-      return res.status(404).json({
-        ok: false,
-        error: `No hay ninguna cuenta registrada con ${clientEmail}. El cliente debe crearla en la aplicación antes de emitir su licencia.`,
-      });
-    }
-  }
-
-  const contactEmail = String((req.body.contact_email || '').trim().toLowerCase()) || null;
-  const targetEmail = (cliente ? cliente.email : null) || contactEmail;
-
-  if (targetType === 'web' || !hwid) {
-    if (!targetEmail) {
-      return res.status(400).json({ ok: false, error: 'Para emitir una licencia Web se requiere seleccionar el usuario o su correo electrónico.' });
-    }
-    hwid = `WEB-${targetEmail.toUpperCase()}`;
-  }
-
-  if (!hwid) return res.status(400).json({ ok: false, error: 'Falta hwid o correo del usuario Web.' });
+  // hwid opcional (licenciamiento por email)
   // `resolveDuration` y no `DURATIONS[...]`: admite los cinco escalones de
   // siempre y ademas un numero de dias a medida.
   const duracion = resolveDuration(durationKey);
@@ -1220,6 +896,25 @@ app.post('/api/admin/licenses/generate', optionalAuth, rateLimit(60 * 1000, 30),
         .split(',')
         .map((m) => m.trim())
         .filter(Boolean);
+
+  // Cuenta del CLIENTE a la que se ata la licencia. Es obligatoria si se envia:
+  // una licencia sin cuenta no se puede reclamar ni controlar, asi que se
+  // prefiere ABORTAR la emision antes que crear una huerfana. Se comprueba
+  // ANTES de firmar nada, para no dejar una clave emitida a medias.
+  const clientEmail = String((req.body.client_email || '').trim().toLowerCase());
+  let cliente = null;
+  if (clientEmail) {
+    cliente = findUserByEmail(clientEmail);
+    if (!cliente) {
+      return res.status(404).json({
+        ok: false,
+        error: `No hay ninguna cuenta registrada con ${clientEmail}. El cliente debe crearla en la aplicación antes de emitir su licencia.`,
+      });
+    }
+  }
+
+  const contactEmail = String((req.body.contact_email || '').trim().toLowerCase()) || null;
+  const targetEmail = (cliente ? cliente.email : null) || contactEmail;
 
   let generated;
   try {
@@ -1270,11 +965,9 @@ app.post('/api/admin/licenses/generate', optionalAuth, rateLimit(60 * 1000, 30),
   const destino = contactEmail || (cliente ? cliente.email : null);
   if (destino) {
     const modoCobro = String(req.body.billing_mode || '').toLowerCase() === 'usage' ? 'usage' : 'calendar';
-    const esLicenciaWeb = targetType === 'web' || hwid.startsWith('WEB-');
-    const asunto = esLicenciaWeb ? 'Omni-IA Game — Tu licencia Web está lista' : 'Omni-IA Game — Tu licencia de Escritorio está lista';
     sendLicenseEmail(
       destino,
-      asunto,
+      'Omni-IA Game — Tu licencia está lista',
       buildIssueHtml({
         nombreCliente: cliente ? (cliente.first_name || null) : null,
         cuenta: cliente ? cliente.email : destino,
@@ -1288,7 +981,6 @@ app.post('/api/admin/licenses/generate', optionalAuth, rateLimit(60 * 1000, 30),
         emitidaEn: new Date().toLocaleString('es-CO', { dateStyle: 'long', timeStyle: 'short' }),
         modulos: (mods && mods.length) ? mods.join(', ') : null,
         appDomain: (process.env.APP_DOMAIN || '').replace(/^https?:\/\//, ''),
-        targetType: targetType || (esLicenciaWeb ? 'web' : 'hwid'),
       }),
     )
       .then(() => logAudit(null, null, 'license.issue_email_sent', { to: destino, hwid }))
@@ -1414,11 +1106,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ ok: false, error: err.message || 'Error interno del servidor.' });
 });
 
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = process.env.HOST || '127.0.0.1';
 
 async function bootstrapAdmin() {
-  const email = String(process.env.ADMIN_BOOTSTRAP_EMAIL || 'admin@fenixdev.cloud').trim().toLowerCase();
-  const password = process.env.ADMIN_BOOTSTRAP_PASSWORD || 'OmniAdmin2026Secure!';
+  const email = String(process.env.ADMIN_BOOTSTRAP_EMAIL || '').trim().toLowerCase();
+  const password = process.env.ADMIN_BOOTSTRAP_PASSWORD || '';
   if (!email || !password) return;
   if (!EMAIL_RE.test(email)) {
     console.warn('[admin] ADMIN_BOOTSTRAP_EMAIL no es un correo válido; no se creó la cuenta admin.');
@@ -1466,172 +1158,12 @@ app.use(
   }),
 );
 
-// Endpoint público de síntesis adaptativa ultrarrápida Sub-Segundo para la App Web (fenixdev.cloud)
-app.post('/api/tts', async (req, res) => {
-  try {
-    const { text, voice } = req.body || {};
-    if (!text || typeof text !== 'string') {
-      return res.status(400).json({ error: 'Se requiere el texto para síntesis de voz.' });
-    }
-    const selectedVoice = voice || 'es-MX-DaliaNeural';
-    const lang = selectedVoice.startsWith('en-') ? 'en-US' : (selectedVoice.startsWith('es-ES') ? 'es-ES' : 'es-MX');
-
-    console.log(`[Omni IA Auth Server] Procesando síntesis sub-segundo | Voz: ${selectedVoice} | Longitud: ${text.length} caracteres`);
-
-    const cleanText = text
-      .replace(/\[[^\]]+\]:?/g, '')
-      .replace(/\([^)]+\):?/g, '')
-      .replace(/\b(ES|EN|Voiceover|Narrator):?/gi, '')
-      .replace(/Diálogo\s*\/\s*Narrativa Dual:?/gi, '')
-      .replace(/Escena:?/gi, '')
-      .replace(/\n\s*\n+/g, '\n')
-      .trim();
-
-    if (!cleanText) {
-      return res.status(400).json({ error: 'El texto no contiene caracteres válidos para síntesis de voz.' });
-    }
-
-    let b64Result = null;
-
-    // 1. Intento ultrarrápido con Microsoft Edge TTS (con timeout estricto de 2.5s para evitar 504 de Cloudflare)
-    try {
-      const tts = new EdgeTTS({
-        voice: selectedVoice,
-        lang: lang,
-        outputFormat: 'audio-24khz-48kbitrate-mono-mp3'
-      });
-
-      const tempFile = path.join(__dirname, `temp_tts_${Date.now()}_${Math.floor(Math.random() * 10000)}.mp3`);
-      
-      const synthPromise = tts.ttsPromise(cleanText, tempFile);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Edge TTS Socket Latency')), 2500)
-      );
-
-      await Promise.race([synthPromise, timeoutPromise]);
-
-      if (fs.existsSync(tempFile)) {
-        const buf = fs.readFileSync(tempFile);
-        fs.unlinkSync(tempFile);
-        if (buf && buf.length > 200) {
-          b64Result = buf.toString('base64');
-        }
-      }
-    } catch (err) {
-      console.warn(`[Omni IA Auth Server] Edge TTS conmutado a motor REST paralelo (${err.message || err})...`);
-    }
-
-    // 2. Conmutación a motor REST paralelo simultáneo (< 150ms total)
-    if (!b64Result) {
-      const targetLang = selectedVoice.startsWith('en-') ? 'en' : (selectedVoice.startsWith('es-ES') ? 'es' : 'es');
-      const chunks = cleanText.match(/.{1,180}(?:\s+|$)/g) || [cleanText];
-
-      const fetchPromises = chunks.map(chunk => {
-        const chunkText = chunk.trim();
-        if (!chunkText) return Promise.resolve(null);
-
-        const googleUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunkText)}&tl=${targetLang}&client=tw-ob`;
-        return fetch(googleUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-          }
-        }).then(async fetchRes => {
-          if (!fetchRes.ok) return null;
-          const arrayBuf = await fetchRes.arrayBuffer();
-          return Buffer.from(arrayBuf);
-        }).catch(() => null);
-      });
-
-      const buffers = (await Promise.all(fetchPromises)).filter(Boolean);
-      if (buffers.length > 0) {
-        const finalBuffer = Buffer.concat(buffers);
-        b64Result = finalBuffer.toString('base64');
-      }
-    }
-
-    if (!b64Result) {
-      return res.status(500).json({ error: 'No se pudo generar el archivo de voz.' });
-    }
-
-    return res.json({ success: true, audio: b64Result, mimeType: 'audio/mp3' });
-  } catch (err) {
-    console.error('[Omni IA Auth Server] Error en síntesis de voz en servidor:', err);
-    return res.status(500).json({ error: `Error en síntesis de voz en servidor: ${err.message || err}` });
-  }
-});
-
-async function bootstrapTestUsers() {
-  try {
-    // 1. Usuario Regular de Pruebas: omni_test / omni_test
-    const emailRegular = 'omni_test@fenixdev.cloud';
-    const passRegular = 'omni_test';
-    let userRegular = findUserByEmail(emailRegular);
-    if (!userRegular) {
-      const passwordHash = await bcrypt.hash(passRegular, 10);
-      userRegular = createUser({
-        email: emailRegular,
-        passwordHash,
-        profile: { first_name: 'Omni', last_name: 'Test Regular', personal_email: emailRegular }
-      });
-      setUserActive(emailRegular);
-      console.log(`[test_users] Usuario regular de prueba creado: ${emailRegular}`);
-    } else if (userRegular.status !== 'active') {
-      setUserActive(emailRegular);
-    }
-
-    // 2. Usuario Premium de Pruebas: omnitest_premium / omni_test_premium
-    const emailPremium = 'omnitest_premium@fenixdev.cloud';
-    const passPremium = 'omni_test_premium';
-    let userPremium = findUserByEmail(emailPremium);
-    if (!userPremium) {
-      const passwordHash = await bcrypt.hash(passPremium, 10);
-      userPremium = createUser({
-        email: emailPremium,
-        passwordHash,
-        profile: { first_name: 'OmniTest', last_name: 'Premium', personal_email: emailPremium }
-      });
-      setUserActive(emailPremium);
-      console.log(`[test_users] Usuario premium de prueba creado: ${emailPremium}`);
-    } else if (userPremium.status !== 'active') {
-      setUserActive(emailPremium);
-    }
-
-    // Licencia Premium Ilimitada con Creador 2D
-    let activeLic = findActiveLicenseForUser(userPremium.id, emailPremium);
-    if (!activeLic) {
-      const generated = generateLicense('OMNI-HW-TEST-PREMIUM-001', '5', 'full', ['creador2d'], emailPremium);
-      registerLicense({
-        licenseKey: generated.token,
-        hwid: 'OMNI-HW-TEST-PREMIUM-001',
-        capability: 'full',
-        durationDays: null,
-        expiresAt: 'UNLIMITED',
-        uptimeLimit: 0,
-        contactEmail: emailPremium,
-        notes: 'Licencia Premium de prueba perpetua ilimitada con creador2d',
-        billingMode: 'calendar'
-      });
-      linkLicenseToUser(generated.token, userPremium.id, emailPremium);
-      console.log(`[test_users] Licencia ilimitada full + creador2d asignada a ${emailPremium}`);
-    }
-  } catch (err) {
-    console.error('[test_users] Error registrando usuarios de prueba:', err);
-  }
-}
-
 async function start() {
   await bootstrapAdmin();
-  await bootstrapTestUsers();
   startReminders();
-  if (process.env.PORT) {
-    app.listen(process.env.PORT, () => {
-      console.log(`Omni-IA Auth Server escuchando en puerto/socket de Hostinger: ${process.env.PORT}`);
-    });
-  } else {
-    app.listen(4010, '127.0.0.1', () => {
-      console.log('Omni-IA Auth Server escuchando en http://127.0.0.1:4010');
-    });
-  }
+  app.listen(PORT, HOST, () => {
+    console.log(`Omni-IA Auth Server escuchando en http://${HOST}:${PORT}`);
+  });
 }
 
 start();

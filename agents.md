@@ -30,13 +30,19 @@ Asistente de desarrollo que ejecuta ÚNICAMENTE lo solicitado explícitamente po
 > - **PRESERVAR BASE DE DATOS `data.db`**: La base de datos persistente jamás se restablece, vacía o reemplaza.
 > - **MANTENER SERVIDOR NODEJS ACTIVO**: Todo despliegue debe asegurar que el servidor Express de autenticación permanezca en línea para evitar interrupciones.
 
-## 0.1 PROTOCOLO ESTRICTO DE MODIFICACIÓN Y ALCANCE (DIRECTRICES OBLIGATORIAS)
-> [!IMPORTANT]
-> 1. **Cambio Mínimo y Explícito**: Realiza únicamente el cambio explícitamente solicitado. No refactorices, renombres variables ni "mejores" código no relacionado.
-> 2. **Reporte de Bugs Ajenos**: Si detectas un bug fuera del alcance de la tarea, repórtalo en el chat pero no lo corrijas sin aprobación.
-> 3. **Diff Exacto y Confirmación**: Antes de finalizar, muestra un diff exacto de los archivos modificados y confirma que solo corresponde a lo pedido.
-> 4. **Validación de Tests**: Ejecuta la suite de pruebas/tests existentes tras cualquier cambio y reporta resultados antes de dar por terminada la tarea.
-> 5. **Aislamiento de Archivos**: No toques archivos que no estén directamente relacionados con la petición, aunque el editor los tenga abiertos.
+## 0.2 REGLAS DE ORO: AISLAMIENTO ABSOLUTO DE PROYECTOS Y PROTOCOLO DE DESPLIEGUE SEGURO
+> [!CAUTION]
+> 1. **Aislamiento Total de Repositorios**:
+>    - **App de Escritorio (`omni-ia-game-educational-version`)**: Gestiona ÚNICAMENTE la aplicación nativa de escritorio, instaladores `.exe`, página principal, panel de administración y zona de descargas `/downloads/`. Rama Git: `OMNIDEPLOY`.
+>    - **App Web (`Omni_IA_Game_Web_App`)**: Gestiona ÚNICAMENTE el cliente de la aplicación web `/app/`. No toca panel de administración, usuarios, licencias ni instaladores. Rama Git: `main`.
+>    - **PROHIBIDO MEZCLAR REPOSISITORIOS O COMMITS**: Jamás realices commits cruzados entre ambas versiones. Si se solicita una acción para una app específica (ej: "regresa al commit X de la Web App"), se aplica ÚNICAMENTE a ese repositorio sin tocar el otro.
+> 2. **Despliegues Seguros a Hostinger**:
+>    - Todo despliegue debe usar los scripts de carga segura (`deploy_safe.mjs`, `update_downloads_index.mjs`, `upload_to_server.mjs`) e integrar las herramientas MCP de Hostinger (`hostinger-hosting`, `hostinger-vps`, `hostinger-dns`, etc.).
+>    - **PROHIBIDO ALTERAR LA BASE DE DATOS `data.db`**: La base de datos persistente en `/home/u670620190/omni_data/data.db` NUNCA se borra ni reemplaza.
+> 3. **Formato de Propuestas**:
+>    - Las sugerencias o mejoras no solicitadas se presentan EXCLUSIVAMENTE por escrito en el chat. NUNCA se ejecutan sin autorización previa.
+> 4. **Aislamiento de Puertos Locales**:
+>    - La App Web y la App de Escritorio deben mantener puertos locales distintos para permitir ejecución paralela sin colisiones de puerto en Vite.
 
 Este documento define los agentes para la evolución de OMNI-IA GAME hacia un sistema híbrido masivo.
 

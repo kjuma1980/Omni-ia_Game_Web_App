@@ -3,7 +3,7 @@ import path from 'path';
 import https from 'https';
 
 const ADMIN_SECRET = '_pReyBRMZ1LQXtVsSjVb6gjx2UijBsnaTRFvpVVbebM';
-const BASE_URL = 'https://fenixdev.cloud/api/admin/upload-chunk';
+const BASE_URL = 'https://fenixdev.cloud/api/upload-chunk';
 
 async function updateFile(localPath, remotePath, restartServer = false) {
   const content = fs.readFileSync(localPath);
