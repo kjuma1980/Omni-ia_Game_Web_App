@@ -40,6 +40,17 @@ function hayEntornoTauri(): boolean {
  * Toda la información visual (título, subtítulo, notas, logo, url) proviene 100% de la nube.
  */
 export async function checkForUpdates(): Promise<UpdateManifest> {
+  if (!hayEntornoTauri()) {
+    return {
+      hasUpdate: false,
+      version: CURRENT_VERSION,
+      title: '',
+      subtitle: '',
+      notes: [],
+      url: '',
+      pubDate: new Date().toISOString(),
+    };
+  }
   const urlsToTry = [PRIMARY_UPDATE_URL, FALLBACK_UPDATE_URL, FALLBACK_UPDATE_URL_ALT];
 
   for (const url of urlsToTry) {

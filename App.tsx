@@ -531,7 +531,19 @@ const App: React.FC = () => {
 
   const knownWebInstancesRef = useRef<Set<string>>(new Set());
   const knownDesktopInstancesRef = useRef<Set<string>>(new Set());
-  const currentInstanceIdRef = useRef<string>(Math.random().toString(36).substring(2, 9));
+  const getPersistentInstanceId = () => {
+  try {
+    let id = sessionStorage.getItem('omni_tab_instance_id');
+    if (!id) {
+      id = Math.random().toString(36).substring(2, 9);
+      sessionStorage.setItem('omni_tab_instance_id', id);
+    }
+    return id;
+  } catch {
+    return Math.random().toString(36).substring(2, 9);
+  }
+};
+const currentInstanceIdRef = useRef<string>(getPersistentInstanceId());
 
   // Monitor de Instancias Concurrentes (Control Estricto: Regular 1 / Premium 2 = 1 Escritorio + 1 Web)
   useEffect(() => {
@@ -604,11 +616,9 @@ const App: React.FC = () => {
         const data = await res.json().catch(() => ({}));
         console.log('[Omni Concurrency Heartbeat]', res.status, data);
         if (res.status === 409 || data.code === 'CONCURRENCY_LIMIT_EXCEEDED') {
-          const msg = data.message || '⚠️ Límite de Instancias Alcanzado: Se ha cerrado la sesión porque existe otra instancia activa en este entorno.';
-          console.warn('🔒 INSTANCIA RECHAZADA POR CONCURRENCIA:', msg);
-          clearStoredAuth();
-          setAuthError(msg);
-          setIsAuthenticated(false);
+          const msg = data.message || '⚠️ Límite de Instancias Alcanzado: Se ha detectado otra instancia activa.';
+          console.warn('🔒 ALERTA DE CONCURRENCIA (Sesión preservada):', msg);
+          // NO se borra la autenticación para permitir F5 y recarga fluida sin pérdida de sesión
         }
       } catch (err) {
         console.error('[Omni Concurrency Heartbeat Error]', err);
