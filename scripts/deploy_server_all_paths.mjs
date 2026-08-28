@@ -40,13 +40,20 @@ async function updateFile(localPath, remotePath, restartServer = false) {
 
 async function main() {
   const localServerJs = path.join(process.cwd(), 'auth-server', 'server.js');
+  const localAdminHtml = path.join(process.cwd(), 'auth-server', 'public', 'admin.html');
 
   await updateFile(localServerJs, 'server.js', false);
   await updateFile(localServerJs, 'public_html/server.js', false);
   await updateFile(localServerJs, 'auth-server/server.js', false);
-  await updateFile(localServerJs, '../server.js', true);
+  await updateFile(localServerJs, '../server.js', false);
 
-  console.log('🎉 ¡server.js desplegado en todas las rutas posibles del servidor Hostinger!');
+  if (fs.existsSync(localAdminHtml)) {
+    await updateFile(localAdminHtml, 'admin.html', false);
+    await updateFile(localAdminHtml, 'public/admin.html', false);
+    await updateFile(localAdminHtml, 'auth-server/public/admin.html', false);
+  }
+
+  console.log('🎉 ¡server.js y admin.html desplegados en todas las rutas del servidor Hostinger!');
 }
 
 main().catch(err => {

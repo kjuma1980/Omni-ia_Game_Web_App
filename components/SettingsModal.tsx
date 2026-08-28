@@ -6,6 +6,7 @@ import { getLlamaServerModels, selectGgufFile, startLlamaServer, stopLlamaServer
 import { flushOtherLocalProviders } from '../services/memoryOrchestrator';
 import { SpriteWorkflowAssignments, WorldWorkflowAssignments, AnimationWorkflowAssignments } from './WorkflowAssignments';
 import Tooltip from './Tooltip';
+import { readStoredEmail } from './AuthScreen';
 
 const invoke = <T = any>(name: string, args?: any): Promise<T> => {
   const rawInvoke = (window as any).__TAURI__?.invoke ||
@@ -6328,9 +6329,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         </span>
                       </div>
                       <div className="p-3 rounded bg-slate-950 border border-slate-800">
-                        <span className="block text-[9px] font-bold text-slate-500 font-mono tracking-wider mb-1">HARDWARE ID</span>
-                        <span className="block text-[10px] font-mono text-purple-300 select-all break-all">
-                          {hardwareId || "Generando identificador..."}
+                        <span className="block text-[9px] font-bold text-slate-500 font-mono tracking-wider mb-1">CORREO VINCULADO A LICENCIA</span>
+                        <span className="block text-[10px] font-mono text-purple-300 select-all break-all font-bold">
+                          {licenseDetails?.email || (licenseOnline as any)?.contact_email || readStoredEmail() || "licencia@fenixdev.cloud"}
                         </span>
                       </div>
                       <div className="p-3 rounded bg-slate-950 border border-slate-800">

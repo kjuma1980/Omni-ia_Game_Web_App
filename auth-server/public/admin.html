@@ -115,7 +115,7 @@
       <div id="licMsg" class="msg hidden"></div>
       <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>Licencia</th><th>HWID</th><th>Cap.</th><th>Emitida</th><th>Activada</th><th>Cobro</th><th>Expira</th><th>Restante</th><th>Estado</th><th>Contacto</th><th>Últ. aviso</th><th></th></tr></thead>
+          <thead><tr><th>Licencia</th><th>EMAIL VINCULADO</th><th>Cap.</th><th>Emitida</th><th>Activada</th><th>Cobro</th><th>Expira</th><th>Restante</th><th>Estado</th><th>Contacto</th><th>Últ. aviso</th><th></th></tr></thead>
           <tbody id="licBody"><tr><td colspan="9" class="muted">Cargando…</td></tr></tbody>
         </table>
       </div>
@@ -125,29 +125,8 @@
       <h2>Generar licencia nueva</h2>
       <div id="genMsg" class="msg hidden"></div>
       <form id="genForm">
-        <label>Tipo de Licencia</label>
-        <div style="display:flex;gap:14px;margin-bottom:14px;background:#0f172a;padding:10px 14px;border-radius:8px;border:1px solid #334155;">
-          <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;color:#e2e8f0;text-transform:none;letter-spacing:normal;font-weight:600;">
-            <input type="radio" name="genLicType" value="desktop" checked style="width:auto;margin:0;" />
-            💻 <strong>Escritorio</strong> (HWID Físico)
-          </label>
-          <label style="margin:0;display:flex;align-items:center;gap:6px;cursor:pointer;color:#e2e8f0;text-transform:none;letter-spacing:normal;font-weight:600;">
-            <input type="radio" name="genLicType" value="web" style="width:auto;margin:0;" />
-            🌐 <strong>Usuario Web</strong> (Cuenta de Correo)
-          </label>
-        </div>
-
-        <div id="genHwidFila">
-          <label>Hardware ID del cliente</label>
-          <input type="text" id="genHwid" placeholder="OMNI-HW-XXXX-XXXX-XXXX" />
-        </div>
-
-        <div id="genWebUserFila" class="hidden" style="margin-bottom:12px;">
-          <label>Seleccionar Usuario Registrado de la Web App</label>
-          <select id="genUserSelect">
-            <option value="">-- Cargando lista de usuarios… --</option>
-          </select>
-        </div>
+        <label>Correo Electrónico del Cliente (Email de Licencia)</label>
+        <input type="text" id="genHwid" placeholder="usuario@ejemplo.com" required />
         <div class="row">
           <div>
             <label>Duración</label>
@@ -183,8 +162,7 @@
           Independiente del nivel de acceso: se puede conceder solo este módulo
           eligiendo <strong>DEV PORTAL</strong> arriba y marcando esta casilla.
         </p>
-        <label>Correo de contacto del cliente (opcional)</label>
-        <input type="email" id="genEmail" placeholder="cliente@correo.com" />
+
         <label>Notas (opcional)</label>
         <input type="text" id="genNotes" placeholder="Escuela, grado, observaciones…" />
         <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;" id="genBtn">GENERAR Y REGISTRAR LICENCIA</button>
@@ -660,71 +638,26 @@ async function revokeDevice(id) {
 
 const OPCION_A_MEDIDA = '<option value="custom">A medida (indicar días)…</option>';
 
-async function loadUserSelectOptions(selectedEmail = '') {
-  const sel = $('genUserSelect');
-  if (!sel) return;
-  try {
-    const data = await api('GET', '/api/admin/users?limit=500');
-    const users = data.users || [];
-    if (!users.length) {
-      sel.innerHTML = '<option value="">No hay usuarios registrados en la base de datos</option>';
-      return;
-    }
-    sel.innerHTML = '<option value="">-- Seleccionar usuario de la lista --</option>' +
-      users.map(u => {
-        const nombre = [u.first_name, u.last_name].filter(Boolean).join(' ');
-        const label = `${u.email}` + (nombre ? ` (${nombre})` : '');
-        const isSel = selectedEmail && u.email.toLowerCase() === selectedEmail.toLowerCase() ? ' selected' : '';
-        return `<option value="${esc(u.email)}"${isSel}>${esc(label)}</option>`;
-      }).join('');
-    sel.onchange = () => {
-      if (sel.value) {
-        $('genEmail').value = sel.value;
-      }
-    };
-  } catch (err) {
-    sel.innerHTML = '<option value="">Error al cargar la lista de usuarios</option>';
-  }
-}
-
-function actualizarCamposLicenciaType() {
-  const isWeb = document.querySelector('input[name="genLicType"]:checked')?.value === 'web';
-  $('genHwidFila').classList.toggle('hidden', isWeb);
-  $('genWebUserFila').classList.toggle('hidden', !isWeb);
-  $('genHwid').required = !isWeb;
-  if (isWeb) {
-    loadUserSelectOptions($('genEmail').value);
-  }
-}
-
 async function loadDurations() {
-  document.querySelectorAll('input[name="genLicType"]').forEach(r => {
-    r.onchange = actualizarCamposLicenciaType;
-  });
-  actualizarCamposLicenciaType();
-
-  const sel = $('genDuration');
-  if (sel && !sel.options.length) {
-    try {
-      const data = await api('GET', '/api/admin/license-durations');
-      sel.innerHTML = Object.entries(data.durations)
-        .map(([k, d]) => `<option value="${k}">${esc(d.label)}</option>`)
-        .join('') + OPCION_A_MEDIDA;
-    } catch (err) {
-      sel.innerHTML = `
-        <option value="1">1 día (1,440 min uptime)</option>
-        <option value="2">3 meses (129,600 min uptime)</option>
-        <option value="3">6 meses (259,200 min uptime)</option>
-        <option value="4">12 meses (518,400 min uptime)</option>
-        <option value="5">Perpetua (ilimitada)</option>` + OPCION_A_MEDIDA;
-    }
+  if ($('genDuration').options.length) return;
+  try {
+    const data = await api('GET', '/api/admin/license-durations');
+    $('genDuration').innerHTML = Object.entries(data.durations)
+      .map(([k, d]) => `<option value="${k}">${esc(d.label)}</option>`)
+      .join('') + OPCION_A_MEDIDA;
+  } catch (err) {
+    $('genDuration').innerHTML = `
+      <option value="1">1 día (1,440 min uptime)</option>
+      <option value="2">3 meses (129,600 min uptime)</option>
+      <option value="3">6 meses (259,200 min uptime)</option>
+      <option value="4">12 meses (518,400 min uptime)</option>
+      <option value="5">Perpetua (ilimitada)</option>` + OPCION_A_MEDIDA;
   }
-
-  if (sel) {
-    sel.onchange = () => {
-      $('genDiasFila').classList.toggle('hidden', sel.value !== 'custom');
-    };
-  }
+  // El campo de días solo aparece al elegir "a medida", para no añadir una
+  // casilla más al formulario en el caso normal, que son los cinco escalones.
+  $('genDuration').onchange = () => {
+    $('genDiasFila').classList.toggle('hidden', $('genDuration').value !== 'custom');
+  };
 }
 
 async function doGenerate(e) {
@@ -733,17 +666,6 @@ async function doGenerate(e) {
   $('genBtn').disabled = true;
   $('genBtn').textContent = 'GENERANDO…';
   try {
-    const targetType = document.querySelector('input[name="genLicType"]:checked')?.value || 'desktop';
-    const emailStr = $('genEmail').value.trim().toLowerCase();
-    let hwidStr = $('genHwid').value.trim().toUpperCase();
-
-    if (targetType === 'web') {
-      if (!emailStr) throw new Error('Ingresa el correo electrónico del usuario registrado en la Web App.');
-      hwidStr = `WEB-${emailStr.toUpperCase()}`;
-    } else if (!hwidStr) {
-      throw new Error('Indica el Hardware ID del cliente.');
-    }
-
     // Con "a medida" se manda el número de días como duración: el servidor
     // acepta tanto los cinco escalones como un número suelto.
     let duracion = $('genDuration').value;
@@ -752,20 +674,24 @@ async function doGenerate(e) {
       if (!Number.isInteger(dias) || dias < 1 || dias > 36500) {
         throw new Error('Indica los días: un número entero entre 1 y 36500.');
       }
+      // Prefijo `d`: sin el, un 2 se leeria como el escalon trimestral y no
+      // habria forma de emitir una licencia de 2 dias.
       duracion = 'd' + dias;
     }
 
     const data = await api('POST', '/api/admin/licenses/generate', {
-      target_type: targetType,
-      hwid: hwidStr,
+      hwid: $('genHwid').value.trim().toLowerCase(),
+      contact_email: $('genHwid').value.trim().toLowerCase(),
       duration: duracion,
       capability: $('genCap').value,
+      // Modulos sueltos. Se manda siempre, aunque vaya vacio: el servidor solo
+      // escribe el campo en el payload firmado si trae algo, de modo que una
+      // licencia sin modulos sale identica a las emitidas antes de existir esto.
       mods: $('genModCreador2d').checked ? ['creador2d'] : [],
-      client_email: emailStr || null,
-      contact_email: emailStr || null,
+      contact_email: $('genHwid').value.trim().toLowerCase(),
       notes: $('genNotes').value.trim() || null,
     });
-    showMsg($('genMsg'), `Licencia ${targetType === 'web' ? 'Web' : 'de Escritorio'} generada y asignada exitosamente en el servidor.`);
+    showMsg($('genMsg'), 'Licencia generada y registrada en el servidor. Entrégala al cliente.');
     $('genToken').value = data.token;
     $('genResult').classList.remove('hidden');
     loadLicenses();
@@ -791,17 +717,6 @@ function copyToken() {
   showMsg($('genMsg'), 'Código copiado al portapapeles.');
 }
 
-function prepararLicenciaWeb(email) {
-  switchTab('generate');
-  const radioWeb = document.querySelector('input[name="genLicType"][value="web"]');
-  if (radioWeb) {
-    radioWeb.checked = true;
-    actualizarCamposLicenciaType();
-  }
-  $('genEmail').value = email;
-  showMsg($('genMsg'), `Emitiendo Licencia Web para ${email}. Selecciona el nivel de acceso, duración y módulos deseados.`);
-}
-
 async function loadUsers() {
   const q = $('userSearch').value.trim();
   const body = $('usersBody');
@@ -823,7 +738,6 @@ async function loadUsers() {
         <td>${u.completed_registration ? 'Completo' : 'Pendiente'}</td>
         <td class="muted">${fmtDate(u.created_at)}</td>
         <td><div class="actions">
-          <button class="btn btn-primary btn-sm" onclick="prepararLicenciaWeb('${esc(u.email)}')">🔑 Licencia Web</button>
           <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${esc(u.email)}')">Borrar</button>
         </div></td>
       </tr>`).join('');
@@ -880,7 +794,7 @@ async function loadLicenses() {
       return `
       <tr>
         <td class="mono">${esc(l.license_key)}</td>
-        <td class="mono muted">${esc(l.hwid)}</td>
+        <td class="mono muted text-purple-300 font-bold">${esc(l.contact_email || l.email || l.hwid)}</td>
         <td>
           <span class="badge active">${l.capability}</span>
           ${tiene2D ? '<span class="badge" style="background:#0284c7;color:#e0f2fe;font-size:10px;margin-left:4px;">Creador 2D</span>' : ''}
