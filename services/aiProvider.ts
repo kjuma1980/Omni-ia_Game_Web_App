@@ -148,6 +148,7 @@ export const ensureValidPngBase64DataUrl = async (input: string, width = 512, he
   return input;
 };
 
+
 /**
  * Extrae y sintetiza de forma clara los errores de ComfyUI (especialmente en
  * validación de nodos, modelos no encontrados en carpetas, tensores, etc.).
@@ -828,8 +829,6 @@ const generateImageRaw = async (
       mode === 'background'
         ? slotKeyForPerspective(uiState?.gameGenre || '')
         : slotKeyForAction(action),
-      'ASSETS',
-      mode === 'background' ? 'Mundos' : 'Sprites',
     );
 
     // A partir de aqui, IDENTICO a ComfyUI ---------------------------------
@@ -1724,92 +1723,6 @@ export const generateVideo = async (
   }
 };
 
-export const executeServerEdgeTTSFallback = async (
-  text: string,
-  voice: string,
-  lang: string = 'ES',
-  useSpainSpanish: boolean = false
-): Promise<{ data: string; mimeType: string }> => {
-  const VOICE_MAP_ES_MX: Record<string, string> = {
-    'Heroic Male': 'es-MX-JorgeNeural',
-    'Heroic Female': 'es-MX-DaliaNeural',
-    'Villainous Dark': 'es-MX-JorgeNeural',
-    'Wise Elder': 'es-MX-JorgeNeural',
-    'Young Adventurer': 'es-MX-DaliaNeural',
-    'Mystical Entity': 'es-MX-DaliaNeural',
-    'Robot/AI': 'es-MX-JorgeNeural',
-    'Normal Female': 'es-MX-DaliaNeural',
-    'Normal Male': 'es-MX-JorgeNeural',
-    'Duende Male': 'es-MX-JorgeNeural',
-    'Duende Female': 'es-MX-DaliaNeural',
-    'Little Boy': 'es-MX-JorgeNeural',
-    'Little Girl': 'es-MX-DaliaNeural'
-  };
-  const VOICE_MAP_ES_ES: Record<string, string> = {
-    'Heroic Male': 'es-ES-AlvaroNeural',
-    'Heroic Female': 'es-ES-ElviraNeural',
-    'Villainous Dark': 'es-ES-AlvaroNeural',
-    'Wise Elder': 'es-ES-AlvaroNeural',
-    'Young Adventurer': 'es-ES-ElviraNeural',
-    'Mystical Entity': 'es-ES-ElviraNeural',
-    'Robot/AI': 'es-ES-AlvaroNeural',
-    'Normal Female': 'es-ES-ElviraNeural',
-    'Normal Male': 'es-ES-AlvaroNeural',
-    'Duende Male': 'es-ES-AlvaroNeural',
-    'Duende Female': 'es-ES-ElviraNeural',
-    'Little Boy': 'es-ES-AlvaroNeural',
-    'Little Girl': 'es-ES-ElviraNeural'
-  };
-  const VOICE_MAP_EN: Record<string, string> = {
-    'Heroic Male': 'en-US-ChristopherNeural',
-    'Heroic Female': 'en-US-JennyNeural',
-    'Villainous Dark': 'en-US-SteffanNeural',
-    'Wise Elder': 'en-US-BrianNeural',
-    'Young Adventurer': 'en-US-MichelleNeural',
-    'Mystical Entity': 'en-US-AriaNeural',
-    'Robot/AI': 'en-US-GuyNeural',
-    'Normal Female': 'en-US-JennyNeural',
-    'Normal Male': 'en-US-ChristopherNeural',
-    'Duende Male': 'en-US-GuyNeural',
-    'Duende Female': 'en-US-JennyNeural',
-    'Little Boy': 'en-US-GuyNeural',
-    'Little Girl': 'en-US-JennyNeural'
-  };
-
-  const map = lang === 'EN' ? VOICE_MAP_EN : (useSpainSpanish ? VOICE_MAP_ES_ES : VOICE_MAP_ES_MX);
-  const mappedVoice = map[voice] || (lang === 'EN' ? 'en-US-JennyNeural' : 'es-MX-DaliaNeural');
-
-  const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
-
-  const edgeCleanText = text
-    .replace(/\[[^\]]+\]:?/g, '')
-    .replace(/\([^)]+\):?/g, '')
-    .replace(/\b(ES|EN|Voiceover|Narrator):?/gi, '')
-    .replace(/Diálogo\s*\/\s*Narrativa Dual:?/gi, '')
-    .replace(/Escena:?/gi, '')
-    .replace(/\n\s*\n+/g, '\n')
-    .trim();
-
-  if (invokeFn) {
-    const data = await enviarJsonLocal('http://localhost:5000/api/tts', { text: edgeCleanText || text, voice: mappedVoice }).catch(() => null);
-    if (data?.audio) return { data: data.audio, mimeType: 'audio/mp3' };
-  }
-
-  console.log("[Omni IA Game] Generando síntesis de voz en el servidor web Express (/api/tts)...");
-  const res = await fetch('/api/tts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: edgeCleanText || text, voice: mappedVoice })
-  });
-  if (!res.ok) {
-    const errTxt = await res.text().catch(() => '');
-    throw new Error(`Error en el servidor de voz web (/api/tts): ${res.status} ${errTxt}`);
-  }
-  const json = await res.json();
-  if (!json?.audio) throw new Error(json?.error || 'El servidor web no devolvió datos de voz.');
-  return { data: json.audio, mimeType: json.mimeType || 'audio/mp3' };
-};
-
 export const generateTTS = async (
   text: string,
   voice: string = 'Normal Male',
@@ -1918,8 +1831,6 @@ export const generateTTS = async (
     });
     return { data: b64, mimeType: 'audio/wav' };
   }
-
-
 
   if (provider === 'gemini') {
     const geminiVoice = VOICE_MAP_GEMINI[voice] || 'Fenrir';
@@ -2258,11 +2169,9 @@ export const generateTTS = async (
     const map = lang === 'EN' ? VOICE_MAP_EN : (useSpainSpanish ? VOICE_MAP_ES_ES : VOICE_MAP_ES_MX);
     mappedVoice = map[voice]?.local || (lang === 'EN' ? 'en-US-JennyNeural' : 'es-MX-DaliaNeural');
 
-    const isNativeDesktopApp = typeof (window as any).__TAURI_INTERNALS__ !== 'undefined' && 
-                               (window.location.protocol === 'tauri:' || window.location.hostname === 'tauri.localhost');
-    const invokeFn = isNativeDesktopApp ? ((window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke) : null;
+    const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
 
-    if (isNativeDesktopApp && invokeFn) {
+    if (invokeFn) {
       console.log("[Omni IA Game] On-Demand: Encendiendo Edge TTS...");
       // EL ERROR NO SE TRAGA. Iba a `console.error` y el usuario solo veia el
       // timeout de 15 s, que es el sintoma y no la causa: si `spawn` falla por
@@ -2308,31 +2217,13 @@ export const generateTTS = async (
         .replace(/\n\s*\n+/g, '\n')
         .trim();
 
-      if (isNativeDesktopApp && invokeFn) {
-        const data = await enviarJsonLocal(`${baseUrl}/api/tts`, { text: edgeCleanText || text, voice: mappedVoice });
-        if (!data?.audio) {
-          throw new Error(data?.error || 'TTS local falló en la generación.');
-        }
-        return { data: data.audio, mimeType: mimeType };
-      } else {
-        console.log("[Omni IA Game] Invocando Edge TTS nativo en el servidor Express web (/api/tts)...");
-        const res = await fetch('/api/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: edgeCleanText || text, voice: mappedVoice })
-        });
-        if (!res.ok) {
-          const errTxt = await res.text().catch(() => '');
-          throw new Error(`Error sintetizando voz en el servidor: ${res.status} ${errTxt}`);
-        }
-        const json = await res.json();
-        if (!json?.audio) {
-          throw new Error(json?.error || 'El servidor web no devolvió audio.');
-        }
-        return { data: json.audio, mimeType: json.mimeType || mimeType };
+      const data = await enviarJsonLocal(`${baseUrl}/api/tts`, { text: edgeCleanText || text, voice: mappedVoice });
+      if (!data?.audio) {
+        throw new Error(data?.error || 'TTS local falló en la generación.');
       }
+      return { data: data.audio, mimeType: mimeType };
     } finally {
-      if (isNativeDesktopApp && invokeFn) {
+      if (invokeFn) {
         console.log("[Omni IA Game] On-Demand: Apagando Edge TTS (Limpieza)...");
         await invokeFn('stop_edge_tts').catch((e: any) => console.error("Error al detener Edge TTS:", e));
       }
@@ -2383,8 +2274,6 @@ export const generateAtmosphere = async (
       'comfydeploy'
     );
   }
-
-
 
   if (provider === 'gemini') {
     return await geminiAtmosphere(prompt, apiKey, isSfx);
@@ -2768,46 +2657,37 @@ const extractFieldValue = (jsonStr: string, fieldName: string, nextFieldName?: s
   return decodeEscapeSequences(remaining.replace(/["}\s]+$/, '').trim());
 };
 
-const robustJSONParse = (raw: string): { positive?: string; negative?: string } => {
-  if (!raw || typeof raw !== 'string' || !raw.trim()) {
-    return { positive: "", negative: "" };
-  }
+export const robustJSONParse = (input: string): { positive: string; negative: string } => {
+  if (!input || typeof input !== 'string') return { positive: '', negative: '' };
 
-  let cleaned = raw
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/<think>[\s\S]*/gi, '')
-    .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
-    .replace(/<thought>[\s\S]*/gi, '')
-    .replace(/```json\s*/gi, '')
-    .replace(/```\s*/g, '')
-    .trim();
+  let cleaned = input.trim();
 
-  if (!cleaned) {
-    return { positive: "", negative: "" };
+  // 0. Quitar bloques de razonamiento/pensamiento de DeepSeek (<think>, <thought>, <reasoning>)
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  cleaned = cleaned.replace(/<thought>[\s\S]*?<\/thought>/gi, '');
+  cleaned = cleaned.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
+
+  // Si la respuesta contiene bloques de código Markdown ```json ... ```, extraerlos
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    cleaned = codeBlockMatch[1].trim();
   }
 
   const formatValue = (val: any): string => {
-    if (val === undefined || val === null) return "";
+    if (val === undefined || val === null) return '';
     if (typeof val === 'string') return val.trim();
     if (Array.isArray(val)) return val.map(v => String(v).trim()).filter(Boolean).join(', ');
     if (typeof val === 'object') return Object.values(val).map(v => String(v).trim()).filter(Boolean).join(', ');
     return String(val).trim();
   };
 
-  // Pre-sanitizador: escapar saltos de línea y tabulaciones literales dentro de cadenas entre comillas
-  const sanitizedJsonCandidate = cleaned
-    .replace(/,\s*([\}\]])/g, '$1')
-    .replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/gs, (match) => {
-      return match
-        .replace(/\r?\n/g, '\\n')
-        .replace(/\r/g, '\\r')
-        .replace(/\t/g, '\\t');
-    });
-
-  // 1. Intento con JSON.parse nativo usando la cadena pre-sanitizada o la limpia
-  for (const candidate of [sanitizedJsonCandidate, cleaned]) {
+  // Si el texto incluye un objeto JSON entre { y }, intentar extraerlo primero aislándolo de cualquier pensamiento previo
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const jsonCandidate = cleaned.substring(firstBrace, lastBrace + 1);
     try {
-      const obj = JSON.parse(candidate);
+      const obj = JSON.parse(jsonCandidate);
       if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
         const posVal = obj.positive 
           ?? obj.positive_keywords 
@@ -2833,9 +2713,52 @@ const robustJSONParse = (raw: string): { positive?: string; negative?: string } 
           }
         }
       }
-    } catch (_) {
-      // Intentar el siguiente candidato silenciosamente
+    } catch {
+      // Extracción heurística directa si JSON.parse falló por comillas o caracteres especiales
+      const extPos = extractFieldValue(jsonCandidate, 'positive', 'negative');
+      const extNeg = extractFieldValue(jsonCandidate, 'negative');
+      if (extPos || extNeg) {
+        return { positive: extPos, negative: extNeg };
+      }
     }
+  }
+
+  // 0. Si el texto no empieza por { ni [, limpiar líneas de razonamiento de DeepSeek (#We need answer...) antes de usar texto plano
+  if (cleaned.length > 0 && !cleaned.startsWith('{') && !cleaned.startsWith('[')) {
+    let plainCleaned = cleaned.split('\n').filter(line => !line.trim().startsWith('#') && !/^(?:We need|Constraint Check|Need comply|Drafting|Self-Correction)/i.test(line.trim())).join('\n').trim();
+    return { positive: plainCleaned || cleaned, negative: "" };
+  }
+
+  // 1. Intento con JSON.parse nativo tolerante a variantes de claves
+  try {
+    const obj = JSON.parse(cleaned);
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+      const posVal = obj.positive 
+        ?? obj.positive_keywords 
+        ?? obj.positive_prompt 
+        ?? obj.prompt 
+        ?? obj.positivePrompt 
+        ?? obj.refined_prompt 
+        ?? obj.output 
+        ?? obj.result;
+      const negVal = obj.negative 
+        ?? obj.negative_keywords 
+        ?? obj.negative_prompt 
+        ?? obj.negativePrompt 
+        ?? obj.negative_exclusions 
+        ?? obj.exclusions 
+        ?? "";
+
+      if (posVal !== undefined || negVal !== undefined) {
+        const posStr = formatValue(posVal);
+        const negStr = formatValue(negVal);
+        if (posStr || negStr) {
+          return { positive: posStr, negative: negStr };
+        }
+      }
+    }
+  } catch {
+    // Continuar a la extracción heurística
   }
 
   // 2. Extracción heurística tolerante a comillas dobles internas y claves variantes
@@ -3414,7 +3337,7 @@ Generate the professional prompts in JSON format:`;
   const provider = useText ? activeTextProvider : (pe.provider && pe.provider !== 'gemini' ? pe.provider : activeTextProvider);
   const apiKey = useText 
     ? (settings?.text?.apiKeys?.[provider] || settings?.text?.apiKey || settings?.ollama?.apiKey || (settings as any)?.geminiApiKey) 
-    : (pe.apiKeys?.[provider] || pe.apiKey || settings?.text?.apiKeys?.[provider] || (settings as any)?.geminiApiKey);
+    : (settings?.text?.apiKeys?.[provider] || pe.apiKeys?.[provider] || pe.apiKey || settings?.text?.apiKey || (settings as any)?.geminiApiKey);
   const baseUrl = useText 
     ? (settings?.text?.baseUrl || (provider === 'ollama' ? settings?.ollama?.baseUrl : ''))
     : (pe.baseUrl || settings?.text?.baseUrl || (provider === 'ollama' ? settings?.ollama?.baseUrl : ''));
@@ -3557,7 +3480,7 @@ Generate the professional prompts in JSON format:`;
           let terms = neg.split(',').map((t: string) => t.trim()).filter(Boolean);
           terms = terms.filter((term: string) => {
             const low = term.toLowerCase();
-            return !forbiddenInNegative.some((item: string) => low === item || low.includes(item));
+            return !forbiddenInNegative.some(f => low === f || low.includes(f));
           });
           
           // Deduplicar términos manteniendo el orden
@@ -3689,8 +3612,6 @@ export const generate3DModel = async (
   const model = settings?.threeD?.model || 'tripo-v2.0';
 
   const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
-
-
 
   if (provider === 'comfyui' || provider === 'a1111') {
     const resPayload = await generateLocal3DModel(
