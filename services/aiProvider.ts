@@ -1184,7 +1184,11 @@ const generateImageRaw = async (
         // Solo se toca en modo mundo y solo si la interfaz pide una resolución
         // concreta: los sprites siguen usando exactamente lo que diga su
         // workflow, que es lo que ya funciona.
-        const requestedSize = uiState?.useProceduralWorld ? uiState?.worldResolution : undefined;
+        const rawWorldSize = uiState?.worldResolution;
+        const requestedSize = (typeof rawWorldSize === 'number' && rawWorldSize > 0)
+          ? rawWorldSize
+          : (mode === 'background' ? 1024 : undefined);
+
         if (typeof requestedSize === 'number' && requestedSize > 0) {
           const { width: targetW, height: targetH } = computeDimensions(
             requestedSize,
@@ -1212,7 +1216,7 @@ const generateImageRaw = async (
               node.inputs.width = targetW;
               node.inputs.height = targetH;
               console.log(
-                `[Omni IA Game] Injecting output size ${targetW}x${targetH} into node ${id} (${node.class_type})`,
+                `[Omni IA Game] Injecting output size ${targetW}x${targetH} (${uiState?.worldAspect || '1:1'}) into node ${id} (${node.class_type})`,
               );
             }
           }
