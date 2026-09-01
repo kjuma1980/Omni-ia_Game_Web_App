@@ -12,7 +12,7 @@ export interface UpdateManifest {
   pubDate?: string;
 }
 
-export const CURRENT_VERSION = '0.2.9';
+export const CURRENT_VERSION = '0.3.0';
 const PRIMARY_UPDATE_URL = 'https://fenixdev.cloud/updates.json';
 const FALLBACK_UPDATE_URL = 'https://fenixdev.cloud/api/updates/check/';
 const FALLBACK_UPDATE_URL_ALT = 'https://fenixdev.cloud/api/updates/check';
