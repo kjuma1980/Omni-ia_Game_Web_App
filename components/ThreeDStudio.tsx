@@ -7,6 +7,8 @@ import Tooltip from './Tooltip';
 import { safeImageSrc } from '../services/localService';
 import PencilSparkleAnimation from './PencilSparkleAnimation';
 
+import { showToast } from '../utils/toast';
+
 interface ThreeDStudioProps {
   state: ProjectData['threeDState'];
   updateState: (updates: Partial<ProjectData['threeDState']>) => void;
@@ -135,7 +137,9 @@ const ThreeDStudio: React.FC<ThreeDStudioProps> = ({ state, updateState, apiSett
           filename: filename,
           format: ext
         });
-        alert(result);
+        if (result && typeof result === 'string') {
+          showToast(result);
+        }
       } else {
         // Fallback standard browser download
         const a = document.createElement('a');

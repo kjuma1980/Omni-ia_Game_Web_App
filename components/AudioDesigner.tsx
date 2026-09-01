@@ -7,6 +7,8 @@ import { audioBufferToWav } from '../utils/audioUtils';
 import Tooltip from './Tooltip';
 import PencilSparkleAnimation from './PencilSparkleAnimation';
 
+import { showToast } from '../utils/toast';
+
 interface AudioDesignerProps {
   state: ProjectData['audioState'];
   updateState: (updates: Partial<ProjectData['audioState']>) => void;
@@ -419,46 +421,26 @@ const AudioDesigner: React.FC<AudioDesignerProps> = ({ state, updateState, apiSe
     reader.readAsDataURL(blob);
     reader.onloadend = async () => {
       const base64data = reader.result as string;
-      const isNativeDesktopApp = typeof (window as any).__TAURI_INTERNALS__ !== 'undefined' && 
-                                 (window.location.protocol === 'tauri:' || window.location.hostname === 'tauri.localhost');
-      const invokeFn = isNativeDesktopApp ? ((window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke) : null;
+      const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
 
       if (invokeFn) {
         try {
-          await invokeFn('save_audio_file', {
+          const res = await invokeFn('save_audio_file', {
             b64Data: base64data,
             filename: filename,
             format: ext
           });
-          if (downloadFormat === 'MP3') {
-            alert("Audio guardado. Nota: El formato real interno es WAV de alta calidad.");
+          if (res && typeof res === 'string') {
+            showToast(res);
           } else {
-            alert("Audio guardado con éxito.");
+            showToast(`Audio guardado con éxito en ${ext.toUpperCase()}`);
           }
         } catch (e: any) {
           if (e !== "Operación cancelada por el usuario" && e !== "Operation cancelled by user") {
-            alert("Error al guardar el audio: " + e);
+            showToast("Error al guardar el audio: " + e, 'error');
           }
         }
       } else {
-        if ('showSaveFilePicker' in window) {
-          try {
-            const handle = await (window as any).showSaveFilePicker({
-              suggestedName: filename,
-              types: [{
-                description: 'Audio File',
-                accept: { 'audio/wav': ['.wav'], 'audio/mp3': ['.mp3'] }
-              }]
-            });
-            const writable = await handle.createWritable();
-            await writable.write(blob);
-            await writable.close();
-            return;
-          } catch (err: any) {
-            if (err.name === 'AbortError') return; // Cancelado por el usuario
-          }
-        }
-
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;

@@ -16,7 +16,7 @@ import OllamaInstaller from './components/OllamaInstaller';
 import LlamaModelInstaller from './components/LlamaModelInstaller';
 import Tooltip from './components/Tooltip';
 import AuthScreen, { clearStoredAuth, getAuthServerUrl, readStoredEmail, readStoredToken } from './components/AuthScreen';
-import { Box, Code, Music, Globe, ScrollText, Activity, Save, FolderOpen, Trash2, Plus, Settings, Power, Zap, Terminal, X, HelpCircle, Users, Sparkles, Loader2 } from 'lucide-react';
+import { Box, Code, Music, Globe, ScrollText, Activity, Save, FolderOpen, Trash2, Plus, Settings, Power, Zap, Terminal, X, HelpCircle, Users, Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
 import { publicarWorkflows } from './services/publicarWorkflows';
 import { getServices } from './modules/creador2d/state/services';
 import { processAssetsBase64, ensureAssetBase64 } from './utils/imageUtils';
@@ -25,6 +25,7 @@ import UpdateModal from './components/UpdateModal';
 import { getLlamaServerState, stopLlamaServer } from './services/llamaServerService';
 import { comfyWS } from './services/comfyWebSocket';
 import { exportarProyectoOmni, importarProyectoOmni, esArchivoOmni } from './services/omniCrypto';
+import { showToast } from './utils/toast';
 
 // Conectar WebSocket directo a la URL de ComfyUI para recibir logs en tiempo real sin latencia ni pasar por OmniDeploy
 
@@ -357,6 +358,24 @@ const App: React.FC = () => {
   }
 
   const [licenseDetails, setLicenseDetails] = useState<LicenseDetails | null>(null);
+  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
+
+  useEffect(() => {
+    let timer: any = null;
+    const handleToastEvent = (e: any) => {
+      if (timer) clearTimeout(timer);
+      setToast(e.detail);
+      timer = setTimeout(() => {
+        setToast(null);
+      }, 1500);
+    };
+
+    window.addEventListener('omni-toast', handleToastEvent);
+    return () => {
+      window.removeEventListener('omni-toast', handleToastEvent);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
   const [licenseChecked, setLicenseChecked] = useState(false);
   const [updateManifest, setUpdateManifest] = useState<UpdateManifest | null>(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
@@ -1346,12 +1365,12 @@ const currentInstanceIdRef = useRef<string>(getPersistentInstanceId());
         filename,
       });
 
-      if (result && typeof result === 'string' && result.includes('con éxito')) {
-        // Opcional: mostrar notificación o alert
+      if (result && typeof result === 'string') {
+        showToast(result);
       }
     } catch (e) {
       console.error('Save failed', e);
-      alert('Error al guardar el proyecto cifrado .omni.');
+      showToast('Error al guardar el proyecto cifrado .omni.', 'error');
     }
   };
 
@@ -2025,6 +2044,22 @@ const currentInstanceIdRef = useRef<string>(getPersistentInstanceId());
         updateData={updateManifest || { hasUpdate: false, version: '0.2.9', notes: [], url: '' }}
         showTooltips={project.showTooltips}
       />
+
+      {/* Toast Flotante Efímero (1.5s sin bloqueo) */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[9999] pointer-events-none animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <div className={`px-4 py-3 rounded-lg shadow-2xl border backdrop-blur-md flex items-center gap-3 text-xs font-mono max-w-md ${
+            toast.type === 'error'
+              ? 'bg-red-950/95 text-red-200 border-red-700/80 shadow-red-950/50'
+              : 'bg-slate-900/95 text-emerald-400 border-emerald-500/60 shadow-emerald-950/50'
+          }`}>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div className="break-words font-semibold">
+              {toast.message}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

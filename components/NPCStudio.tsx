@@ -5,6 +5,8 @@ import Tooltip from './Tooltip';
 import { refinePrompt, generateText } from '../services/aiProvider';
 import PencilSparkleAnimation from './PencilSparkleAnimation';
 
+import { showToast } from '../utils/toast';
+
 interface NPCStudioProps {
   state: NPCState | undefined;
   updateState: (updates: Partial<NPCState>) => void;
@@ -943,11 +945,14 @@ void UNPCGameBrain::EvaluateAffinitiesLocally(const FString& PlayerMsg, const FS
         // Obtenemos la extensión correspondiente (ej: cs, gd, h, json)
         const ext = filename.split('.').pop() || 'txt';
         // En entorno Tauri, usamos el comando nativo save_text_file que admite filtros de extensión dinámicos
-        await invokeFn('save_text_file', {
+        const res = await invokeFn('save_text_file', {
           content: content,
           filename: filename,
           extension: ext
         });
+        if (res && typeof res === 'string') {
+          showToast(res);
+        }
         return;
       }
     } catch (e) {

@@ -35,7 +35,7 @@ import {
   type LibraryEntry,
 } from '../services/workflowLibrary';
 import { publicarWorkflows } from '../services/publicarWorkflows';
-import { generateImage, refinePrompt, ensureValidPngBase64DataUrl } from '../services/aiProvider';
+import { generateImage, refinePrompt } from '../services/aiProvider';
 import { safeImageSrc } from '../utils/imageUtils';
 import PencilSparkleAnimation from './PencilSparkleAnimation';
 import {
@@ -71,6 +71,8 @@ import Tooltip from './Tooltip';
 const WorldForge2D = lazy(() => import('../modules/creador2d/WorldForge2D'));
 // Dialogo para dar de alta un sprite generado como bloque del Creador 2D.
 const SendToCreador2D = lazy(() => import('../modules/creador2d/SendToCreador2D'));
+
+import { showToast } from '../utils/toast';
 
 interface AssetGeneratorProps {
   assets: GeneratedAsset[];
@@ -273,14 +275,14 @@ const AssetGenerator: React.FC<AssetGeneratorProps> = ({ assets, setAssets, stat
     try {
       const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
 
-      const cleanB64 = await ensureValidPngBase64DataUrl(imageUrl);
-
       if (invokeFn) {
         const result = await invokeFn('save_image', {
-          b64Data: cleanB64,
+          b64Data: imageUrl,
           filename: `asset-${id}.png`
         });
-        alert(result);
+        if (result && typeof result === 'string') {
+          showToast(result);
+        }
         return;
       }
 
@@ -693,7 +695,7 @@ const AssetGenerator: React.FC<AssetGeneratorProps> = ({ assets, setAssets, stat
       }
     } catch (error: any) {
       console.error("Asset generation failed:", error);
-      alert(`Error creando asset: ${error.message || error}`);
+      alert(`Error creando asset: ${error.message || error}. Verifique su conexión con ComfyUI.`);
     } finally {
       // Red de seguridad: si algo lanzo antes de limpiarlo, aqui se cierra.
       if (progressIntervalRef.current) {

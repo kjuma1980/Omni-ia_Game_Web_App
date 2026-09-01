@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import Tooltip from './Tooltip';
 import { generateText, refinePrompt } from '../services/aiProvider';
 import { ChatMessage, ProjectData } from '../types';
-import { Terminal, Send, Code2, Copy, Server, Wand2, Loader2, Download, Info, Square } from 'lucide-react';
+import { Terminal, Send, Code2, Copy, Server, Wand2, Loader2, Download, Info, Square, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import PencilSparkleAnimation from './PencilSparkleAnimation';
+
+import { showToast } from '../utils/toast';
 
 interface CodeAssistantProps {
   state: ProjectData['codeState'];
@@ -35,6 +37,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ state, updateState, apiSe
   const { messages, input } = state;
   const [loading, setLoading] = useState(false);
   const [refining, setRefining] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const abortRefineRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -166,11 +169,14 @@ protected:
       const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
       if (invokeFn) {
         // Usar comando nativo de Rust save_text_file registrado para el proyecto
-        await invokeFn('save_text_file', {
+        const res = await invokeFn('save_text_file', {
           content: scriptContent,
           filename: fullFilename,
           extension: extension
         });
+        if (res && typeof res === 'string') {
+          showToast(res);
+        }
         return;
       }
     } catch (e) {
@@ -210,12 +216,33 @@ protected:
             <Terminal className="w-5 h-5 animate-pulse" />
             <span>SCRIPTS_COMPILER_V1.0</span>
           </div>
-          <div className="flex items-center gap-4 text-xs font-mono">
+          <div className="flex items-center gap-3 text-xs font-mono">
             <span className="flex items-center gap-1.5 text-emerald-500">
               <Server className="w-3.5 h-3.5" />
               {isCloud ? 'CLOUD_CORE' : 'LOCAL_CORE'}: {codeProvider.toUpperCase()} ({codeModel})
             </span>
             <span className="text-slate-600 hidden md:inline">META_XR_SDK // AR_FOUNDATION</span>
+            <Tooltip id="codeClearTabBtn" inline showTooltips={showTooltips}>
+              <button
+                onClick={() => {
+                  if (!confirmClear) {
+                    setConfirmClear(true);
+                    setTimeout(() => setConfirmClear(false), 3000);
+                    return;
+                  }
+                  updateState({ messages: [], input: '' });
+                  setConfirmClear(false);
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono font-bold rounded border transition-all ${
+                  confirmClear 
+                    ? 'bg-red-600 text-white border-red-500 animate-pulse' 
+                    : 'bg-red-950/40 hover:bg-red-900/40 text-red-400 border-red-800/40 hover:border-red-600/60'
+                }`}
+              >
+                <X className="w-3 h-3" />
+                {confirmClear ? '¿CONFIRMAR LIMPIAR?' : 'LIMPIAR TAB'}
+              </button>
+            </Tooltip>
           </div>
         </div>
 
