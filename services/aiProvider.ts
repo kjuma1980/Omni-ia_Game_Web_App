@@ -2657,6 +2657,26 @@ const extractFieldValue = (jsonStr: string, fieldName: string, nextFieldName?: s
   return decodeEscapeSequences(remaining.replace(/["}\s]+$/, '').trim());
 };
 
+/**
+ * Detecta si la idea del usuario solicita explícitamente una entidad o personaje femenino.
+ */
+export function isExplicitlyFemale(text: string): boolean {
+  if (!text || typeof text !== 'string') return false;
+  const lower = text.toLowerCase();
+  const femaleTerms = [
+    'mujer', 'chica', 'dama', 'guerrera', 'elfa', 'bruja', 'hechicera', 'princesa',
+    'reina', 'diosa', 'heroína', 'niña', 'señora', 'maga', 'arquera', 'sacerdotisa',
+    'valquiria', 'vampiresa', 'sirena', 'hada', 'ninfa', 'emperatriz', 'señorita',
+    'female', 'woman', 'girl', 'lady', 'heroine', 'queen', 'goddess', 'witch',
+    'sorceress', 'enchantress', 'priestess', 'valkyrie', 'vampirette', 'mermaid',
+    'nymph', 'empress', 'waitress', 'actress'
+  ];
+  return femaleTerms.some(term => {
+    const regex = new RegExp(`\\b${term}\\b`, 'i');
+    return regex.test(lower);
+  });
+}
+
 export const robustJSONParse = (input: string): { positive: string; negative: string } => {
   if (!input || typeof input !== 'string') return { positive: '', negative: '' };
 
@@ -3282,6 +3302,11 @@ Generate the professional prompts in JSON format:`;
     const pose = describePose(action);
     const negativeDirective = pose?.negative ?? 'off-center';
     const isObject = (action || '').trim().toLowerCase() === 'static object';
+    const userIsFemale = isExplicitlyFemale(userIdea);
+    const genderDirective = !userIsFemale && !isObject
+      ? `CRITICAL GENDER & ANATOMY DIRECTIVE: The user's idea ("${userIdea}") does NOT explicitly request a female character. You MUST describe the subject using male anatomy (e.g. "male character", "masculine posture", "male body structure") or gender-neutral non-female creature/robot forms. Even if describing a slender, delicate, or graceful subject, strictly use male or gender-neutral non-female anatomy. Do NOT output female gender terms (woman, female, girl, lady) or female anatomy (breasts, cleavage, feminine hips).`
+      : '';
+    const genderNegativeExclusions = !userIsFemale && !isObject ? ', female, woman, breasts, cleavage, feminine features, female anatomy' : '';
 
     if (isCustomSceneMode) {
       systemPrompt = `You are a world-class concept artist, video game illustrator, and Stable Diffusion prompt engineer.
@@ -3294,9 +3319,9 @@ RULES:
 4. Describe vivid environment elements: terrain, horizon, sky/space, atmospheric lighting, volumetric depth, and ambient colors.
 5. The positive prompt MUST match the artistic style "${style}" precisely. Its defining traits are: ${describeStyle(style).positive}. You MUST weave these exact traits into the positive prompt.
 6. ABSOLUTELY FORBIDDEN to output isolation or studio phrases like "isolated", "white background", "green screen", "flat backdrop", "neutral environment", "shadowless", "no ground plane", or "studio floor". The scene must be full, rich, and colorful.
-7. ${isObject ? 'Focus on the object integrated into its setting.' : `Focus on the character design, dynamic ${action} stance, and surrounding environment.`} ${actionDirective}
+7. ${isObject ? 'Focus on the object integrated into its setting.' : `Focus on the character design, dynamic ${action} stance, and surrounding environment.`} ${actionDirective} ${genderDirective}
 8. PRESERVE and EXPAND all specific character and environment details the user mentions.
-9. For the negative prompt, protect the chosen style: "${describeStyle(style).negative}, blurry, low quality, distorted, duplicate, cropped, out of frame, cut off, sticker, white border, capsule background, badge, watermark, text, signature". DO NOT exclude ground, terrain, floor, shadows, lighting, or scenery from the negative prompt.
+9. For the negative prompt, protect the chosen style: "${describeStyle(style).negative}, blurry, low quality, distorted, duplicate, cropped, out of frame, cut off, sticker, white border, capsule background, badge, watermark, text, signature${genderNegativeExclusions}". DO NOT exclude ground, terrain, floor, shadows, lighting, or scenery from the negative prompt.
 10. Write the prompts in ENGLISH, as natural flowing descriptive clauses. Raw JSON only.
 
 Example Output format:
@@ -3311,11 +3336,11 @@ RULES:
 3. Use specific artistic terminology: composition, lighting, color palette, texture, atmosphere, materials.
 4. Include quality boosters in the positive prompt: "masterpiece", "ultra detailed", "professional illustration", "8k resolution".
 5. The positive prompt MUST match the artistic style "${style}" precisely. Its defining traits are: ${describeStyle(style).positive}. You MUST weave these exact traits into the positive prompt.
-6. ${isObject ? 'Focus on the object itself: its form, materials, construction and wear.' : `Focus on character design, the ${action} pose and correct proportions.`} ${spriteBgDirective} ${actionDirective}
+6. ${isObject ? 'Focus on the object itself: its form, materials, construction and wear.' : `Focus on character design, the ${action} pose and correct proportions.`} ${spriteBgDirective} ${actionDirective} ${genderDirective}
 7. CRITICAL SHADOW & STUDIO EXCLUSION RULE: For isolated sprites, the generated subject MUST be completely shadowless on a clean flat solid background. DO NOT output words like "shadow", "shadows", "shadowless", "shading", "ambient occlusion", "chroma key", "chromakey", "green screen", "studio", "studio floor", or "lighting" in the positive prompt key. ${isChromaBg ? 'Describe the green background strictly as "single uniform solid flat green background (hex #00FF00)".' : 'Describe the background strictly as "isolated subject on a pure solid white background".'} ${is3DStyle ? 'Describe the asset using 3D terms like "clean studio illumination", "neutral environment", "isolated 3D character asset", and "diffuse even ambient illumination".' : 'Describe the asset using terms like "unlit 2D asset", "flat solid color palette", "2D game sprite asset", and "diffuse even ambient illumination".'} Place all shadow and studio floor terms ONLY inside the "negative" prompt key.
 8. ABSOLUTE SPRITE FRAMING RULE: The subject MUST be centered in the canvas, fully visible from head to toe without cropped limbs, isolated on the solid background. NEVER align off-center.
 9. PRESERVE all specific elements the user mentions.
-10. For the negative prompt, keep user's current negative terms as base and add: "${describeStyle(style).negative}, shadow, drop shadow, ground shadow, cast shadow, ambient occlusion, floor shadow, green screen studio, studio floor, green shadow, off-center, left aligned, right aligned, left side, sticker, white border, white outline, capsule background, badge, framing${negativeDirective ? `, ${negativeDirective}` : ''}".
+10. For the negative prompt, keep user's current negative terms as base and add: "${describeStyle(style).negative}, shadow, drop shadow, ground shadow, cast shadow, ambient occlusion, floor shadow, green screen studio, studio floor, green shadow, off-center, left aligned, right aligned, left side, sticker, white border, white outline, capsule background, badge, framing${negativeDirective ? `, ${negativeDirective}` : ''}${genderNegativeExclusions}".
 11. Write the prompts in ENGLISH, as natural flowing descriptive clauses. Raw JSON only.
 
 Example Output format:
@@ -3497,6 +3522,15 @@ Generate the professional prompts in JSON format:`;
         } else if (mode === 'background' || mode === 'sprite') {
           const styleInfo = typeof describeStyle === 'function' ? describeStyle(style) : { positive: '', negative: '' };
           neg = currentNegative || styleInfo.negative || "";
+        }
+
+        if (mode === 'sprite' && !isExplicitlyFemale(userIdea)) {
+          const femaleAdditions = ['female', 'woman', 'breasts', 'cleavage'];
+          const existingLower = neg.toLowerCase();
+          const missing = femaleAdditions.filter(term => !existingLower.includes(term));
+          if (missing.length > 0) {
+            neg = neg ? `${neg}, ${missing.join(', ')}` : missing.join(', ');
+          }
         }
 
         return {
