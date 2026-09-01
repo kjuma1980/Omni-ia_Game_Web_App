@@ -3219,16 +3219,17 @@ RULES:
    has been lived in and shaped over time, with reasons behind where things sit:
    the path goes where people walk, the village grew where the water is. Avoid
    the tidy, freshly-built, showroom look of a diorama.
-5. Positive prompt must be in ENGLISH, dense and highly detailed, written as
+5. ENVIRONMENTAL METAPHOR SAFETY RULE: When describing natural environments, trees, rocks, architecture, or atmospheric elements with spooky or anthropomorphic metaphors (e.g. "branches like hands", "faces in trees", "eyes in darkness"), NEVER output literal human or robotic body nouns in English (such as "hands", "arms", "human faces", "robot limbs", "body parts"). Always translate them into inanimate material descriptions (e.g. "gnarled wooden boughs twisting into claw-like branch tendrils", "knotty tree bark with haunting face-like wood grain patterns") to prevent image models from drawing literal human or robotic limbs on the landscape.
+6. Positive prompt must be in ENGLISH, dense and highly detailed, written as
    comma-separated descriptive clauses.
-6. NEVER write raw configuration keys or identifiers in the output. Words like
+7. NEVER write raw configuration keys or identifiers in the output. Words like
    "topdown_34", "organic", "parallax_midground" or "full_scene" are internal
    codes and must NEVER appear in the prompt: describe what they MEAN instead.
-7. Negative prompt must be in ENGLISH and must combine, in this order:
+8. Negative prompt must be in ENGLISH and must combine, in this order:
    a) The user's existing negative terms: "${baseNegative || 'none'}".
    b) Exclusions that protect the chosen style: ${styleGuide.negative}.
    c) Exclusions that protect the framing, the naturalness and the legibility of
-      the map — you MUST include all of these: ${worldRules.negatives}.
+      the map — you MUST include all of these: ${worldRules.negatives}, literal human hands, robot arms, mechanical limbs, standalone arms.
    d) ${
      emptyScene
        ? 'Living-entity exclusions: characters, humans, people, NPCs, animals, creatures.'
