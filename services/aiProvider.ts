@@ -3494,6 +3494,9 @@ Generate the professional prompts in JSON format:`;
             }
           }
           neg = cleanTerms.join(', ');
+        } else if (mode === 'background' || mode === 'sprite') {
+          const styleInfo = typeof describeStyle === 'function' ? describeStyle(style) : { positive: '', negative: '' };
+          neg = currentNegative || styleInfo.negative || "";
         }
 
         return {

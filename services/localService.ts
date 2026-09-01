@@ -17,23 +17,28 @@ const getHeaders = (apiKey?: string) => {
 
 // SEGURIDAD (auditoría 2026-07-20): enruta las llamadas cloud por el proxy nativo de Rust
 // cuando la app corre en Tauri, para que las API keys no viajen desde el webview (visibles en DevTools).
-// Fallback a fetch directo únicamente en modo navegador (desarrollo web fuera de Tauri).
+// Fallback a fetch directo únicamente en modo navegador (desarrollo web fuera de Tauri)
 const fetchJsonSecure = async (
   url: string,
   headers: Record<string, string>,
-  body: unknown,
+  body?: unknown,
   signal?: AbortSignal
 ): Promise<any> => {
   if (signal?.aborted) {
     throw new DOMException('Aborted by user', 'AbortError');
   }
-  const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
+  const method = body ? 'POST' : 'GET';
+  const invokeFn = (window as any).__TAURI__?.core?.invoke || 
+                   (window as any).__TAURI__?.invoke || 
+                   (window as any).__TAURI_INTERNALS__?.invoke ||
+                   (window as any).__TAURI_INVOKE__;
+
   if (invokeFn) {
     try {
       const invokePromise = invokeFn('proxy_request', {
         url,
-        method: 'POST',
-        payload: body,
+        method,
+        payload: body || null,
         headers
       });
       let resStr: any;
@@ -65,36 +70,10 @@ const fetchJsonSecure = async (
         throw new DOMException('Aborted by user', 'AbortError');
       }
       const msg = typeof e === 'string' ? e : (e?.message || String(e));
+      throw new Error(msg.substring(0, 300));
     }
   }
 
-  if (!invokeFn) {
-    const method = body ? 'POST' : 'GET';
-    const proxyRes = await fetch('/api/proxy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        targetUrl: url,
-        method,
-        headers,
-        payload: body
-      }),
-      signal
-    });
-
-    if (!proxyRes.ok) {
-      const errText = await proxyRes.text().catch(() => '');
-      let errJson: any;
-      try {
-        errJson = JSON.parse(errText);
-      } catch {}
-      const errMsg = errJson?.error?.message || errJson?.error || errText.substring(0, 250) || `Error HTTP ${proxyRes.status}`;
-      throw new Error(errMsg);
-    }
-    return await proxyRes.json();
-  }
-
-  const method = body ? 'POST' : 'GET';
   const fetchOptions: RequestInit = {
     method,
     headers,
@@ -239,18 +218,8 @@ export const getOllamaModels = async (baseUrl: string = 'http://localhost:11434'
     const data = await pedirJsonLocal(`${cleanBaseUrl}/api/tags`);
     return data.models || [];
   } catch (error) {
-    const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke || (window as any).webBridgeInvoke;
-    if (invokeFn) {
-      try {
-        const raw = await invokeFn('proxy_request', { url: `${cleanBaseUrl}/api/tags`, method: 'GET' });
-        const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        if (data && Array.isArray(data.models)) return data.models;
-      } catch (bridgeErr) {
-        console.warn("Ollama bridge fallback failed:", bridgeErr);
-      }
-    }
     console.error("Ollama connection error:", error);
-    return [];
+    throw error;
   }
 };
 
@@ -527,7 +496,7 @@ export const generateAnthropicCompletion = async (prompt: string, system: string
   return data.content?.map((b: any) => b.text).join('\n') || 'No response from Anthropic.';
 };
 
-// OpenAI / DeepSeek / OpenRouter / CometAPI Chat Completions API (compatible format)
+// OpenAI / DeepSeek / OpenRouter / CometAPI / NVIDIA Chat Completions API (compatible format)
 export const generateOpenAICompletion = async (
   prompt: string, 
   system: string, 
@@ -545,7 +514,7 @@ export const generateOpenAICompletion = async (
   let model = modelOverride || '';
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${apiKey}`
+    'Authorization': `Bearer ${apiKey.trim()}`
   };
 
   if (provider === 'openai') {
@@ -570,7 +539,7 @@ export const generateOpenAICompletion = async (
     if (!model || model === 'custom') model = 'gpt-4o-mini';
   } else if (provider === 'nvidia') {
     baseUrl = 'https://integrate.api.nvidia.com/v1/chat/completions';
-    if (!model || model === 'custom' || model.includes('llama-3.3') || model.includes('nemotron')) {
+    if (!model || model === 'custom' || model.includes('meta/llama-3.3') || model.includes('nemotron')) {
       model = 'deepseek-ai/deepseek-v4-pro-0813';
     }
   } else {
@@ -590,6 +559,8 @@ export const generateOpenAICompletion = async (
     ]
   };
 
+  delete payload.extra_body;
+
   if (provider === 'nvidia' && model.includes('r1')) {
     payload.chat_template_kwargs = {
       thinking: true
@@ -602,14 +573,22 @@ export const generateOpenAICompletion = async (
     const data = await fetchJsonSecure(baseUrl, headers, payload, signal);
     const choice = data.choices?.[0];
     const msg = choice?.message || choice?.delta;
-    const content = msg?.content || msg?.reasoning || msg?.reasoning_content;
-    if (content && typeof content === 'string' && content.trim() !== '') return content;
+
+    // Para DeepSeek (API oficial), leer STRICTAMENTE msg?.content y prohibir la caída a reasoning_content
+    let content = '';
+    if (provider === 'deepseek') {
+      content = typeof msg?.content === 'string' ? msg.content : (Array.isArray(msg?.content) ? msg.content.map((c: any) => c.text || c).join('') : '');
+    } else {
+      content = (typeof msg?.content === 'string' && msg.content.trim()) ? msg.content : (msg?.reasoning || msg?.reasoning_content || '');
+    }
+
+    if (content && typeof content === 'string' && content.trim() !== '') return content.trim();
     return `No response from ${provider}.`;
   } catch (err: any) {
     const errStr = String(err?.message || err);
     if (provider === 'nvidia' && (errStr.includes('504') || errStr.includes('503') || errStr.includes('404') || errStr.includes('Timeout') || errStr.includes('ResourceExhausted') || errStr.includes('429') || errStr.includes('limit reached'))) {
-      console.warn(`[NVIDIA NIM] Modelo ${model} lento, no disponible o sufriendo timeout. Reintentando automáticamente con meta/llama-3.3-70b-instruct...`);
-      const fallbackPayload = { ...payload, model: 'meta/llama-3.3-70b-instruct' };
+      console.warn(`[NVIDIA NIM] Modelo ${model} no disponible o sufriendo timeout. Reintentando automáticamente con nv-mistralai/mistral-nemo-12b-instruct...`);
+      const fallbackPayload = { ...payload, model: 'nv-mistralai/mistral-nemo-12b-instruct' };
       delete fallbackPayload.chat_template_kwargs;
       delete fallbackPayload.extra_body;
       const fallbackData = await fetchJsonSecure(baseUrl, headers, fallbackPayload, signal);
@@ -656,6 +635,62 @@ export const generateGenericCompletion = async (
     ]
   }, signal);
   return data.choices?.[0]?.message?.content || data.choices?.[0]?.delta?.content || data.response || 'No response from custom provider.';
+};
+
+/**
+ * Consulta dinámicamente la lista de modelos disponibles en vivo desde el endpoint /v1/models del proveedor.
+ */
+export const fetchProviderModels = async (
+  provider: 'openrouter' | 'cometapi' | 'nvidia' | 'openai' | 'deepseek' | 'qwen' | 'kimi' | 'ollama' | 'anthropic' | 'other',
+  apiKey?: string,
+  baseUrlOverride?: string
+): Promise<string[]> => {
+  let endpoint = '';
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  if (provider === 'openrouter') {
+    endpoint = 'https://openrouter.ai/api/v1/models';
+    headers['HTTP-Referer'] = 'https://fenixdev.cloud';
+    headers['X-Title'] = 'Omni-IA Game';
+  } else if (provider === 'cometapi') {
+    endpoint = 'https://api.cometapi.com/v1/models';
+  } else if (provider === 'nvidia') {
+    endpoint = 'https://integrate.api.nvidia.com/v1/models';
+  } else if (provider === 'openai') {
+    endpoint = 'https://api.openai.com/v1/models';
+  } else if (provider === 'deepseek') {
+    endpoint = 'https://api.deepseek.com/v1/models';
+  } else if (provider === 'qwen') {
+    endpoint = 'https://dashscope.aliyuncs.com/compatible-mode/v1/models';
+  } else if (provider === 'kimi') {
+    endpoint = 'https://api.moonshot.cn/v1/models';
+  } else if (provider === 'anthropic') {
+    endpoint = 'https://api.anthropic.com/v1/models';
+    if (apiKey) headers['x-api-key'] = apiKey;
+    delete headers['Authorization'];
+    headers['anthropic-version'] = '2023-06-01';
+  } else if (provider === 'ollama') {
+    const base = (baseUrlOverride || 'http://localhost:11434').replace(/\/$/, '');
+    endpoint = `${base}/api/tags`;
+  } else {
+    return [];
+  }
+
+  try {
+    const resData = await fetchJsonSecure(endpoint, headers);
+    if (provider === 'ollama') {
+      return (resData.models || []).map((m: any) => m.name || m.model).filter(Boolean);
+    }
+    const modelList = resData.data || resData.models || [];
+    if (Array.isArray(modelList)) {
+      return modelList.map((m: any) => typeof m === 'string' ? m : (m.id || m.name)).filter(Boolean);
+    }
+    return [];
+  } catch (e) {
+    console.warn(`[Omni IA Game] No se pudieron cargar los modelos en vivo para ${provider}:`, e);
+    return [];
+  }
 };
 
 export const generateLocalAudio = async (
@@ -2308,6 +2343,53 @@ export const testProviderConnection = async (
         return { success: true, message: "API Key de DeepSeek válida y conexión exitosa." };
       }
       return { success: false, message: "La API Key de DeepSeek no es válida o hay un problema de conexión con el servidor." };
+    }
+
+    if (provider === 'openrouter') {
+      if (!apiKey) return { success: false, message: "Se requiere una API Key para probar OpenRouter." };
+      try {
+        const data = await fetchJsonSecure('https://openrouter.ai/api/v1/models', {
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://fenixdev.cloud',
+          'X-Title': 'Omni-IA Game'
+        });
+        if (data && (data.data || data.models)) {
+          return { success: true, message: "API Key de OpenRouter válida y conexión exitosa." };
+        }
+        return { success: false, message: "Respuesta no válida al probar OpenRouter." };
+      } catch (e: any) {
+        return { success: false, message: `Error en OpenRouter: ${e?.message || 'clave inválida'}` };
+      }
+    }
+
+    if (provider === 'cometapi') {
+      if (!apiKey) return { success: false, message: "Se requiere una API Key para probar CometAPI." };
+      try {
+        const data = await fetchJsonSecure('https://api.cometapi.com/v1/models', {
+          'Authorization': `Bearer ${apiKey}`
+        });
+        if (data && (data.data || data.models)) {
+          return { success: true, message: "API Key de CometAPI válida y conexión exitosa." };
+        }
+        return { success: false, message: "Respuesta no válida al probar CometAPI." };
+      } catch (e: any) {
+        return { success: false, message: `Error en CometAPI: ${e?.message || 'clave inválida'}` };
+      }
+    }
+
+    if (provider === 'nvidia') {
+      if (!apiKey) return { success: false, message: "Se requiere una API Key de NVIDIA NIM." };
+      try {
+        const data = await fetchJsonSecure('https://integrate.api.nvidia.com/v1/models', {
+          'Authorization': `Bearer ${apiKey}`
+        });
+        if (data && (data.data || data.models)) {
+          return { success: true, message: "API Key de NVIDIA NIM APIs válida y conexión exitosa." };
+        }
+        return { success: false, message: "Respuesta no válida al probar NVIDIA NIM." };
+      } catch (e: any) {
+        return { success: false, message: `Error en NVIDIA NIM: ${e?.message || 'clave inválida o problema de acceso'}` };
+      }
     }
 
     if (provider === 'openart') {

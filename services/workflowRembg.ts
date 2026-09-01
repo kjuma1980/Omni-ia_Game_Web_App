@@ -112,23 +112,31 @@ export function enableRembg(
     // Configurar el nodo RemBG principal seleccionado
     const targetNode = workflow[mainRembgId];
     if (targetNode) {
-      if ('model' in targetNode.inputs) {
-        if (targetNode.class_type === 'Image Rembg (Remove Background)' && !['u2net', 'u2netp', 'u2net_human_seg', 'silueta', 'isnet-general-use', 'isnet-anime'].includes(model)) {
-          targetNode.inputs.model = 'u2net';
+      const classType = targetNode.class_type || '';
+      if (classType === 'Image Rembg (Remove Background)') {
+        // Nodos 'Image Rembg (Remove Background)' de WAS Suite solo aceptan modelos u2net/isnet
+        const validModels = ['u2net', 'u2netp', 'u2net_human_seg', 'silueta', 'isnet-general-use', 'isnet-anime'];
+        if ('model' in targetNode.inputs && typeof targetNode.inputs.model === 'string') {
+          if (!validModels.includes(targetNode.inputs.model as string)) {
+            targetNode.inputs.model = 'u2net';
+          }
         } else {
+          targetNode.inputs.model = 'u2net';
+        }
+        targetNode.inputs.images = [decoderId, 0];
+      } else {
+        if ('model' in targetNode.inputs) {
           targetNode.inputs.model = model;
+        }
+        if ('image' in targetNode.inputs) {
+          targetNode.inputs.image = [decoderId, 0];
+        }
+        if ('images' in targetNode.inputs) {
+          targetNode.inputs.images = [decoderId, 0];
         }
       }
       if ('background' in targetNode.inputs) {
         targetNode.inputs.background = 'Alpha';
-      }
-      // Garantizar que la entrada del RemBG viene directamente del decoder (3 canales RGB)
-      if (targetNode.class_type === 'Image Rembg (Remove Background)') {
-        delete targetNode.inputs.image;
-        targetNode.inputs.images = [decoderId, 0];
-      } else {
-        delete targetNode.inputs.images;
-        targetNode.inputs.image = [decoderId, 0];
       }
 
       // Asegurar que los consumidores del decoder (excepto el propio RemBG) consuman la salida del RemBG
