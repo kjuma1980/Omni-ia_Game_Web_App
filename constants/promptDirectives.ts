@@ -369,15 +369,10 @@ export const FIDELITY_RULES = `FIDELITY TO THE REQUEST:
  * modelo de ilustracion anade por costumbre y que en un juego estorban.
  */
 export const PLAYABILITY_RULES = `PLAYABLE MAP LEGIBILITY:
-- Even, readable illumination across the whole map, with one consistent light
-  direction. No heavy vignetting, no dark unreadable corners, no dramatic spot
-  lighting that hides part of the terrain.
-- Walkable ground reads clearly as walkable, and obstacles read clearly as
-  obstacles, at a glance.
-- No frame, no border, no vignette, no painted edges, no signature, no
-  watermark, no title text, no UI, no compass rose, no map legend.
-- Crisp detail sustained across the whole image, including the far corners, so
-  the map holds up when zoomed into during play.`;
+- Clear lighting consistent with the scene's mood and atmosphere (whether bright daylight, moonlit night, or dark eerie dungeon), maintaining readability of walkable terrain and obstacles.
+- Walkable ground reads clearly as walkable, and obstacles read clearly as obstacles, at a glance.
+- No frame, no border, no vignette, no painted edges, no signature, no watermark, no title text, no UI, no compass rose, no map legend.
+- Crisp detail sustained across the whole image so the map holds up when zoomed into during play.`;
 
 /** Negativos que refuerzan las reglas de encuadre y naturalidad. */
 export const WORLD_NEGATIVES = {

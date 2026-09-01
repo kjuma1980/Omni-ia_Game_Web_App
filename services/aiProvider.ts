@@ -3223,7 +3223,11 @@ RULES:
    has been lived in and shaped over time, with reasons behind where things sit:
    the path goes where people walk, the village grew where the water is. Avoid
    the tidy, freshly-built, showroom look of a diorama.
-5. ENVIRONMENTAL METAPHOR SAFETY RULE: When describing natural environments, trees, rocks, architecture, or atmospheric elements with spooky or anthropomorphic metaphors (e.g. "branches like hands", "faces in trees", "eyes in darkness"), NEVER output literal human or robotic body nouns in English (such as "hands", "arms", "human faces", "robot limbs", "body parts"). Always translate them into inanimate material descriptions (e.g. "gnarled wooden boughs twisting into claw-like branch tendrils", "knotty tree bark with haunting face-like wood grain patterns") to prevent image models from drawing literal human or robotic limbs on the landscape.
+5. ENVIRONMENTAL METAPHOR SAFETY & SPOOKY ATMOSPHERE RULE:
+   - When describing natural environments, trees, rocks, architecture, or atmospheric elements with spooky or anthropomorphic metaphors (e.g. "branches like hands", "faces in trees", "eyes in darkness"):
+     a) PRESERVE and EXPAND the dark, creepy, sinister, eerie, and malevolent mood requested by the user. If the user asks for "rostros malignos", "sinister faces", or "creepy expressions", describe them vividly as "sinister carved malevolent faces in dark twisted bark", "creepy grimacing expressions in ancient gnarled wood", "menacing glowing eyes in deep forest shadows". DO NOT soften or dilute spooky/terrifying elements into polite or subtle wood grain patterns.
+     b) Translate metaphorical limbs into wooden/natural descriptions (e.g., "gnarled wooden boughs reaching downward like skeletal clawed hands", "twisted branch tendrils shaped like long clutching fingers").
+     c) ABSOLUTELY FORBIDDEN to output negative clauses like "without literal human hands", "no human arms", or "not real hands" INSIDE the positive prompt key. Negative exclusions belong STRICTLY in the "negative" prompt key.
 6. Positive prompt must be in ENGLISH, dense and highly detailed, written as
    comma-separated descriptive clauses.
 7. NEVER write raw configuration keys or identifiers in the output. Words like
@@ -3242,9 +3246,9 @@ RULES:
    ${isIndoor ? `e) CRITICAL: this is an interior, so you MUST include: "${negativeExclusions}".` : ''}
    Never contradict the chosen style in the negative prompt. If the style calls
    for a technique, that technique must NOT appear in the negatives.
-8. Output format must be raw JSON with "positive" and "negative" keys. No
+9. Output format must be raw JSON with "positive" and "negative" keys. No
    markdown, no \`\`\`json blocks.
-{"positive": "16-bit pixel art fantasy valley map, top-down oblique 3/4 perspective, perfectly axis-aligned at 0 degrees with no tilt, the entire island fits inside the frame with open grass margins on all four sides, a lake with a lobed irregular shoreline and shallow reed inlets, a weathered wooden bridge spanning the open water at the centre of the lake, dirt paths that curve and fork around rock outcrops and widen where they meet, carved wooden signposts leaning slightly beside the path junctions, a village of thatched cottages each set at its own angle around the northern shore, fenced corrals with uneven posts and patchy trodden ground, oak groves clustered in uneven density with lone trees standing apart, scattered bushes and undergrowth spilling at the treeline, varied grass and worn dirt textures, even readable daylight from the upper left...", "negative": "characters, people, tilted, dutch angle, cropped, trees in a straight line, evenly spaced trees, grid layout, perfectly straight roads, circular lake, perfectly symmetrical, identical repeated buildings, vignette, frame, watermark, anti-aliased, smooth gradients, 3D render..."}`;
+{"positive": "16-bit pixel art dark fantasy forest map, top-down oblique 3/4 perspective, dark eerie woodland with giant ancient trees featuring sinister carved malevolent faces in gnarled bark, twisted wooden boughs reaching downward like skeletal clawed hands, winding dirt path cutting through center of forest, colossal full moon glowing pale silver illuminating path, mist drifting between trunks, deep shadows under canopy, natural organic ground plane...", "negative": "characters, people, tilted, dutch angle, cropped, trees in a straight line, grid layout, perfectly symmetrical, vignette, frame, watermark, literal human hands, robot arms, mechanical limbs..."}`;
 
     userMessage = `Art style: ${style}
 Mode: World / Background${perspectiveText ? `\nCamera perspective: ${perspectiveText}` : ''}${
