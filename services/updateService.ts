@@ -12,7 +12,7 @@ export interface UpdateManifest {
   pubDate?: string;
 }
 
-export const CURRENT_VERSION = '0.3.0';
+export const CURRENT_VERSION = '0.3.3';
 const PRIMARY_UPDATE_URL = 'https://fenixdev.cloud/updates.json';
 const FALLBACK_UPDATE_URL = 'https://fenixdev.cloud/api/updates/check/';
 const FALLBACK_UPDATE_URL_ALT = 'https://fenixdev.cloud/api/updates/check';
@@ -30,8 +30,11 @@ function compareVersions(v1: string, v2: string): number {
 }
 
 function hayEntornoTauri(): boolean {
+  if (typeof window !== 'undefined' && (window as any).__OMNI_IS_WEB__) {
+    return false;
+  }
   return Boolean(
-    (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke,
+    (window as any).__TAURI_INTERNALS__?.invoke || ((window as any).__TAURI__?.invoke && !(window as any).__OMNI_IS_WEB__),
   );
 }
 

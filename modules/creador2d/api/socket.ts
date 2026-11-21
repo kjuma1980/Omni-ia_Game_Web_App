@@ -35,12 +35,6 @@ export class RealtimeClient {
     this.worldId = worldId;
     this.handlers.onStatus('connecting');
 
-    const isWeb = typeof window !== 'undefined' && ((window as any).__OMNI_IS_WEB__ === true || !((window as any).__TAURI_INTERNALS__?.invoke));
-    if (isWeb) {
-      this.handlers.onStatus('online');
-      return;
-    }
-
     this.socket = io(`${this.baseUrl}/realtime`, {
       transports: ['websocket'],
       auth: { token: accessToken },

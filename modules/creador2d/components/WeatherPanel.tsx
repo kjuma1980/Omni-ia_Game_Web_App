@@ -161,13 +161,7 @@ export const WeatherPanel: React.FC<Props> = ({ worldId }) => {
                       key={direction}
                       type="button"
                       title={WIND_LABEL[direction].label}
-                      onClick={() => {
-                        const patchData: Record<string, unknown> = { windDirection: direction };
-                        if (direction !== 'NONE' && weather.windStrength === 0) {
-                          patchData.windStrength = 0.5;
-                        }
-                        patch(patchData);
-                      }}
+                      onClick={() => patch({ windDirection: direction })}
                       className={`w-8 h-8 rounded border text-sm transition-all ${
                         weather.windDirection === direction
                           ? 'bg-indigo-800/60 border-indigo-500 text-indigo-100'

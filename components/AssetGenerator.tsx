@@ -706,6 +706,14 @@ const AssetGenerator: React.FC<AssetGeneratorProps> = ({ assets, setAssets, stat
     }
   };
 
+  // Disparo automático de generación invocado externamente (por ejemplo desde el botón 1-clic del Agente Fénix / MCP)
+  useEffect(() => {
+    if (state.autoTriggerGeneration && !loading) {
+      updateState({ autoTriggerGeneration: false });
+      handleGenerate();
+    }
+  }, [state.autoTriggerGeneration, loading]);
+
   // --- ACOPLE: subtab Mundos -> Creador de escenarios 2D / 2.5D ------------
   // El editor ocupa toda el area de la pestana. Es un submodulo autonomo: no
   // comparte estado, servicios ni base de datos con el generador por IA.

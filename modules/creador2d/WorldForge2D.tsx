@@ -280,9 +280,8 @@ const WorldForgeInner: React.FC<WorldForgeProps> = ({ onSalir }) => {
  * lanzar un proceso y hay que seguir contando con que alguien lo levante.
  */
 async function arrancarBackend(): Promise<string | null> {
-  const isWeb = typeof window !== 'undefined' && ((window as any).__OMNI_IS_WEB__ === true || !((window as any).__TAURI_INTERNALS__?.invoke));
-  if (isWeb) return 'El Creador 2D está activo en modo cliente web';
-  const invoke = (window as any).__TAURI_INTERNALS__?.invoke || (window as any).__TAURI__?.invoke;
+  const invoke =
+    (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
   if (!invoke) {
     return null;
   }
@@ -300,8 +299,9 @@ async function arrancarBackend(): Promise<string | null> {
 const OfflineNotice: React.FC<{ onRetry: () => void; detail: unknown }> = ({ onRetry, detail }) => {
   const [arrancando, setArrancando] = React.useState(false);
   const [fallo, setFallo] = React.useState<string | null>(null);
-  const isWeb = typeof window !== 'undefined' && ((window as any).__OMNI_IS_WEB__ === true || !((window as any).__TAURI_INTERNALS__?.invoke));
-  const hayTauri = Boolean((window as any).__TAURI_INTERNALS__?.invoke) && !isWeb;
+  const hayTauri = Boolean(
+    (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke,
+  );
 
   /**
    * Arranque automatico al entrar en el modulo.

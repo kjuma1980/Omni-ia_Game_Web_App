@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ProjectData } from '../types';
-import { Settings, Server, Cpu, Music, Download, RefreshCw, X, AlertTriangle, Image, Video, Mic, CheckCircle, Loader2, Cloud, ToggleLeft, ToggleRight, Upload, Trash2, Box, Users, Code2, Folder, File, Terminal, Lock, AlertCircle, Layers, Boxes, Play, Check } from 'lucide-react';
-import { getOllamaModels, pedirJsonLocal, pullOllamaModel, testProviderConnection } from '../services/localService';
+import { ProjectData, FenixAgentConfig, DEFAULT_FENIX_CONFIG, FenixTtsEngine } from '../types';
+import { Settings, Server, Cpu, Music, Download, RefreshCw, X, AlertTriangle, Image, Video, Mic, CheckCircle, Loader2, Cloud, ToggleLeft, ToggleRight, Upload, Trash2, Box, Users, Code2, Folder, File, Terminal, Lock, AlertCircle, Layers, Boxes, Play, Check, Sparkles, Volume2, VolumeX, UserCheck, Gamepad2, Brain, Wand2, Save } from 'lucide-react';
+import { getOllamaModels, pedirJsonLocal, enviarJsonLocal, pullOllamaModel, testProviderConnection } from '../services/localService';
+import { isTtsServerAlive, ensureTtsServerRunning, stopTtsServer } from '../services/ttsService';
 import { getLlamaServerModels, selectGgufFile, startLlamaServer, stopLlamaServer, isLlamaServerAlive, listGgufModels, GgufModelInfo, getLlamaServerState } from '../services/llamaServerService';
 import { flushOtherLocalProviders } from '../services/memoryOrchestrator';
+import { getFenixConfig, saveFenixConfig, clearFenixMessages } from '../services/fenixDb';
 import { SpriteWorkflowAssignments, WorldWorkflowAssignments, AnimationWorkflowAssignments } from './WorkflowAssignments';
 import Tooltip from './Tooltip';
 import { readStoredEmail } from './AuthScreen';
@@ -63,6 +65,9 @@ interface SettingsModalProps {
     } | null;
   };
   premiumUnlocked?: boolean;
+  initialTab?: string;
+  fenixConfig?: FenixAgentConfig;
+  onUpdateFenixConfig?: (updated: FenixAgentConfig) => void;
 }
 
 /**
@@ -212,7 +217,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onClearLogs,
   creador2dLicensed = false,
   licenseOnline,
-  premiumUnlocked: premiumUnlockedProp
+  premiumUnlocked: premiumUnlockedProp,
+  initialTab,
+  fenixConfig: propFenixConfig,
+  onUpdateFenixConfig
 }) => {
   if (!settings) return null;
 
@@ -299,7 +307,175 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     };
   }
 
-  const [activeTab, setActiveTab] = useState<'text' | 'image' | 'video' | 'audio' | 'threeD' | 'npcs' | 'code' | 'dev' | 'local'>('text');
+  const [activeTab, setActiveTab] = useState<'text' | 'image' | 'video' | 'audio' | 'threeD' | 'npcs' | 'code' | 'dev' | 'local' | 'fenix'>('text');
+  const [fenixConfig, setFenixConfig] = useState<FenixAgentConfig>(propFenixConfig || DEFAULT_FENIX_CONFIG);
+  const [fenixSavedToast, setFenixSavedToast] = useState(false);
+  const [fenixClearSuccess, setFenixClearSuccess] = useState(false);
+  const [systemVoices, setSystemVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [testingVoice, setTestingVoice] = useState(false);
+  const [testingVoiceMsg, setTestingVoiceMsg] = useState('');
+  const [ttsServerRunning, setTtsServerRunning] = useState(false);
+  const [startingTtsServer, setStartingTtsServer] = useState(false);
+
+  useEffect(() => {
+    if (propFenixConfig) {
+      setFenixConfig(propFenixConfig);
+    }
+  }, [propFenixConfig]);
+
+  // Actualizador universal con persistencia reactiva inmediata en FenixAgentDB
+  const updateFenixConfigField = (updater: Partial<FenixAgentConfig> | ((prev: FenixAgentConfig) => FenixAgentConfig)) => {
+    setFenixConfig((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater };
+      saveFenixConfig(next);
+      if (onUpdateFenixConfig) onUpdateFenixConfig(next);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      const loadVoices = () => {
+        setSystemVoices(window.speechSynthesis.getVoices());
+      };
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
+
+  // Comprobar estado del servidor TTS en localhost:5000
+  const checkTtsStatus = async () => {
+    const targetEngine = fenixConfig.ttsEngine === 'piper' ? 'piper' : fenixConfig.ttsEngine === 'edge-tts' ? 'edge-tts' : undefined;
+    const alive = await isTtsServerAlive(targetEngine);
+    setTtsServerRunning(alive);
+  };
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'fenix') {
+      checkTtsStatus();
+    }
+  }, [isOpen, activeTab, fenixConfig.ttsEngine]);
+
+  const handleToggleTtsServer = async () => {
+    setStartingTtsServer(true);
+    try {
+      if (ttsServerRunning) {
+        await stopTtsServer();
+        setTtsServerRunning(false);
+      } else {
+        const engine = fenixConfig.ttsEngine === 'piper' ? 'piper' : 'edge-tts';
+        const ok = await ensureTtsServerRunning(engine);
+        setTtsServerRunning(ok);
+      }
+    } finally {
+      setStartingTtsServer(false);
+    }
+  };
+
+  const EDGE_SPANISH_VOICES = [
+    { id: 'es-ES-AlvaroNeural', label: '🇪🇸 España - Álvaro (Masculino Natural, Excelente para Asesor)', gender: 'Male' },
+    { id: 'es-ES-ElviraNeural', label: '🇪🇸 España - Elvira (Femenino Cálido y Expresivo)', gender: 'Female' },
+    { id: 'es-MX-JorgeNeural', label: '🇲🇽 México - Jorge (Masculino Conversacional)', gender: 'Male' },
+    { id: 'es-MX-DaliaNeural', label: '🇲🇽 México - Dalia (Femenino Suave y Claro)', gender: 'Female' },
+    { id: 'es-CO-GonzaloNeural', label: '🇨🇴 Colombia - Gonzalo (Masculino Neutro)', gender: 'Male' },
+    { id: 'es-CO-SalomeNeural', label: '🇨🇴 Colombia - Salomé (Femenino Amigable)', gender: 'Female' },
+    { id: 'es-AR-TomasNeural', label: '🇦🇷 Argentina - Tomás (Masculino Dinámico)', gender: 'Male' },
+    { id: 'es-CL-LorenzoNeural', label: '🇨🇱 Chile - Lorenzo (Masculino)', gender: 'Male' },
+    { id: 'es-US-AlonsoNeural', label: '🇺🇸 EE.UU. - Alonso (Masculino Moderno)', gender: 'Male' },
+    { id: 'es-US-PalomaNeural', label: '🇺🇸 EE.UU. - Paloma (Femenino Natural)', gender: 'Female' },
+  ];
+
+  const handleTestFenixVoice = async () => {
+    setTestingVoice(true);
+    setTestingVoiceMsg('');
+    const testText = `¡Hola! Soy ${fenixConfig.name || 'Fénix'}, tu asesor y copiloto oficial de Omni-IA Game.`;
+    const engine = fenixConfig.ttsEngine || 'browser';
+
+    if (engine === 'edge-tts' || engine === 'piper') {
+      try {
+        // Auto-arranque bajo demanda si no está corriendo aún en puerto 5000 con el motor seleccionado
+        const isAlive = await isTtsServerAlive(engine);
+        if (!isAlive) {
+          setTestingVoiceMsg(`Iniciando servidor local ${engine === 'piper' ? 'Piper TTS' : 'Edge TTS'}...`);
+          const started = await ensureTtsServerRunning(engine, (msg) => setTestingVoiceMsg(msg));
+          if (!started) {
+            setTestingVoice(false);
+            setTestingVoiceMsg('');
+            alert(`No se pudo arrancar automáticamente el servidor local ${engine} en el puerto 5000. Si ejecutas de forma manual, inicia ${engine === 'piper' ? 'START_PIPER_TTS.bat' : 'START_EDGE_TTS.bat'}.`);
+            return;
+          }
+          setTtsServerRunning(true);
+        }
+
+        setTestingVoiceMsg('Generando audio...');
+        const payload = {
+          text: testText,
+          voice: fenixConfig.edgeVoice || 'es-ES-AlvaroNeural'
+        };
+        const res = await enviarJsonLocal('http://127.0.0.1:5000/api/tts', payload);
+        if (res && res.audio) {
+          const mime = res.format === 'wav' ? 'audio/wav' : 'audio/mp3';
+          const audio = new Audio(`data:${mime};base64,${res.audio}`);
+          audio.playbackRate = fenixConfig.voiceSpeed || 1.0;
+          audio.onended = () => {
+            setTestingVoice(false);
+            setTestingVoiceMsg('');
+          };
+          audio.onerror = () => {
+            setTestingVoice(false);
+            setTestingVoiceMsg('');
+            alert('Error al reproducir el audio del servidor local.');
+          };
+          await audio.play();
+          return;
+        }
+      } catch (e: any) {
+        setTestingVoice(false);
+        setTestingVoiceMsg('');
+        alert(`Error al conectar con el servidor local: ${e.message || String(e)}`);
+        return;
+      }
+    }
+
+    // Navegador Web Speech API (Cero GPU)
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(testText);
+      utterance.lang = 'es-ES';
+      utterance.rate = fenixConfig.voiceSpeed || 1.0;
+      utterance.pitch = fenixConfig.voicePitch || 1.0;
+      if (fenixConfig.browserVoice) {
+        const match = systemVoices.find((v) => v.name === fenixConfig.browserVoice);
+        if (match) utterance.voice = match;
+      } else {
+        const esVoice = systemVoices.find(
+          (v) => v.lang.startsWith('es') && (v.name.includes('Natural') || v.name.includes('Online'))
+        ) || systemVoices.find((v) => v.lang.startsWith('es'));
+        if (esVoice) utterance.voice = esVoice;
+      }
+      utterance.onend = () => {
+        setTestingVoice(false);
+        setTestingVoiceMsg('');
+      };
+      utterance.onerror = () => {
+        setTestingVoice(false);
+        setTestingVoiceMsg('');
+      };
+      window.speechSynthesis.speak(utterance);
+    } else {
+      setTestingVoice(false);
+      setTestingVoiceMsg('');
+    }
+  };
+
+  const handleSaveFenixSettings = async () => {
+    await saveFenixConfig(fenixConfig);
+    if (onUpdateFenixConfig) {
+      onUpdateFenixConfig(fenixConfig);
+    }
+    setFenixSavedToast(true);
+    setTimeout(() => setFenixSavedToast(false), 2500);
+  };
   const [showDevMenu, setShowDevMenu] = useState(false);
   const [activeWorldPipeline, setActiveWorldPipeline] = useState<'a' | 'b' | 'c' | null>(null);
   interface LicenseDetails {
@@ -422,6 +598,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       setLicenseError('');
       setLicenseSuccess('');
       return;
+    }
+
+    getFenixConfig().then((cfg) => setFenixConfig(cfg));
+    if (initialTab) {
+      setActiveTab(initialTab as any);
     }
     
     const fetchLicenseDetails = () => {
@@ -745,6 +926,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [loadingNpcCloudModels, setLoadingNpcCloudModels] = useState<boolean>(false);
   const [npcCloudModelError, setNpcCloudModelError] = useState<string | null>(null);
 
+  // Estados para modelos del Agente Fénix (HyperQwen / Ollama / llama-server)
+  const [fenixOllamaModels, setFenixOllamaModels] = useState<string[]>([]);
+  const [loadingFenixOllamaModels, setLoadingFenixOllamaModels] = useState(false);
+  const [fenixOllamaError, setFenixOllamaError] = useState('');
+  const [newFenixOllamaModel, setNewFenixOllamaModel] = useState('');
+  const [pullingFenixOllamaModel, setPullingFenixOllamaModel] = useState(false);
+
   // Estados para servidores locales
   const [edgeTtsStatus, setEdgeTtsStatus] = useState<boolean>(false);
   const [vibevoiceStatus, setVibevoiceStatus] = useState<boolean>(false);
@@ -968,6 +1156,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     else { setCodeModels([]); setCodeModelsError(''); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, settings.code?.provider, settings.code?.baseUrl, codeOllamaCloudMode]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (activeTab === 'fenix') {
+      fetchFenixOllamaModels();
+      scanGgufFolder();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activeTab, fenixConfig.ollamaBaseUrl]);
 
   useEffect(() => {
     if (isOpen) {
@@ -2040,6 +2237,51 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const fetchFenixOllamaModels = async () => {
+    const rawUrl = fenixConfig.ollamaBaseUrl?.trim() || 'http://127.0.0.1:11434';
+    const baseUrl = rawUrl.replace('//localhost:', '//127.0.0.1:');
+    setLoadingFenixOllamaModels(true);
+    setFenixOllamaError('');
+    try {
+      const data = await getOllamaModels(baseUrl);
+      const names = data.map((m: any) => m.name);
+      setFenixOllamaModels(names);
+      if (names.length > 0 && (!fenixConfig.ollamaModel || !names.includes(fenixConfig.ollamaModel))) {
+        // Seleccionar automáticamente el modelo HyperQwen preferido si está disponible
+        const qwenCandidate = names.find((n: string) => n.toLowerCase().startsWith('hyperqwen'))
+          || names.find((n: string) => n.toLowerCase().includes('qwen'))
+          || names[0];
+        updateFenixConfigField({ ollamaModel: qwenCandidate });
+      }
+      if (names.length === 0) {
+        setFenixOllamaError(`Ollama responde en ${baseUrl} pero no tiene ningún modelo descargado.`);
+      }
+    } catch (e: any) {
+      console.warn('[Fénix] Error al consultar modelos en Ollama:', e);
+      setFenixOllamaModels([]);
+      setFenixOllamaError(`No se pudo leer la lista de modelos en ${baseUrl}. ¿Está el servidor Ollama encendido?`);
+    } finally {
+      setLoadingFenixOllamaModels(false);
+    }
+  };
+
+  const handlePullFenixOllamaModel = async () => {
+    const baseUrl = fenixConfig.ollamaBaseUrl?.trim() || 'http://localhost:11434';
+    if (!newFenixOllamaModel.trim()) return;
+    setPullingFenixOllamaModel(true);
+    try {
+      await pullOllamaModel(baseUrl, newFenixOllamaModel.trim());
+      alert(`¡Modelo ${newFenixOllamaModel} descargado exitosamente en Ollama!`);
+      await fetchFenixOllamaModels();
+      setFenixConfig((prev) => ({ ...prev, ollamaModel: newFenixOllamaModel.trim() }));
+      setNewFenixOllamaModel('');
+    } catch (e: any) {
+      alert(`Error al descargar el modelo en Ollama: ${e.message || "Verifica el nombre y la conexión."}`);
+    } finally {
+      setPullingFenixOllamaModel(false);
+    }
+  };
+
   // Carga modelos desde la API Cloud — SOLO modifica estado local, NUNCA el padre
   const fetchCloudModels = async (apiKey: string, baseUrl: string) => {
     if (!apiKey || !baseUrl) {
@@ -2575,6 +2817,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             className={`flex-1 min-w-[120px] py-4 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors ${activeTab === 'local' ? 'bg-slate-800 text-orange-400 border-b-2 border-orange-500' : 'text-slate-500 hover:text-slate-300'}`}
           >
             <Server className="w-4 h-4 text-orange-400" /> Motores Locales
+          </button>
+          <button
+            onClick={() => setActiveTab('fenix')}
+            className={`flex-1 min-w-[120px] py-4 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${activeTab === 'fenix' ? 'bg-slate-800 text-amber-400 border-b-2 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'text-slate-500 hover:text-amber-300'}`}
+          >
+            <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" /> 🦅 Fénix
           </button>
           {/* `cap: none` es una licencia valida que solo concede modulos
               sueltos -por ejemplo el Creador 2D-, y no debe abrir el Portal
@@ -6074,6 +6322,914 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     : settings.threeD.baseUrl,
                   settings.threeD.apiKey
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* FENIX AGENT TAB */}
+          {activeTab === 'fenix' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* HERO CARD DE FÉNIX */}
+              <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-950 p-6 rounded-2xl border border-amber-500/40 shadow-[0_0_30px_rgba(245,158,11,0.15)] flex flex-col md:flex-row items-center gap-6">
+                <div className="relative group">
+                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.4)] bg-slate-950 flex-shrink-0">
+                    <img
+                      src={fenixConfig.avatar || '/fenix_avatar_default.jpg'}
+                      alt="Avatar Fénix"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <label className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[10px] font-bold text-amber-300">
+                    <Upload className="w-4 h-4 mb-0.5" /> Cambiar
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const res = ev.target?.result as string;
+                            if (res) {
+                              updateFenixConfigField({ avatar: res });
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <div className="flex-1 text-center md:text-left space-y-1.5">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-bold text-amber-400 flex items-center justify-center md:justify-start gap-2">
+                        <Sparkles className="w-4 h-4" /> AGENTE ASESOR & COPILOTO FÉNIX
+                      </h3>
+                      <p className="text-xs text-slate-300">
+                        Mascota oficial y guía interactivo para diseño de videojuegos, UX, assets y código.
+                      </p>
+                    </div>
+
+                    {/* SWITCH PRINCIPAL DE ACTIVACIÓN */}
+                    <button
+                      onClick={() => {
+                        const nextVal = !fenixConfig.enabled;
+                        updateFenixConfigField({ enabled: nextVal });
+                      }}
+                      className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md ${
+                        fenixConfig.enabled
+                          ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.5)]'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700'
+                      }`}
+                    >
+                      {fenixConfig.enabled ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
+                      {fenixConfig.enabled ? 'AGENTE ACTIVADO' : 'AGENTE DESACTIVADO'}
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      onClick={() => updateFenixConfigField({ avatar: '/fenix_avatar_default.jpg' })}
+                      className="text-[10px] text-amber-400/80 hover:text-amber-300 underline font-mono"
+                    >
+                      Restablecer Mascota Oficial
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* IDENTIDAD Y PERSONALIDAD */}
+              <div className="bg-slate-900/60 p-5 rounded-xl border border-slate-800 space-y-4">
+                <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
+                  <UserCheck className="w-4 h-4 text-amber-400" /> Identidad y Personalidad del Agente
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">Nombre del Agente:</label>
+                    <input
+                      type="text"
+                      value={fenixConfig.name}
+                      onChange={(e) => updateFenixConfigField({ name: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 text-xs px-3 py-2 rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+                      placeholder="Fénix"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">Tu Nombre o Alias de Creador:</label>
+                    <input
+                      type="text"
+                      value={fenixConfig.userName}
+                      onChange={(e) => updateFenixConfigField({ userName: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 text-xs px-3 py-2 rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+                      placeholder="Tu nombre o estudio"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Personalidad & Directivas de Asistencia:</label>
+                  <textarea
+                    rows={3}
+                    value={fenixConfig.personality}
+                    onChange={(e) => updateFenixConfigField({ personality: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs p-3 rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 leading-relaxed"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">Tu Nivel de Experiencia:</label>
+                    <select
+                      value={fenixConfig.userExperience}
+                      onChange={(e) => updateFenixConfigField({ userExperience: e.target.value as any })}
+                      className="w-full bg-slate-950 border border-slate-800 text-xs px-3 py-2 rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="beginner">Principiante (Explicaciones detalladas)</option>
+                      <option value="intermediate">Intermedio (Guía ágil y equilibrada)</option>
+                      <option value="advanced">Avanzado (Directo a código y arquitectura)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">Motor de Videojuegos Objetivo:</label>
+                    <select
+                      value={fenixConfig.preferredEngine}
+                      onChange={(e) => updateFenixConfigField({ preferredEngine: e.target.value as any })}
+                      className="w-full bg-slate-950 border border-slate-800 text-xs px-3 py-2 rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="godot">Godot Engine (GDScript)</option>
+                      <option value="unity">Unity (C#)</option>
+                      <option value="unreal">Unreal Engine (C++ / Blueprints)</option>
+                      <option value="phaser">Phaser 3 (JavaScript/TypeScript)</option>
+                      <option value="web">Web Canvas / HTML5</option>
+                      <option value="custom">Motor Propio / Otro</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* CEREBRO DE INFERENCIA DE IA */}
+              <div className="bg-slate-900/60 p-5 rounded-xl border border-slate-800 space-y-4">
+                <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
+                  <Brain className="w-4 h-4 text-cyan-400" /> Motor de Inferencia (Cerebro de Fénix)
+                </h4>
+
+                {/* SELECTOR DE PROVEEDOR PRINCIPAL */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    { id: 'hyperqwen-ollama', label: 'HyperQwen (Ollama)', icon: '🚀', desc: 'Inferencia local (CPU o GPU)' },
+                    { id: 'hyperqwen-llama', label: 'HyperQwen (llama.cpp)', icon: '⚡', desc: 'GGUF nativo en GPU / CPU' },
+                    { id: 'openrouter', label: 'OpenRouter API', icon: '🔀', desc: 'Multi-modelo (Qwen, Llama, DeepSeek)' },
+                    { id: 'nvidia', label: 'NVIDIA NIM API', icon: '🟩', desc: 'Llama 3.2, Qwen y Nemotron' },
+                    { id: 'gemini', label: 'Google Gemini', icon: '🌐', desc: 'Modelos Flash & Pro Cloud' },
+                    { id: 'anthropic', label: 'Anthropic Claude', icon: '🧠', desc: 'Claude 3.5 Sonnet' },
+                    { id: 'openai', label: 'OpenAI GPT-4o', icon: '💡', desc: 'GPT-4o & Codex' }
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => updateFenixConfigField({ provider: p.id as any })}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        fenixConfig.provider === p.id
+                          ? 'bg-amber-950/40 border-amber-500 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-bold text-xs mb-1">
+                        <span>{p.icon}</span> {p.label}
+                      </div>
+                      <p className="text-[10px] text-slate-500">{p.desc}</p>
+                    </button>
+                  ))}
+                </div>
+
+                {/* PARÁMETROS SEGÚN PROVEEDOR */}
+                {fenixConfig.provider === 'hyperqwen-ollama' && (
+                  <div className="space-y-4 p-4 bg-slate-950/80 rounded-xl border border-amber-500/40 text-xs">
+                    {/* URL de Ollama */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1 flex items-center justify-between">
+                        <span>URL del Servidor Ollama</span>
+                        <span className="text-[10px] text-slate-500 font-mono">http://localhost:11434 por defecto</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={fenixConfig.ollamaBaseUrl}
+                          onChange={(e) => updateFenixConfigField({ ollamaBaseUrl: e.target.value })}
+                          className="flex-1 bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-slate-200 font-mono text-xs focus:border-amber-500 outline-none"
+                          placeholder="http://127.0.0.1:11434"
+                        />
+                        <button
+                          type="button"
+                          onClick={fetchFenixOllamaModels}
+                          className="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-amber-400 font-bold flex items-center gap-1.5 transition-colors"
+                          title="Escanear y recargar modelos instalados en Ollama"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${loadingFenixOllamaModels ? 'animate-spin' : ''}`} />
+                          <span>Recargar</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* SELECTOR DE MODELO DETECTADO */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1 flex items-center justify-between">
+                        <span>Modelo de HyperQwen en Ollama</span>
+                        {fenixOllamaModels.length > 0 && (
+                          <span className="text-[10px] text-emerald-400 font-mono">
+                            {fenixOllamaModels.length} modelo(s) detectado(s)
+                          </span>
+                        )}
+                      </label>
+                      <select
+                        value={fenixConfig.ollamaModel}
+                        onChange={(e) => updateFenixConfigField({ ollamaModel: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-800 px-3 py-2.5 rounded-lg text-amber-300 font-mono text-xs focus:border-amber-500 outline-none"
+                      >
+                        {fenixOllamaModels.length > 0 ? (
+                          <>
+                            {fenixConfig.ollamaModel && !fenixOllamaModels.includes(fenixConfig.ollamaModel) && (
+                              <option value={fenixConfig.ollamaModel}>
+                                {fenixConfig.ollamaModel} (personalizado / no detectado)
+                              </option>
+                            )}
+                            {fenixOllamaModels.map((m) => (
+                              <option key={m} value={m}>
+                                {m.toLowerCase().includes('qwen') ? `⭐ ${m} (Recomendado)` : m}
+                              </option>
+                            ))}
+                          </>
+                        ) : (
+                          <option value={fenixConfig.ollamaModel || 'qwen2.5-coder'}>
+                            {loadingFenixOllamaModels ? 'Escaneando modelos en Ollama...' : fenixConfig.ollamaModel || 'Sin modelos detectados (inicia Ollama y pulsa Recargar)'}
+                          </option>
+                        )}
+                      </select>
+                      {fenixOllamaError && (
+                        <p className="mt-1.5 text-[10px] text-amber-400 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 flex-shrink-0" /> {fenixOllamaError}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* DESCARGAR NUEVO MODELO EN OLLAMA (PULL) */}
+                    <div className="pt-3 border-t border-slate-800">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase">
+                          Descargar Nuevo Modelo en Ollama (PULL)
+                        </label>
+                      </div>
+
+                      {/* ACCESOS DIRECTOS MODELOS LIVIANOS CPU (CERO GPU / CERO VRAM) */}
+                      <div className="mb-2 p-2 bg-slate-900/90 rounded-lg border border-emerald-900/40 space-y-1.5">
+                        <span className="text-[10px] text-emerald-400 font-bold block">
+                          ⚡ Modelos Livianos para CPU (0% GPU / No interfiere con ComfyUI / &lt;1.5s respuesta):
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setNewFenixOllamaModel('qwen2.5:1.5b')}
+                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-emerald-700/60 text-[10px] text-emerald-300 font-mono transition-all"
+                            title="Descargar Qwen 2.5 1.5B (1.0 GB) - Fluido y certero en español"
+                          >
+                            + qwen2.5:1.5b (1.0 GB)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setNewFenixOllamaModel('llama3.2:1b')}
+                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-emerald-700/60 text-[10px] text-emerald-300 font-mono transition-all"
+                            title="Descargar LLaMA 3.2 1B (1.3 GB) - Ultrarrápido en CPU"
+                          >
+                            + llama3.2:1b (1.3 GB)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setNewFenixOllamaModel('llama3.2:3b')}
+                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-emerald-700/60 text-[10px] text-emerald-300 font-mono transition-all"
+                            title="Descargar LLaMA 3.2 3B (2.0 GB) - Gran balance de diálogo en CPU"
+                          >
+                            + llama3.2:3b (2.0 GB)
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newFenixOllamaModel}
+                          onChange={(e) => setNewFenixOllamaModel(e.target.value)}
+                          placeholder="ej: qwen2.5:1.5b, llama3.2:1b, o qwen2.5-coder:7b"
+                          className="flex-1 bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-slate-200 font-mono text-xs focus:border-amber-500 outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={handlePullFenixOllamaModel}
+                          disabled={pullingFenixOllamaModel || !newFenixOllamaModel.trim()}
+                          className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-40 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-all shadow-md"
+                        >
+                          {pullingFenixOllamaModel ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                          <span>{pullingFenixOllamaModel ? 'DESCARGANDO...' : 'PULL'}</span>
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Descarga automáticamente cualquier modelo oficial o cuantizado desde la librería de Ollama o Hugging Face.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {fenixConfig.provider === 'hyperqwen-llama' && (
+                  <div className="space-y-4 p-4 bg-slate-950/80 rounded-xl border border-amber-500/40 text-xs">
+                    {/* ESTADO DE LLAMA-SERVER Y CONTROLES */}
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Cpu className="w-4 h-4 text-amber-400" />
+                        <div>
+                          <span className="font-bold text-slate-200">Servidor Nativo llama-server</span>
+                          <span className="text-[10px] text-slate-500 block">Puerto: {fenixConfig.llamaServerPort || settings.llamaCpp?.port || 8088}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {llamaServerRunning ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-600">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                            ACTIVO
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-rose-950/60 text-rose-300 border border-rose-800">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                            DETENIDO
+                          </span>
+                        )}
+
+                        {llamaServerRunning ? (
+                          <button
+                            type="button"
+                            onClick={handleStopLlamaServer}
+                            className="px-2.5 py-1 bg-rose-900/80 hover:bg-rose-800 text-rose-100 border border-rose-600 rounded text-[10px] font-bold transition-all"
+                          >
+                            Detener
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleStartLlamaServer(fenixConfig.llamaServerGgufPath)}
+                            disabled={llamaStarting}
+                            className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[10px] font-bold flex items-center gap-1.5 transition-all shadow-md disabled:opacity-50"
+                          >
+                            {llamaStarting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                            Iniciar Servidor
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* SELECTOR DE MODELO GGUF LOCAL */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1 flex items-center justify-between">
+                        <span>Modelo GGUF para Fénix (HyperQwen)</span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {localGgufModels.length} modelo(s) en carpeta
+                        </span>
+                      </label>
+
+                      {localGgufModels.length > 0 ? (
+                        <div className="space-y-2">
+                          <select
+                            value={fenixConfig.llamaServerGgufPath}
+                            onChange={(e) => updateFenixConfigField({ llamaServerGgufPath: e.target.value })}
+                            className="w-full bg-slate-900 border border-slate-800 px-3 py-2.5 rounded-lg text-amber-300 font-mono text-xs focus:border-amber-500 outline-none"
+                          >
+                            <option value="">Selecciona un modelo GGUF detectado...</option>
+                            {localGgufModels.map((m) => (
+                              <option key={m.path} value={m.path}>
+                                {m.name} ({m.size_formatted})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-slate-500 mb-2">No se detectaron archivos .gguf en la carpeta de modelos.</p>
+                      )}
+
+                      {/* Botón para buscar archivo en disco */}
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const file = await selectGgufFile();
+                            if (file) updateFenixConfigField({ llamaServerGgufPath: file });
+                          }}
+                          className="flex-1 py-2 px-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-amber-400 font-mono text-[11px] flex items-center justify-between"
+                        >
+                          <span className="truncate">
+                            {fenixConfig.llamaServerGgufPath ? fenixConfig.llamaServerGgufPath.split('\\').pop() : 'Explorar archivo .gguf en tu PC...'}
+                          </span>
+                          <Folder className="w-3.5 h-3.5 ml-1 flex-shrink-0" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => scanGgufFolder()}
+                          className="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 text-xs font-bold"
+                          title="Re-escanear carpeta de modelos GGUF"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {fenixConfig.provider === 'gemini' && (
+                  <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs">
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">API Key de Gemini:</label>
+                    <input
+                      type="password"
+                      value={fenixConfig.apiKeys?.gemini || ''}
+                      onChange={(e) => updateFenixConfigField((prev) => ({
+                        ...prev,
+                        apiKeys: { ...prev.apiKeys, gemini: e.target.value }
+                      }))}
+                      className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-slate-200 font-mono"
+                      placeholder="AIzaSy..."
+                    />
+                  </div>
+                )}
+
+                {fenixConfig.provider === 'anthropic' && (
+                  <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs">
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">API Key de Anthropic Claude:</label>
+                    <input
+                      type="password"
+                      value={fenixConfig.apiKeys?.anthropic || ''}
+                      onChange={(e) => updateFenixConfigField((prev) => ({
+                        ...prev,
+                        apiKeys: { ...prev.apiKeys, anthropic: e.target.value }
+                      }))}
+                      className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-slate-200 font-mono"
+                      placeholder="sk-ant-..."
+                    />
+                  </div>
+                )}
+
+                {fenixConfig.provider === 'openai' && (
+                  <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-xs">
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">API Key de OpenAI:</label>
+                    <input
+                      type="password"
+                      value={fenixConfig.apiKeys?.openai || ''}
+                      onChange={(e) => updateFenixConfigField((prev) => ({
+                        ...prev,
+                        apiKeys: { ...prev.apiKeys, openai: e.target.value }
+                      }))}
+                      className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-slate-200 font-mono"
+                      placeholder="sk-proj-..."
+                    />
+                  </div>
+                )}
+
+                {fenixConfig.provider === 'openrouter' && (
+                  <div className="space-y-3 p-4 bg-slate-950/80 rounded-xl border border-sky-500/40 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-sky-300">Proveedor OpenRouter (API Cloud)</span>
+                      <span className="text-[10px] text-slate-400 font-mono">openrouter.ai/api/v1</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">API Key de OpenRouter:</label>
+                      <input
+                        type="password"
+                        value={fenixConfig.apiKeys?.openrouter || ''}
+                        onChange={(e) => updateFenixConfigField((prev) => ({
+                          ...prev,
+                          apiKeys: { ...prev.apiKeys, openrouter: e.target.value }
+                        }))}
+                        className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-slate-200 font-mono"
+                        placeholder="sk-or-v1-..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">Modelo en OpenRouter:</label>
+                      <select
+                        value={fenixConfig.openrouterModel || 'qwen/qwen-2.5-7b-instruct'}
+                        onChange={(e) => updateFenixConfigField({ openrouterModel: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-sky-300 font-mono mb-2"
+                      >
+                        <option value="qwen/qwen-2.5-7b-instruct">⭐ qwen/qwen-2.5-7b-instruct (Excelente en Español)</option>
+                        <option value="qwen/qwen-2.5-coder-32b-instruct">qwen/qwen-2.5-coder-32b-instruct (Líder en Código)</option>
+                        <option value="meta-llama/llama-3.2-3b-instruct">meta-llama/llama-3.2-3b-instruct (Ultrarrápido)</option>
+                        <option value="deepseek/deepseek-chat">deepseek/deepseek-chat (V3 Económico)</option>
+                        <option value="anthropic/claude-3.5-sonnet">anthropic/claude-3.5-sonnet</option>
+                        <option value="google/gemini-2.0-flash-001">google/gemini-2.0-flash-001</option>
+                        {fenixConfig.openrouterModel && ![
+                          'qwen/qwen-2.5-7b-instruct',
+                          'qwen/qwen-2.5-coder-32b-instruct',
+                          'meta-llama/llama-3.2-3b-instruct',
+                          'deepseek/deepseek-chat',
+                          'anthropic/claude-3.5-sonnet',
+                          'google/gemini-2.0-flash-001'
+                        ].includes(fenixConfig.openrouterModel) && (
+                          <option value={fenixConfig.openrouterModel}>{fenixConfig.openrouterModel} (Personalizado)</option>
+                        )}
+                      </select>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">O introduce manualmente el ID del modelo:</label>
+                        <input
+                          type="text"
+                          value={fenixConfig.openrouterModel || ''}
+                          onChange={(e) => updateFenixConfigField({ openrouterModel: e.target.value })}
+                          placeholder="ej: qwen/qwen-2.5-7b-instruct o mistralai/mistral-large"
+                          className="w-full bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-slate-300 font-mono text-[11px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {fenixConfig.provider === 'nvidia' && (
+                  <div className="space-y-3 p-4 bg-slate-950/80 rounded-xl border border-emerald-500/40 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-emerald-300">Proveedor NVIDIA NIM (build.nvidia.com)</span>
+                      <span className="text-[10px] text-slate-400 font-mono">integrate.api.nvidia.com</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">API Key de NVIDIA:</label>
+                      <input
+                        type="password"
+                        value={fenixConfig.apiKeys?.nvidia || ''}
+                        onChange={(e) => updateFenixConfigField((prev) => ({
+                          ...prev,
+                          apiKeys: { ...prev.apiKeys, nvidia: e.target.value }
+                        }))}
+                        className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-slate-200 font-mono"
+                        placeholder="nvapi-..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">Modelo en NVIDIA NIM:</label>
+                      <select
+                        value={fenixConfig.nvidiaModel || 'meta/llama-3.2-3b-instruct'}
+                        onChange={(e) => updateFenixConfigField({ nvidiaModel: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-emerald-300 font-mono mb-2"
+                      >
+                        <option value="meta/llama-3.2-3b-instruct">⭐ meta/llama-3.2-3b-instruct (Conversacional Rápido)</option>
+                        <option value="meta/llama-3.1-8b-instruct">meta/llama-3.1-8b-instruct (Equilibrado)</option>
+                        <option value="meta/llama-3.3-70b-instruct">meta/llama-3.3-70b-instruct (Alta Capacidad)</option>
+                        <option value="mistralai/mistral-7b-instruct-v0.3">mistralai/mistral-7b-instruct-v0.3</option>
+                        <option value="nvidia/llama-3.1-nemotron-70b-instruct">nvidia/llama-3.1-nemotron-70b-instruct</option>
+                        <option value="deepseek-ai/deepseek-r1">deepseek-ai/deepseek-r1 (Razonamiento)</option>
+                        {fenixConfig.nvidiaModel && ![
+                          'meta/llama-3.2-3b-instruct',
+                          'meta/llama-3.1-8b-instruct',
+                          'meta/llama-3.3-70b-instruct',
+                          'mistralai/mistral-7b-instruct-v0.3',
+                          'nvidia/llama-3.1-nemotron-70b-instruct',
+                          'deepseek-ai/deepseek-r1'
+                        ].includes(fenixConfig.nvidiaModel) && (
+                          <option value={fenixConfig.nvidiaModel}>{fenixConfig.nvidiaModel} (Personalizado)</option>
+                        )}
+                      </select>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-0.5">O introduce manualmente el ID del modelo:</label>
+                        <input
+                          type="text"
+                          value={fenixConfig.nvidiaModel || ''}
+                          onChange={(e) => updateFenixConfigField({ nvidiaModel: e.target.value })}
+                          placeholder="ej: meta/llama-3.2-3b-instruct"
+                          className="w-full bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-slate-300 font-mono text-[11px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* MODO PASO A PASO / WIZARD INTERACTIVO */}
+                <div className="p-4 bg-amber-950/20 border border-amber-500/30 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h5 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-amber-400" /> Modo Asesoría Paso a Paso (1 Pregunta a la Vez)
+                      </h5>
+                      <p className="text-[10px] text-slate-400">
+                        {fenixConfig.wizardMode !== false
+                          ? 'Activado: Fénix te guía turno a turno preguntando un solo dato a la vez (nombre, estilo, pose, formato, fondo y resolución) antes de generar.'
+                          : 'Desactivado (Modo Rápido): Fénix infiere o genera directamente el prompt y asset en una sola respuesta sin pasos intermedios.'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateFenixConfigField((prev) => ({ ...prev, wizardMode: prev.wizardMode === false }))}
+                      className={`p-1 rounded-lg transition-colors ${fenixConfig.wizardMode !== false ? 'text-amber-400' : 'text-slate-600'}`}
+                      title={fenixConfig.wizardMode !== false ? 'Desactivar Modo Paso a Paso' : 'Activar Modo Paso a Paso'}
+                    >
+                      {fenixConfig.wizardMode !== false ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* MODO MULTI-AGENTE SIMULTÁNEO */}
+                <div className="p-4 bg-purple-950/20 border border-purple-500/30 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h5 className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                        <Wand2 className="w-4 h-4" /> Modo Co-Piloto Dual Simultáneo
+                      </h5>
+                      <p className="text-[10px] text-slate-400">
+                        Permite que un segundo modelo (ej. Codex o Claude) colabore al mismo tiempo especializándose en código y scripts técnicos.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => updateFenixConfigField((prev) => ({ ...prev, multiAgentEnabled: !prev.multiAgentEnabled }))}
+                      className={`p-1 rounded-lg transition-colors ${fenixConfig.multiAgentEnabled ? 'text-purple-400' : 'text-slate-600'}`}
+                    >
+                      {fenixConfig.multiAgentEnabled ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
+                    </button>
+                  </div>
+
+                  {fenixConfig.multiAgentEnabled && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-purple-900/40 text-xs">
+                      <div>
+                        <label className="block text-[10px] font-bold text-purple-300 mb-1">Proveedor Secundario:</label>
+                        <select
+                          value={fenixConfig.secondaryProvider}
+                          onChange={(e) => updateFenixConfigField({ secondaryProvider: e.target.value as any })}
+                          className="w-full bg-slate-900 border border-purple-900/50 px-3 py-2 rounded-lg text-slate-200"
+                        >
+                          <option value="openrouter">OpenRouter API</option>
+                          <option value="nvidia">NVIDIA NIM</option>
+                          <option value="openai">OpenAI (GPT-4o / Codex)</option>
+                          <option value="gemini">Google Gemini</option>
+                          <option value="anthropic">Anthropic Claude</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* VOZ Y MULTIMODALIDAD */}
+              <div className="bg-slate-900/60 p-5 rounded-xl border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                    <Volume2 className="w-4 h-4 text-emerald-400" /> Voz e Interactividad Bimodal
+                  </h4>
+                  {fenixConfig.voiceEnabled && (
+                    <button
+                      type="button"
+                      onClick={handleTestFenixVoice}
+                      disabled={testingVoice}
+                      className="px-3 py-1 bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/50 text-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+                      title="Probar reproducción de voz"
+                    >
+                      {testingVoice ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                      <span>{testingVoice ? 'Reproduciendo...' : 'Probar Voz'}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between p-3 bg-slate-950/60 rounded-xl border border-slate-800">
+                    <div>
+                      <span className="text-xs font-bold text-slate-200 block">Respuestas por Voz (TTS)</span>
+                      <span className="text-[10px] text-slate-500">El avatar habla con sincronización labial</span>
+                    </div>
+                    <button
+                      onClick={() => updateFenixConfigField((prev) => ({ ...prev, voiceEnabled: !prev.voiceEnabled }))}
+                      className={fenixConfig.voiceEnabled ? 'text-emerald-400' : 'text-slate-600'}
+                    >
+                      {fenixConfig.voiceEnabled ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-slate-950/60 rounded-xl border border-slate-800">
+                    <div>
+                      <span className="text-xs font-bold text-slate-200 block">Entrada por Micrófono (STT)</span>
+                      <span className="text-[10px] text-slate-500">Habla con Fénix directamente</span>
+                    </div>
+                    <button
+                      onClick={() => updateFenixConfigField((prev) => ({ ...prev, speechToTextEnabled: !prev.speechToTextEnabled }))}
+                      className={fenixConfig.speechToTextEnabled ? 'text-emerald-400' : 'text-slate-600'}
+                    >
+                      {fenixConfig.speechToTextEnabled ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* OPCIONES AVANZADAS DE VOZ (CUANDO ESTÁ HABILITADO) */}
+                {fenixConfig.voiceEnabled && (
+                  <div className="space-y-4 pt-2 border-t border-slate-800/80">
+                    {/* SELECTOR DE MOTOR DE VOZ */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1.5">
+                        Motor de Voz para Conversación (TTS)
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        {[
+                          {
+                            id: 'browser',
+                            label: '⚡ Sistema / Navegador',
+                            desc: 'Cero GPU, instantáneo, natural y sin servidores externos',
+                          },
+                          {
+                            id: 'piper',
+                            label: '🎙️ Piper TTS (CPU ONNX)',
+                            desc: 'Modelo neural ligero en CPU (sin GPU, START_PIPER_TTS)',
+                          },
+                          {
+                            id: 'edge-tts',
+                            label: '🌐 Microsoft Edge TTS',
+                            desc: 'Voces neuronales múltiples (START_EDGE_TTS.bat)',
+                          },
+                        ].map((eng) => (
+                          <button
+                            key={eng.id}
+                            type="button"
+                            onClick={() => updateFenixConfigField({ ttsEngine: eng.id as FenixTtsEngine })}
+                            className={`p-2.5 rounded-xl border text-left transition-all ${
+                              (fenixConfig.ttsEngine || 'browser') === eng.id
+                                ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
+                                : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                            }`}
+                          >
+                            <span className="font-bold text-xs block mb-0.5">{eng.label}</span>
+                            <span className="text-[10px] text-slate-500 block">{eng.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* SELECTOR DE PERSONA / VOZ ESPECÍFICA */}
+                    {(fenixConfig.ttsEngine || 'browser') === 'browser' && (
+                      <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+                        <label className="block text-[11px] font-bold text-slate-300 uppercase">
+                          Voz del Sistema / Navegador (Cero GPU)
+                        </label>
+                        <select
+                          value={fenixConfig.browserVoice || ''}
+                          onChange={(e) => updateFenixConfigField({ browserVoice: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-emerald-300 font-mono text-xs focus:border-emerald-500 outline-none"
+                        >
+                          <option value="">Predeterminada (Español Natural)</option>
+                          {systemVoices.map((v) => (
+                            <option key={v.name} value={v.name}>
+                              {v.lang.startsWith('es') ? `⭐ ${v.name} (${v.lang})` : `${v.name} (${v.lang})`}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-slate-500">
+                          Utiliza las voces locales de Windows/Chrome sin latencia ni consumo de GPU.
+                        </p>
+                      </div>
+                    )}
+
+                    {(fenixConfig.ttsEngine || 'browser') === 'edge-tts' && (
+                      <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+                        <label className="block text-[11px] font-bold text-slate-300 uppercase">
+                          Voz Neuronal de Edge TTS (Personas en Español)
+                        </label>
+                        <select
+                          value={fenixConfig.edgeVoice || 'es-ES-AlvaroNeural'}
+                          onChange={(e) => updateFenixConfigField({ edgeVoice: e.target.value })}
+                          className="w-full bg-slate-900 border border-slate-800 px-3 py-2 rounded-lg text-emerald-300 font-mono text-xs focus:border-emerald-500 outline-none"
+                        >
+                          {EDGE_SPANISH_VOICES.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-emerald-400/90 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3 flex-shrink-0" />
+                          Auto-arranque bajo demanda integrado. Se enciende automáticamente al probar la voz o al hablar Fénix.
+                        </p>
+                      </div>
+                    )}
+
+                    {(fenixConfig.ttsEngine || 'browser') === 'piper' && (
+                      <div className="p-3 bg-slate-950/70 rounded-xl border border-slate-800 space-y-1.5">
+                        <span className="font-bold text-slate-200 block text-xs">🎙️ Piper TTS Local (ONNX en CPU)</span>
+                        <p className="text-[10px] text-slate-400">
+                          Modelo neural ultra-ligero que corre 100% en el procesador (CPU) sin requerir memoria de la tarjeta gráfica (VRAM).
+                        </p>
+                      </div>
+                    )}
+
+                    {/* ESTADO Y CONTROL DEL SERVIDOR TTS LOCAL (PUERTO 5000) */}
+                    {(fenixConfig.ttsEngine === 'edge-tts' || fenixConfig.ttsEngine === 'piper') && (
+                      <div className="flex items-center justify-between p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 flex-wrap gap-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <span className={`w-3 h-3 rounded-full flex-shrink-0 ${ttsServerRunning ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`}></span>
+                          <div>
+                            <span className="text-xs font-bold text-slate-200 block">
+                              Servidor Local {fenixConfig.ttsEngine === 'piper' ? 'Piper TTS' : 'Edge TTS'} (Puerto 5000)
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {ttsServerRunning 
+                                ? '🟢 En línea y respondiendo' 
+                                : '⚪ Detenido (se enciende automáticamente al pulsar Probar Voz o al hablar Fénix)'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleToggleTtsServer}
+                            disabled={startingTtsServer}
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+                              ttsServerRunning
+                                ? 'bg-red-950/50 hover:bg-red-900/60 text-red-300 border border-red-800/50'
+                                : 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-600/50'
+                            }`}
+                          >
+                            {startingTtsServer ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                            <span>{startingTtsServer ? 'Conectando...' : ttsServerRunning ? 'Detener Servidor' : 'Encender Servidor'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AJUSTES DE VELOCIDAD Y TONO */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <div className="flex justify-between text-[11px] font-bold text-slate-400 uppercase mb-1">
+                          <span>Velocidad de Voz</span>
+                          <span className="text-emerald-400 font-mono">{fenixConfig.voiceSpeed || 1.0}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.6"
+                          max="1.6"
+                          step="0.05"
+                          value={fenixConfig.voiceSpeed || 1.0}
+                          onChange={(e) => updateFenixConfigField({ voiceSpeed: parseFloat(e.target.value) })}
+                          className="w-full accent-emerald-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-[11px] font-bold text-slate-400 uppercase mb-1">
+                          <span>Tono de Voz</span>
+                          <span className="text-emerald-400 font-mono">{fenixConfig.voicePitch || 1.0}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.7"
+                          max="1.3"
+                          step="0.05"
+                          value={fenixConfig.voicePitch || 1.0}
+                          onChange={(e) => updateFenixConfigField({ voicePitch: parseFloat(e.target.value) })}
+                          className="w-full accent-emerald-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* MEMORIA Y BASE DE DATOS EXCLUSIVA */}
+              <div className="bg-slate-900/60 p-5 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <Boxes className="w-4 h-4 text-amber-400" /> Base de Datos Dedicada: FenixAgentDB
+                  </h4>
+                  <p className="text-[10px] text-slate-500">
+                    Las conversaciones y aprendizajes de Fénix están completamente aislados en su propio motor IndexedDB.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      if (confirm('¿Deseas vaciar el historial de conversaciones de Fénix?')) {
+                        await clearFenixMessages();
+                        setFenixClearSuccess(true);
+                        setTimeout(() => setFenixClearSuccess(false), 2500);
+                      }
+                    }}
+                    className="px-3 py-2 bg-slate-800 hover:bg-red-950/40 hover:text-red-400 border border-slate-700 text-slate-300 text-xs rounded-xl flex items-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {fenixClearSuccess ? '¡Historial Limpiado!' : 'Limpiar Historial'}
+                  </button>
+
+                  <button
+                    onClick={handleSaveFenixSettings}
+                    className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5"
+                  >
+                    {fenixSavedToast ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                    {fenixSavedToast ? '¡CONFIGURACIÓN GUARDADA!' : 'GUARDAR AJUSTES'}
+                  </button>
+                </div>
               </div>
             </div>
           )}

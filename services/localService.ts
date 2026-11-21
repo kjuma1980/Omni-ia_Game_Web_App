@@ -209,8 +209,8 @@ export const enviarJsonLocal = async (
 };
 
 /** Modelos instalados en un servidor Ollama. */
-export const getOllamaModels = async (baseUrl: string = 'http://localhost:11434'): Promise<OllamaModel[]> => {
-  let cleanBaseUrl = (baseUrl || 'http://localhost:11434').trim().replace(/\/$/, '');
+export const getOllamaModels = async (baseUrl: string = 'http://127.0.0.1:11434'): Promise<OllamaModel[]> => {
+  let cleanBaseUrl = (baseUrl || 'http://127.0.0.1:11434').trim().replace(/\/$/, '').replace('//localhost:', '//127.0.0.1:');
   if (cleanBaseUrl.endsWith('/v1')) {
     cleanBaseUrl = cleanBaseUrl.slice(0, -3);
   }

@@ -193,6 +193,8 @@ export interface ProjectData {
     loraOwnsStyle?: boolean;
     /** Inserta el nodo de recorte en el workflow en vez de recortar en JS. */
     removeBgInWorkflow?: boolean;
+    /** Disparador automático de generación (ej. invocado por Agente Fénix / MCP) */
+    autoTriggerGeneration?: boolean;
     rembgModel?: string;
     useChromaKeyGreen?: boolean;
     spriteBgMode?: 'white' | 'chromakey' | 'transparent';
@@ -314,7 +316,7 @@ export interface ProjectData {
       omniDeployDeploymentId?: string;
     };
     image: {
-      provider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'lm-studio' | 'openai' | 'midjourney-api' | 'comfydeploy' | 'omnideploy' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
+      provider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'lm-studio' | 'openai' | 'midjourney-api' | 'comfydeploy' | 'omnideploy' | 'other';
       baseUrl: string;
       baseUrls?: { [provider: string]: string };
       model: string;
@@ -377,7 +379,7 @@ export interface ProjectData {
       };
     };
     video: {
-      provider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'llama-server' | 'lm-studio' | 'seedance' | 'kling' | 'openart' | 'youart' | 'comfydeploy' | 'omnideploy' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
+      provider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'llama-server' | 'lm-studio' | 'seedance' | 'kling' | 'openart' | 'youart' | 'comfydeploy' | 'omnideploy' | 'other';
       baseUrl: string;
       baseUrls?: { [provider: string]: string };
       model?: string;
@@ -400,7 +402,7 @@ export interface ProjectData {
       models?: { [provider: string]: string };
     };
     audio: {
-      ttsProvider: 'gemini' | 'ollama' | 'llama-server' | 'lm-studio' | 'comfyui' | 'elevenlabs' | 'suno' | 'local' | 'comfydeploy' | 'omnideploy' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
+      ttsProvider: 'gemini' | 'ollama' | 'llama-server' | 'lm-studio' | 'comfyui' | 'elevenlabs' | 'suno' | 'local' | 'comfydeploy' | 'omnideploy' | 'other';
       ttsUrl: string;
       ttsUrls?: { [provider: string]: string };
       ttsModel: string;
@@ -415,7 +417,7 @@ export interface ProjectData {
 
       ttsOmniDeployDeploymentId?: string;
  
-      musicProvider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'llama-server' | 'lm-studio' | 'suno' | 'udio' | 'meta-audiocraft' | 'local' | 'comfydeploy' | 'omnideploy' | 'openrouter' | 'cometapi' | 'nvidia' | 'other';
+      musicProvider: 'gemini' | 'comfyui' | 'a1111' | 'ollama' | 'llama-server' | 'lm-studio' | 'suno' | 'udio' | 'meta-audiocraft' | 'local' | 'comfydeploy' | 'omnideploy' | 'other';
       musicUrl: string;
       musicUrls?: { [provider: string]: string };
       musicModel: string;
@@ -449,7 +451,7 @@ export interface ProjectData {
       sfxModels?: { [provider: string]: string };
     };
     threeD: {
-      provider: 'tripo' | 'meshy' | 'comfydeploy' | 'omnideploy' | 'comfyui' | 'a1111' | 'openrouter' | 'cometapi' | 'nvidia';
+      provider: 'tripo' | 'meshy' | 'comfydeploy' | 'omnideploy' | 'comfyui' | 'a1111';
       baseUrl: string;
       baseUrls?: { [provider: string]: string };
       apiKey: string;
@@ -524,6 +526,7 @@ export interface ProjectData {
     comfyuiPath?: string;
     /** Liberar VRAM/RAM automáticamente tras cada generación individual (Ollama, ComfyUI, Llama-Server) */
     autoFreeMemoryAfterGeneration?: boolean;
+    fenix?: FenixAgentConfig;
   };
   codeState: {
     messages: ChatMessage[];
@@ -545,4 +548,112 @@ export interface ProjectData {
   };
   npcsState?: NPCState;
 }
+
+export type FenixEmotion = 'neutral' | 'happy' | 'excited' | 'thinking' | 'focused' | 'sad' | 'celebrating';
+
+export interface FenixChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  timestamp: number;
+  emotion?: FenixEmotion;
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    args: Record<string, any>;
+    result?: any;
+  }>;
+  toolOutput?: Record<string, any>;
+  collaborator?: 'primary' | 'secondary';
+}
+
+export interface FenixProjectMemory {
+  id: string;
+  projectId: string;
+  key: string;
+  category: 'game_genre' | 'art_style' | 'mechanics' | 'character' | 'lore' | 'general';
+  content: string;
+  timestamp: number;
+}
+
+export type FenixTtsEngine = 'browser' | 'piper' | 'edge-tts';
+
+export interface FenixAgentConfig {
+  enabled: boolean;
+  name: string;
+  avatar: string; // Base64 data URL o path /fenix_avatar_default.jpg
+  personality: string;
+  userName: string;
+  userExperience: 'beginner' | 'intermediate' | 'advanced';
+  preferredEngine: 'godot' | 'unity' | 'unreal' | 'phaser' | 'web' | 'custom';
+  favoriteGenres: string[];
+  provider: 'hyperqwen-ollama' | 'hyperqwen-llama' | 'gemini' | 'anthropic' | 'openai' | 'openrouter' | 'nvidia';
+  wizardMode?: boolean; // Modo Paso a Paso interactivo (1 pregunta a la vez) vs Modo Rápido directo
+  multiAgentEnabled: boolean;
+  secondaryProvider: 'gemini' | 'anthropic' | 'openai' | 'openrouter' | 'nvidia' | 'none';
+  ollamaBaseUrl: string;
+  ollamaModel: string;
+  llamaServerGgufPath: string;
+  llamaServerPort: number;
+  openrouterModel?: string;
+  nvidiaModel?: string;
+  apiKeys: {
+    gemini?: string;
+    anthropic?: string;
+    openai?: string;
+    openrouter?: string;
+    nvidia?: string;
+  };
+  voiceEnabled: boolean;
+  speechToTextEnabled: boolean;
+  ttsEngine: FenixTtsEngine; // 'browser' (cero GPU, natural y rápido), 'piper' (ONNX CPU ligero), 'edge-tts' (Edge neural)
+  browserVoice?: string;
+  edgeVoice?: string;
+  voiceName?: string;
+  voiceSpeed: number;
+  voicePitch: number;
+  windowPosition: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    isMinimized: boolean;
+    isVisible: boolean;
+  };
+}
+
+export const DEFAULT_FENIX_CONFIG: FenixAgentConfig = {
+  enabled: false,
+  name: 'Fénix',
+  avatar: '/fenix_avatar_default.jpg',
+  personality: 'Experto amigable y proactivo en diseño y experiencia de usuario (UX) para videojuegos, dirección de arte, creación de sprites, animación 2D/3D, música, efectos de sonido, narrativa y programación.',
+  userName: '',
+  userExperience: 'intermediate',
+  preferredEngine: 'godot',
+  favoriteGenres: ['Action', 'Platformer', 'RPG'],
+  provider: 'hyperqwen-ollama',
+  wizardMode: true,
+  multiAgentEnabled: false,
+  secondaryProvider: 'none',
+  ollamaBaseUrl: 'http://127.0.0.1:11434',
+  ollamaModel: 'qwen2.5-coder:7b',
+  llamaServerGgufPath: '',
+  llamaServerPort: 8088,
+  apiKeys: {},
+  voiceEnabled: true,
+  speechToTextEnabled: true,
+  ttsEngine: 'browser',
+  browserVoice: '',
+  edgeVoice: 'es-ES-AlvaroNeural',
+  voiceSpeed: 1.0,
+  voicePitch: 1.0,
+  windowPosition: {
+    x: 80,
+    y: 80,
+    width: 400,
+    height: 600,
+    isMinimized: false,
+    isVisible: true,
+  },
+};
 

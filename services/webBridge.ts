@@ -99,47 +99,67 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
 
       let statusResult = false;
 
-      const pingUrl = async (u: string, path: string = ''): Promise<boolean> => {
-        return new Promise<boolean>((resolve) => {
-          const clean = u.replace(/\/$/, '');
-          const target = path ? `${clean}${path}` : clean;
-          const ctrl = new AbortController();
-          const timerId = setTimeout(() => {
-            ctrl.abort();
-            resolve(false);
-          }, 1500);
-          fetch(target, { method: 'GET', mode: 'no-cors', signal: ctrl.signal })
-            .then(() => {
-              clearTimeout(timerId);
-              resolve(true);
-            })
-            .catch(() => {
-              clearTimeout(timerId);
-              resolve(false);
-            });
-        });
-      };
-
       if (isComfyUrl) {
-        statusResult = await pingUrl(targetUrl, '/system_stats');
-        if (!statusResult) statusResult = await pingUrl(targetUrl);
+        const testComfy = async (base: string): Promise<boolean> => {
+          try {
+            const clean = base.replace(/\/$/, '');
+            const controller = new AbortController();
+            const t = setTimeout(() => controller.abort(), 1500);
+            await fetch(`${clean}/system_stats`, { method: 'GET', mode: 'no-cors', signal: controller.signal });
+            clearTimeout(t);
+            return true;
+          } catch {
+            try {
+              const clean = base.replace(/\/$/, '');
+              const controller = new AbortController();
+              const t = setTimeout(() => controller.abort(), 1500);
+              await fetch(clean, { method: 'GET', mode: 'no-cors', signal: controller.signal });
+              clearTimeout(t);
+              return true;
+            } catch {
+              return false;
+            }
+          }
+        };
+
+        statusResult = await testComfy(targetUrl);
         if (!statusResult) {
           const alt = targetUrl.includes('localhost')
             ? targetUrl.replace('localhost', '127.0.0.1')
             : targetUrl.replace('127.0.0.1', 'localhost');
-          statusResult = await pingUrl(alt, '/system_stats');
-          if (!statusResult) statusResult = await pingUrl(alt);
+          statusResult = await testComfy(alt);
         }
       } else if (isOllamaUrl) {
-        statusResult = await pingUrl(targetUrl, '/api/tags');
+        const testOllama = async (base: string): Promise<boolean> => {
+          try {
+            const clean = base.replace(/\/$/, '');
+            const controller = new AbortController();
+            const t = setTimeout(() => controller.abort(), 1500);
+            await fetch(`${clean}/api/tags`, { method: 'GET', mode: 'no-cors', signal: controller.signal });
+            clearTimeout(t);
+            return true;
+          } catch {
+            return false;
+          }
+        };
+
+        statusResult = await testOllama(targetUrl);
         if (!statusResult) {
           const alt = targetUrl.includes('localhost')
             ? targetUrl.replace('localhost', '127.0.0.1')
             : targetUrl.replace('127.0.0.1', 'localhost');
-          statusResult = await pingUrl(alt, '/api/tags');
+          statusResult = await testOllama(alt);
         }
       } else {
-        statusResult = await pingUrl(targetUrl);
+        try {
+          const controller = new AbortController();
+          const t = setTimeout(() => controller.abort(), 1500);
+          await fetch(targetUrl, { method: 'GET', mode: 'no-cors', signal: controller.signal });
+          clearTimeout(t);
+          statusResult = true;
+        } catch {
+          statusResult = false;
+        }
       }
 
       serviceStatusCache.set(targetUrl, { result: statusResult, time: Date.now() });
@@ -211,14 +231,9 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
               const mime = url.includes('.jpg') || url.includes('.jpeg') ? 'image/jpeg' : 'image/png';
               return `data:${mime};base64,${b64}`;
             }
+            return await res.text();
           } catch (e: any) {
-            if (url.includes('11434')) {
-              throw new Error("No se pudo conectar con Ollama en http://localhost:11434. Asegúrate de que el servicio de Ollama esté encendido.");
-            } else if (url.includes('8188')) {
-              throw new Error("CORS bloqueado por ComfyUI: Reinicia ComfyUI en tu PC cerrando la consola actual y abriendo el archivo OMNI-IA_START.bat actualizado para activar --enable-cors-header *.");
-            } else {
-              throw new Error(`Error de conexión o CORS bloqueado al contactar ${url}`);
-            }
+            throw new Error("CORS bloqueado por ComfyUI: Reinicia ComfyUI en tu PC cerrando la consola actual y abriendo el archivo OMNI-IA_START.bat actualizado para activar --enable-cors-header *.");
           }
         }
       }
@@ -227,11 +242,8 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
       let requestUrl = url;
       if (url.includes('integrate.api.nvidia.com')) {
         const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost');
-        if (isLocalDev) {
-          requestUrl = url.replace('https://integrate.api.nvidia.com', '/api/nvidia');
-        } else {
+        if (!isLocalDev) {
           // En producción (fenixdev.cloud), enviar siempre al proxy del servidor Express
-          requestUrl = '/api/proxy';
           return await (async () => {
             const fetchHeaders: Record<string, string> = { ...headers };
             if (payload && !fetchHeaders['Content-Type']) fetchHeaders['Content-Type'] = 'application/json';
@@ -264,9 +276,8 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
         body = typeof payload === 'string' ? payload : JSON.stringify(payload);
         if (!fetchHeaders['Content-Type']) fetchHeaders['Content-Type'] = 'application/json';
       }
-
       try {
-        const directRes = await fetch(requestUrl, { method, headers: fetchHeaders, body });
+        const directRes = await fetch(url, { method, headers: fetchHeaders, body });
         if (isImageResponse) {
           const arrayBuffer = await directRes.arrayBuffer();
           const bytes = new Uint8Array(arrayBuffer);
@@ -289,44 +300,8 @@ export const webBridgeInvoke = async (cmd: string, args: any = {}): Promise<any>
           return JSON.stringify(errObj);
         }
         return textResult;
-      } catch (directErr: any) {
-        // Fallback al relé backend /api/proxy si el navegador bloquea por política CORS
-        try {
-          const proxyRes = await fetch('/api/proxy', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              targetUrl: url,
-              method,
-              headers: fetchHeaders,
-              payload
-            })
-          });
-          if (isImageResponse) {
-            const arrayBuffer = await proxyRes.arrayBuffer();
-            const bytes = new Uint8Array(arrayBuffer);
-            let binary = '';
-            for (let i = 0; i < bytes.byteLength; i++) {
-              binary += String.fromCharCode(bytes[i]);
-            }
-            const b64 = btoa(binary);
-            const mime = url.includes('.jpg') || url.includes('.jpeg') ? 'image/jpeg' : 'image/png';
-            return `data:${mime};base64,${b64}`;
-          }
-          const textResult = await proxyRes.text();
-          if (!proxyRes.ok) {
-            let errObj: any;
-            try {
-              errObj = JSON.parse(textResult);
-            } catch {
-              errObj = { error: { message: textResult.substring(0, 250) || `Error HTTP ${proxyRes.status}` } };
-            }
-            return JSON.stringify(errObj);
-          }
-          return textResult;
-        } catch (proxyErr: any) {
-          return JSON.stringify({ error: { message: `Error de conexión proxy (${directErr?.message || String(directErr)})` } });
-        }
+      } catch (e: any) {
+        return JSON.stringify({ error: { message: `Error de conexión proxy (${e?.message || String(e)})` } });
       }
     }
 

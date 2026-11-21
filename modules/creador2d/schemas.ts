@@ -100,14 +100,14 @@ export const blockDefinitionSchema = z.object({
   biome: z.string(),
   visual: visualSchema,
   ySortOffset: z.number().int(),
-  heightInTiles: z.number().min(0.1).max(20).default(1),
-  breakable: z.boolean().default(true),
-  craftable: z.boolean().default(false),
+  heightInTiles: z.number().int().min(1).max(8),
+  breakable: z.boolean(),
+  craftable: z.boolean(),
   recipe: z
     .array(z.object({ key: z.string(), qty: z.number().int().min(1) }))
     .nullable()
     .optional(),
-  dropQuantity: z.number().int().min(0).default(1),
+  dropQuantity: z.number().int().min(0),
   // `default` en vez de exigirlos: un backend anterior a estos campos sigue
   // sirviendo bloques perfectamente utiles, y rechazarlos por eso vaciaria la
   // paleta otra vez.
@@ -118,22 +118,22 @@ export const blockDefinitionSchema = z.object({
 
 export const worldSummarySchema = z.object({
   id: z.string(),
-  slug: z.string().default('mundo-2d'),
-  name: z.string().default('Mundo 2D'),
+  slug: z.string(),
+  name: z.string(),
   description: z.string().nullable().optional(),
-  type: worldTypeSchema.catch('TOP_DOWN_CENITAL'),
-  tileSize: z.number().int().default(32),
-  chunkSize: z.number().int().default(16),
-  biome: z.string().default('grassy_plains'),
-  seed: z.number().int().default(12345),
-  background: z.string().default('#1a1e29'),
-  gravity: z.number().default(9.8),
+  type: worldTypeSchema,
+  tileSize: z.number().int(),
+  chunkSize: z.number().int(),
+  biome: z.string(),
+  seed: z.number().int(),
+  background: z.string(),
+  gravity: z.number(),
   gridAngle: z.number().default(0),
   laneCount: z.number().int().default(3),
   laneWidth: z.number().int().default(2),
-  version: z.number().int().default(1),
-  ownerId: z.string().default('web-user-1'),
-  updatedAt: z.string().default(() => new Date().toISOString()),
+  version: z.number().int(),
+  ownerId: z.string(),
+  updatedAt: z.string(),
   isInterior: z.boolean().default(false),
   parentWorldId: z.string().nullable().optional(),
   entranceTileX: z.number().int().nullable().optional(),
@@ -144,16 +144,13 @@ export const worldSummarySchema = z.object({
 
 export const worldDetailSchema = worldSummarySchema.extend({
   stats: z.object({
-    chunkCount: z.number().int().default(0),
+    chunkCount: z.number().int(),
     bounds: z.object({
-      minCx: z.number().int().default(0),
-      minCy: z.number().int().default(0),
-      maxCx: z.number().int().default(0),
-      maxCy: z.number().int().default(0),
-    }).default({ minCx: 0, minCy: 0, maxCx: 0, maxCy: 0 }),
-  }).default({
-    chunkCount: 0,
-    bounds: { minCx: 0, minCy: 0, maxCx: 0, maxCy: 0 }
+      minCx: z.number().int(),
+      minCy: z.number().int(),
+      maxCx: z.number().int(),
+      maxCy: z.number().int(),
+    }),
   }),
 });
 
@@ -267,19 +264,19 @@ export const parallaxLayerSchema = z.object({
 });
 
 export const weatherSchema = z.object({
-  id: z.string().default('weather-default'),
-  worldId: z.string().default('world-demo'),
-  type: z.enum(['NONE', 'RAIN', 'SNOW', 'DUST', 'ASH', 'LAVA_RAIN', 'FOG', 'MIST', 'STORM']).catch('NONE'),
-  intensity: z.number().default(0.5),
-  windDirection: z.enum(['NONE', 'DOWN', 'LEFT', 'RIGHT', 'DOWN_LEFT', 'DOWN_RIGHT', 'UP']).catch('NONE'),
-  windStrength: z.number().default(0),
-  fogDensity: z.number().default(0),
-  tint: z.string().default('#9fb4c7'),
-  emissionRate: z.number().int().default(10),
+  id: z.string(),
+  worldId: z.string(),
+  type: z.enum(['NONE', 'RAIN', 'SNOW', 'DUST', 'ASH', 'LAVA_RAIN', 'FOG', 'MIST', 'STORM']),
+  intensity: z.number(),
+  windDirection: z.enum(['NONE', 'DOWN', 'LEFT', 'RIGHT', 'DOWN_LEFT', 'DOWN_RIGHT', 'UP']),
+  windStrength: z.number(),
+  fogDensity: z.number(),
+  tint: z.string(),
+  emissionRate: z.number().int(),
   lightning: z.boolean().default(false),
   lightningEvery: z.number().default(7),
   lightningTint: z.string().default('#dbe9ff'),
-  enabled: z.boolean().default(false),
+  enabled: z.boolean(),
 });
 
 export const fluidSettingSchema = z.object({

@@ -199,26 +199,93 @@ function formFromProfile(profile?: ProfileData): WizardForm {
   return f;
 }
 
-async function authFetch(path: string, body: unknown, token?: string | null): Promise<{ ok: boolean; status?: number; error?: string; [k: string]: unknown }> {
+export async function authFetch(
+  path: string,
+  body: unknown,
+  token?: string | null
+): Promise<{ ok: boolean; status?: number; error?: string; [k: string]: unknown }> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
+  const fullUrl = `${getAuthServerUrl()}${path}`;
+  const isWebMode = typeof window !== 'undefined' && ((window as any).__OMNI_IS_WEB__ || !(window as any).__TAURI_INTERNALS__);
+  const invokeFn = !isWebMode && ((window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke);
+
+  if (invokeFn) {
+    try {
+      const rawText = await invokeFn('proxy_request', {
+        url: fullUrl,
+        method: body === null ? 'GET' : 'POST',
+        headers,
+        body: body === null ? undefined : JSON.stringify(body),
+      });
+      const data = JSON.parse(rawText || '{}');
+      if (data && data.ok !== false) return { ...data, status: 200 };
+      return {
+        ok: false,
+        status: 400,
+        error: (data && (data.error as string)) || 'Error en la respuesta del servidor.',
+      };
+    } catch (tauriErr: any) {
+      const errMsg = String(tauriErr || '');
+      if (errMsg.includes('429')) {
+        return {
+          ok: false,
+          status: 429,
+          error: 'Demasiadas solicitudes al servidor (429). Por favor espera unos minutos antes de reintentar.',
+        };
+      }
+      console.warn('[authFetch] Fallback a fetch nativo tras error en proxy:', tauriErr);
+    }
+  }
+
   try {
-    const res = await fetch(`${getAuthServerUrl()}${path}`, {
+    const res = await fetch(fullUrl, {
       method: body === null ? 'GET' : 'POST',
       headers,
       body: body === null ? undefined : JSON.stringify(body),
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.ok !== false) return { ...data, status: res.status };
-    return { ok: false, status: res.status, error: (data && (data.error as string)) || `Error del servidor (${res.status})` };
+    if (res.status === 429) {
+      return {
+        ok: false,
+        status: 429,
+        error: (data && (data.error as string)) || 'Demasiadas solicitudes al servidor (429). Por favor espera unos minutos antes de reintentar.',
+      };
+    }
+    return {
+      ok: false,
+      status: res.status,
+      error: (data && (data.error as string)) || `Error del servidor (${res.status})`,
+    };
   } catch {
-    return { ok: false, status: 0, error: 'No se pudo conectar con el servidor de cuentas.' };
+    return {
+      ok: false,
+      status: 0,
+      error: 'No se pudo conectar con el servidor de cuentas. Verifica tu conexión a internet.',
+    };
   }
 }
 
 async function geoGet(path: string): Promise<{ ok: boolean; error?: string; [k: string]: unknown } | null> {
+  const fullUrl = `${getAuthServerUrl()}${path}`;
+  const isWebMode = typeof window !== 'undefined' && ((window as any).__OMNI_IS_WEB__ || !(window as any).__TAURI_INTERNALS__);
+  const invokeFn = !isWebMode && ((window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke);
+
+  if (invokeFn) {
+    try {
+      const rawText = await invokeFn('proxy_request', {
+        url: fullUrl,
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = JSON.parse(rawText || '{}');
+      if (data && data.ok !== false) return data;
+    } catch {}
+  }
+
   try {
-    const res = await fetch(`${getAuthServerUrl()}${path}`);
+    const res = await fetch(fullUrl);
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.ok !== false) return data;
     return null;
@@ -603,22 +670,12 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   const completeAuth = async (token: string, userEmail: string) => {
     storeSession(token, userEmail);
     const me = await authFetch('/api/me', null, token);
-    const user = me.ok ? (me.user as { role?: string; completedRegistration?: boolean; license?: string | null; profile?: ProfileData } | undefined) : undefined;
+    const user = me.ok ? (me.user as { completedRegistration?: boolean; license?: string | null; profile?: ProfileData } | undefined) : undefined;
     
-    if (user?.role === 'admin') {
-      clearStoredAuth();
-      setError('Las cuentas de administrador no tienen acceso a la app de estudiantes. Inicia sesión desde el Panel de Administración (/admin).');
-      return;
-    }
-
     // Sincronizar en disco la licencia exclusiva de ESTA cuenta:
     const invokeFn = (window as any).__TAURI__?.invoke || (window as any).__TAURI_INTERNALS__?.invoke;
-    if (invokeFn) {
-      if (user?.license) {
-        await invokeFn('save_license_key', { licenseKey: user.license }).catch(() => {});
-      } else {
-        await invokeFn('save_license_key', { licenseKey: '' }).catch(() => {});
-      }
+    if (invokeFn && user?.license) {
+      await invokeFn('save_license_key', { licenseKey: user.license }).catch(() => {});
     }
 
     if (me.ok && user && !user.completedRegistration) {
@@ -1075,7 +1132,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-6">
           <div className="w-20 h-20 rounded-full overflow-hidden border border-slate-700 shadow-lg mb-4">
-            <img src="./logo.jpg" alt="Omni-IA Game" className="w-full h-full object-cover" />
+            <img src="/logo.jpg" alt="Omni-IA Game" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-bold tracking-wider text-center">
             OMNI-IA <span className="text-purple-400">GAME</span>
@@ -1324,7 +1381,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className={labelCls}>Correo electrónico</label>
                   <div className="relative">
@@ -1335,7 +1392,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="estudiante@correo.com"
                       autoFocus
-                      autoComplete="off"
                       className={inputCls}
                     />
                   </div>
@@ -1350,7 +1406,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      autoComplete="new-password"
                       className={inputCls}
                     />
                   </div>
@@ -1366,7 +1421,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="••••••••"
-                        autoComplete="new-password"
                         className={inputCls}
                       />
                     </div>

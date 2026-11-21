@@ -11,6 +11,9 @@ import AnimationStudio from './components/AnimationStudio';
 import NPCStudio from './components/NPCStudio';
 import ThreeDStudio from './components/ThreeDStudio';
 import SettingsModal from './components/SettingsModal';
+import { FenixAgentWindow } from './components/FenixAgentWindow';
+import { getFenixConfig, saveFenixConfig } from './services/fenixDb';
+import { FenixAgentConfig, DEFAULT_FENIX_CONFIG } from './types';
 import ComfyUIInstaller from './components/ComfyUIInstaller';
 import OllamaInstaller from './components/OllamaInstaller';
 import LlamaModelInstaller from './components/LlamaModelInstaller';
@@ -335,6 +338,12 @@ const App: React.FC = () => {
   const [project, setProject] = useState<ProjectData>(DEFAULT_PROJECT);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
+  const [fenixConfig, setFenixConfig] = useState<FenixAgentConfig>(DEFAULT_FENIX_CONFIG);
+
+  useEffect(() => {
+    getFenixConfig().then((cfg) => setFenixConfig(cfg));
+  }, []);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -517,144 +526,66 @@ const App: React.FC = () => {
     // Restauración inmediata de sesión almacenada (Persistencia absoluta al recargar F5 / Ctrl+F5)
     setIsAuthenticated(true);
 
-    fetch(`${getAuthServerUrl()}/api/me`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
+    const checkStoredSession = async () => {
+      try {
+        const url = `${getAuthServerUrl()}/api/me`;
+        let ok = false;
+        let status = 0;
+        let data: any = {};
+
+        if (hayEntornoTauri()) {
+          try {
+            const raw = await invoke<string>('proxy_request', {
+              url,
+              method: 'GET',
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            data = JSON.parse(raw || '{}');
+            ok = data?.ok !== false;
+            status = ok ? 200 : 400;
+          } catch (tauriErr: any) {
+            const msg = String(tauriErr || '');
+            if (msg.includes('401') || msg.includes('expirada')) {
+              status = 401;
+            }
+          }
+        } else {
+          const res = await fetch(url, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          status = res.status;
+          data = await res.json().catch(() => ({}));
+          ok = res.ok && data.ok !== false;
+        }
+
         if (cancelled) return;
-        if (res.ok && data.ok !== false) {
+        if (ok) {
           setIsAuthenticated(true);
           const serverLicense = data?.user?.license;
           if (hayEntornoTauri() && serverLicense) {
             invoke('save_license_key', { licenseKey: serverLicense }).catch(() => {});
           }
-        } else if (res.status === 401) {
+        } else if (status === 401) {
           // Solo cerrar sesión si el servidor responde explícitamente token inválido o expirado (401)
           clearStoredAuth();
           setIsAuthenticated(false);
         }
-      })
-      .catch(() => {
+      } catch {
         // En caso de falla de red temporal o parpadeo en F5, mantener la sesión local activa
         if (!cancelled) setIsAuthenticated(true);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setAuthChecked(true);
-      });
+      }
+    };
+
+    checkStoredSession();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const knownWebInstancesRef = useRef<Set<string>>(new Set());
-  const knownDesktopInstancesRef = useRef<Set<string>>(new Set());
-  const getPersistentInstanceId = () => {
-  try {
-    let id = sessionStorage.getItem('omni_tab_instance_id');
-    if (!id) {
-      id = Math.random().toString(36).substring(2, 9);
-      sessionStorage.setItem('omni_tab_instance_id', id);
-    }
-    return id;
-  } catch {
-    return Math.random().toString(36).substring(2, 9);
-  }
-};
-const currentInstanceIdRef = useRef<string>(getPersistentInstanceId());
 
-  // Monitor de Instancias Concurrentes (Control Estricto: Regular 1 / Premium 2 = 1 Escritorio + 1 Web)
-  useEffect(() => {
-    const isDesktopEnv = true;
-    const currentInstanceId = currentInstanceIdRef.current;
-    const token = readStoredToken();
-
-    // 1. Monitor Local (Mismo Navegador / Mismo Origen via BroadcastChannel)
-    const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('omni_instance_channel') : null;
-
-    const checkLocalConcurrencyRules = () => {
-      const isPremium = premiumUnlocked;
-      const webCount = knownWebInstancesRef.current.size;
-      const desktopCount = knownDesktopInstancesRef.current.size;
-
-      if (!isPremium) {
-        if ((isDesktopEnv && webCount > 0) || (!isDesktopEnv && (webCount > 0 || desktopCount > 0))) {
-          const msg = '⚠️ Límite de Instancias Alcanzado: Tu cuenta Regular solo permite 1 aplicación activa a la vez. Se ha cerrado la sesión en esta aplicación para proteger tu cuenta.';
-          clearStoredAuth();
-          setAuthError(msg);
-          setIsAuthenticated(false);
-        }
-      } else {
-        if (!isDesktopEnv && webCount > 0) {
-          const msg = '⚠️ Límite de Instancias Alcanzado: Tu cuenta Premium permite máximo 1 App de Escritorio y 1 App Web activa simultáneamente. Se ha cerrado la sesión en esta ventana porque ya tienes una instancia activa en ese entorno.';
-          clearStoredAuth();
-          setAuthError(msg);
-          setIsAuthenticated(false);
-        }
-      }
-    };
-
-    if (channel) {
-      channel.onmessage = (ev) => {
-        if (!ev.data) return;
-        const { instanceId, isDesktop, action } = ev.data;
-        if (action === 'ping' && instanceId !== currentInstanceId) {
-          if (isDesktop) knownDesktopInstancesRef.current.add(instanceId);
-          else knownWebInstancesRef.current.add(instanceId);
-          channel.postMessage({ type: 'omni_instance_ping', instanceId: currentInstanceId, isDesktop: isDesktopEnv, action: 'pong' });
-          checkLocalConcurrencyRules();
-        } else if (action === 'pong' && instanceId !== currentInstanceId) {
-          if (isDesktop) knownDesktopInstancesRef.current.add(instanceId);
-          else knownWebInstancesRef.current.add(instanceId);
-          checkLocalConcurrencyRules();
-        }
-      };
-      channel.postMessage({ type: 'omni_instance_ping', instanceId: currentInstanceId, isDesktop: isDesktopEnv, action: 'ping' });
-    }
-
-    // 2. Monitor Remoto Universal (Heartbeat al Servidor Hostinger - Funciona entre cualquier navegador Chrome/Comet/Edge/Escritorio)
-    const sendServerHeartbeat = async () => {
-      const activeEmail = readStoredEmail() || localStorage.getItem('omni_auth_email') || 'jaimearangoia@gmail.com';
-      try {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json'
-        };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-        const res = await fetch(`https://fenixdev.cloud/api/session/heartbeat`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            instanceId: currentInstanceId,
-            isDesktop: isDesktopEnv,
-            email: activeEmail
-          })
-        });
-        const data = await res.json().catch(() => ({}));
-        console.log('[Omni Concurrency Heartbeat]', res.status, data);
-        if (res.status === 409 || data.code === 'CONCURRENCY_LIMIT_EXCEEDED') {
-          const msg = data.message || '⚠️ Límite de Instancias Alcanzado: Se ha detectado otra instancia activa.';
-          console.warn('🔒 ALERTA DE CONCURRENCIA (Sesión preservada):', msg);
-          // NO se borra la autenticación para permitir F5 y recarga fluida sin pérdida de sesión
-        }
-      } catch (err) {
-        console.error('[Omni Concurrency Heartbeat Error]', err);
-      }
-    };
-
-    sendServerHeartbeat();
-    const interval = setInterval(() => {
-      if (channel) channel.postMessage({ type: 'omni_instance_ping', instanceId: currentInstanceId, isDesktop: isDesktopEnv, action: 'ping' });
-      sendServerHeartbeat();
-    }, 4000);
-
-    return () => {
-      clearInterval(interval);
-      if (channel) channel.close();
-    };
-  }, [isAuthenticated, premiumUnlocked]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -949,32 +880,21 @@ const currentInstanceIdRef = useRef<string>(getPersistentInstanceId());
     return () => clearInterval(interval);
   }, [project.apiSettings]);
 
-  // Polling para los logs de la consola
+  // Polling para los logs de la consola local (Exclusivo para la App de Escritorio)
   useEffect(() => {
     if (!showConsole && !isSettingsOpen) return;
+    const isWebMode = (window as any).__OMNI_IS_WEB__ || !(window as any).__TAURI_INTERNALS__;
+    if (isWebMode) {
+      // En modo Web la inferencia es cloud o remota; no existe proceso ComfyUI local del navegador
+      return;
+    }
 
     const fetchLogs = async () => {
       try {
-        const isWebMode = (window as any).__OMNI_IS_WEB__ || !(window as any).__TAURI_INTERNALS__;
-        if (!isWebMode && (window as any).__TAURI__ && typeof invoke === 'function') {
+        if ((window as any).__TAURI__ && typeof invoke === 'function') {
           const comfyuiPath = project.apiSettings.comfyuiPath || 'G:\\apps\\all_comfyui_installer\\ComfyUI';
-          const logs = await invoke('get_comfyui_logs', { comfyuiPath }) as string;
+          const logs = (await invoke('get_comfyui_logs', { comfyuiPath })) as string;
           setConsoleLogs(logs);
-        } else {
-          // Modo Web App: Consultar logs al servidor Node.js vía OmniDeploy API
-          const deploymentId = (project.apiSettings.image as any)?.deploymentId || (project.apiSettings.video as any)?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
-          if (!deploymentId) {
-            setConsoleLogs("Pestaña Web activa. Para monitorear logs remotos, asegúrate de configurar el deploymentId en la pestaña de Ajustes.");
-            return;
-          }
-          const res = await fetch(`https://omni-api.fenixdev.cloud/api/omnideploy/control/logs?deploymentId=${encodeURIComponent(deploymentId)}`);
-          const data = await res.json();
-          if (data.ok) {
-            setConsoleLogs(data.logs || "(Sin registros de log aún en el servidor...)");
-            if (data.status === 'running') {
-              setIsLaunching(false);
-            }
-          }
         }
       } catch (e) {
         setConsoleLogs(`Error leyendo logs: ${e}`);
@@ -982,34 +902,22 @@ const currentInstanceIdRef = useRef<string>(getPersistentInstanceId());
     };
 
     fetchLogs();
-    const interval = setInterval(fetchLogs, 1000);
+    const interval = setInterval(fetchLogs, 1500);
     return () => clearInterval(interval);
   }, [showConsole, isSettingsOpen, project.apiSettings]);
 
   const handleLaunchComfyUI = async () => {
+    const isWebMode = (window as any).__OMNI_IS_WEB__ || !(window as any).__TAURI_INTERNALS__;
+    if (isWebMode) {
+      alert("En la versión Web, los motores locales (ComfyUI / Ollama) se ejecutan directamente en tu máquina local o mediante la App de Escritorio.");
+      return;
+    }
     try {
       setShowConsole(true);
       setIsLaunching(true);
-      const isWebMode = (window as any).__OMNI_IS_WEB__ || !(window as any).__TAURI_INTERNALS__;
-      if (!isWebMode && (window as any).__TAURI__ && typeof invoke === 'function') {
+      if ((window as any).__TAURI__ && typeof invoke === 'function') {
         const comfyuiPath = project.apiSettings.comfyuiPath || 'F:\\Comfyui_362\\App\\OMNI-IA_START - Copy.bat';
         await invoke('launch_comfyui', { comfyuiPath });
-      } else {
-        // Modo Web App: Enviar orden de inicio al servidor Node.js vía OmniDeploy
-        const deploymentId = (project.apiSettings.image as any)?.deploymentId || (project.apiSettings.video as any)?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
-        const apiKey = project.apiSettings.image?.apiKey || project.apiSettings.video?.apiKey || 'master';
-        const res = await fetch('https://omni-api.fenixdev.cloud/api/omnideploy/control/launch-comfy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deploymentId, apiKey }),
-        });
-        const data = await res.json();
-        if (!data.ok) {
-          setIsLaunching(false);
-          alert(`Error enviando orden de inicio: ${data.error}`);
-        } else {
-          setConsoleLogs(prev => (prev || '') + "\n[OmniDeploy] 🚀 Orden enviada: Lanzando ComfyUI en el agente remoto...");
-        }
       }
     } catch (e) {
       setIsLaunching(false);
@@ -1018,28 +926,17 @@ const currentInstanceIdRef = useRef<string>(getPersistentInstanceId());
   };
 
   const handleStopComfyUI = async () => {
+    const isWebMode = (window as any).__OMNI_IS_WEB__ || !(window as any).__TAURI_INTERNALS__;
+    if (isWebMode) {
+      alert("En la versión Web, los motores locales se administran en tu máquina local.");
+      return;
+    }
     try {
       setIsLaunching(false);
-      const isWebMode = (window as any).__OMNI_IS_WEB__ || !(window as any).__TAURI_INTERNALS__;
-      if (!isWebMode && (window as any).__TAURI__ && typeof invoke === 'function') {
+      if ((window as any).__TAURI__ && typeof invoke === 'function') {
         const comfyuiPath = project.apiSettings.comfyuiPath || 'G:\\apps\\all_comfyui_installer\\ComfyUI';
         const result = await invoke('stop_comfyui', { comfyuiPath });
         alert(result);
-      } else {
-        // Modo Web App: Enviar orden de detención al servidor Node.js
-        const deploymentId = (project.apiSettings.image as any)?.deploymentId || (project.apiSettings.video as any)?.deploymentId || '65dc5aaf-6eda-4867-86e0-0d25f864d036';
-        const apiKey = project.apiSettings.image?.apiKey || project.apiSettings.video?.apiKey || 'master';
-        const res = await fetch('https://omni-api.fenixdev.cloud/api/omnideploy/control/stop-comfy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deploymentId, apiKey }),
-        });
-        const data = await res.json();
-        if (!data.ok) {
-          alert(`Error enviando orden de detención: ${data.error}`);
-        } else {
-          alert("Orden de detención enviada a ComfyUI.");
-        }
       }
     } catch (e) {
       alert(`Error al detener ComfyUI: ${e}`);
@@ -1605,7 +1502,55 @@ const currentInstanceIdRef = useRef<string>(getPersistentInstanceId());
               className="bg-slate-950 border border-slate-800 text-xs font-mono px-3 py-1.5 rounded text-blue-300 focus:border-blue-500 outline-none w-48"
               placeholder="Nombre del Proyecto"
             />
-            <div className="flex gap-1">
+            <div className="flex gap-1 items-center">
+              {/* BOTÓN RÁPIDO DE ACCESO AL AGENTE FÉNIX */}
+              <button
+                onClick={() => {
+                  if (!fenixConfig.enabled) {
+                    setSettingsInitialTab('fenix');
+                    setIsSettingsOpen(true);
+                  } else {
+                    const nextVisible = !(fenixConfig.windowPosition?.isVisible ?? true);
+                    const updated = {
+                      windowPosition: {
+                        ...fenixConfig.windowPosition,
+                        isVisible: nextVisible,
+                      },
+                    };
+                    setFenixConfig((prev) => ({ ...prev, ...updated }));
+                    saveFenixConfig(updated);
+                  }
+                }}
+                className={`relative px-2 py-1 rounded-lg border flex items-center gap-1.5 transition-all ${
+                  fenixConfig.enabled
+                    ? fenixConfig.windowPosition?.isVisible ?? true
+                      ? 'bg-amber-950/40 border-amber-500/80 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                      : 'bg-slate-900 border-amber-500/40 text-amber-400 hover:bg-slate-800'
+                    : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-amber-400 hover:border-slate-700'
+                }`}
+                title={
+                  fenixConfig.enabled
+                    ? fenixConfig.windowPosition?.isVisible ?? true
+                      ? 'Ocultar Agente Fénix'
+                      : 'Mostrar Agente Fénix'
+                    : 'Configurar y Activar Agente Fénix'
+                }
+              >
+                <div className="w-5 h-5 rounded-full overflow-hidden border border-amber-400/60 bg-slate-950 flex-shrink-0">
+                  <img
+                    src={fenixConfig.avatar || '/fenix_avatar_default.jpg'}
+                    alt="Fénix"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <span className="text-[11px] font-bold tracking-wide hidden sm:inline text-amber-300 font-mono">
+                  {fenixConfig.name || 'Fénix'}
+                </span>
+                {fenixConfig.enabled && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                )}
+              </button>
+
               <button 
                 onClick={() => {
                   console.log("Settings button clicked");
@@ -1952,7 +1897,13 @@ const currentInstanceIdRef = useRef<string>(getPersistentInstanceId());
 
       <SettingsModal 
         isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
+        onClose={() => {
+          setIsSettingsOpen(false);
+          setSettingsInitialTab(undefined);
+        }} 
+        initialTab={settingsInitialTab}
+        fenixConfig={fenixConfig}
+        onUpdateFenixConfig={(cfg) => setFenixConfig(cfg)}
         settings={project.apiSettings} 
         updateSettings={updateApiSettings} 
         showTooltips={project.showTooltips ?? true}
@@ -1967,6 +1918,71 @@ const currentInstanceIdRef = useRef<string>(getPersistentInstanceId());
         comfyLogs={consoleLogs}
         onClearLogs={handleClearLogs}
       />
+
+      {/* AGENTE ASESOR Y COPILOTO FÉNIX (VENTANA FLOTANTE INTERACTIVA) */}
+      {fenixConfig.enabled && (fenixConfig.windowPosition?.isVisible ?? true) && (
+        <FenixAgentWindow
+          config={fenixConfig}
+          onUpdateConfig={(updated) => {
+            setFenixConfig((prev) => ({ ...prev, ...updated }));
+            saveFenixConfig(updated);
+          }}
+          onOpenSettings={(tab) => {
+            setSettingsInitialTab(tab || 'fenix');
+            setIsSettingsOpen(true);
+          }}
+          onClose={() => {
+            const updated = {
+              windowPosition: {
+                ...fenixConfig.windowPosition,
+                isVisible: false,
+              },
+            };
+            setFenixConfig((prev) => ({ ...prev, ...updated }));
+            saveFenixConfig(updated);
+          }}
+          projectContext={{
+            projectName: project.name,
+            projectId: project.id,
+            assetCount: project.assets?.length || 0,
+            currentTab: currentTab,
+            apiSettings: project.apiSettings,
+            assetState: project.assetState ? {
+              mode: project.assetState.mode,
+              spriteName: project.assetState.spriteName,
+              worldName: project.assetState.worldName,
+              selectedStyle: project.assetState.selectedStyle,
+              selectedAction: project.assetState.selectedAction,
+              autoRemoveBackground: project.assetState.autoRemoveBackground,
+              spriteBgMode: project.assetState.spriteBgMode,
+              isActionSpriteSheet: project.assetState.isActionSpriteSheet,
+              spriteAspect: project.assetState.spriteAspect,
+              spriteNegativePrompt: project.assetState.spriteNegativePrompt,
+            } : undefined,
+          }}
+          apiSettings={project.apiSettings}
+          onSaveAsset={(newAsset) => {
+            updateProject({ assets: [newAsset, ...(project.assets || [])] });
+          }}
+          onSendPromptToStudio={(promptText, negPrompt, styleChoice, actionChoice, autoRemoveBg, spriteNameChoice, spriteBgModeChoice) => {
+            const cleanCandidate = (spriteNameChoice || promptText).slice(0, 24).replace(/[^a-zA-Z0-9_\-\s]/g, '').trim().replace(/\s+/g, '_') || 'Sprite_Fenix';
+            const finalName = spriteNameChoice?.trim() ? spriteNameChoice.trim() : (project.assetState.spriteName?.trim() ? project.assetState.spriteName : cleanCandidate);
+            const mappedBgMode = spriteBgModeChoice === 'chromakey' ? 'chromakey' : spriteBgModeChoice === 'transparent' ? 'transparent' : 'white';
+            updateAssetState({
+              mode: 'sprite',
+              spriteName: finalName,
+              spriteDetails: promptText,
+              selectedAction: (actionChoice as any) || 'Idle',
+              ...(negPrompt ? { spriteNegativePrompt: negPrompt } : {}),
+              ...(styleChoice ? { selectedStyle: styleChoice as any } : {}),
+              autoRemoveBackground: autoRemoveBg !== undefined ? autoRemoveBg : true,
+              spriteBgMode: mappedBgMode,
+              autoTriggerGeneration: true,
+            });
+            setCurrentTab(TabView.ASSETS);
+          }}
+        />
+      )}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 p-6 rounded-xl max-w-sm w-full">
