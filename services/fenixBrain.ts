@@ -9,6 +9,7 @@
  */
 
 import { FenixAgentConfig, FenixChatMessage, FenixEmotion } from '../types';
+import { ART_STYLES } from '../constants';
 import { getFenixMemories } from './fenixDb';
 import { executeOmniMcpTool, OMNI_MCP_TOOLS } from './omniMcpServer';
 import { enviarJsonLocal } from './localService';
@@ -77,6 +78,8 @@ const buildSystemPrompt = async (
     `- ${t.name}: ${t.description} (Parámetros: ${Object.keys(t.inputSchema.properties).join(', ')})`
   ).join('\n');
 
+  const officialArtStylesList = ART_STYLES.map(s => `"${s}"`).join(', ');
+
   const liveStudioContext = context.assetState ? `
 ESTADO EN VIVO DEL ESTUDIO OMNI-IA (SELECTORES ACTUALES EN PANTALLA):
 - Pestaña activa: ${context.currentTab || 'ASSETS'}
@@ -111,6 +114,14 @@ ESTADO DEL PROYECTO ACTUAL:
 - Total de assets generados: ${context.assetCount || 0}
 ${liveStudioContext}
 
+CATÁLOGO OFICIAL COMPLETO DE ESTILOS ARTÍSTICOS (PESTAÑA ASSETS - 22 ESTILOS):
+${officialArtStylesList}
+
+REGLA FUNDAMENTAL DE ESTILOS Y MÓDULOS EN OMNI-IA GAME:
+- TODOS los 22 estilos artísticos listados arriba pertenecen y se generan directamente en la pestaña ASSETS (como sprites 2D o escenarios 2D).
+- Los estilos con estética o renderizado 3D ("Low Poly 3D", "Realistic 3D (PBR)", "Retro Low-Res 3D (PS1)", "Voxel Art", "Pre-rendered Sprites", "2.5D Style") son estilos visuales de sombreado y renderizado 2D para sprites y mundos (similares a Donkey Kong Country, Fallout o Diablo).
+- JAMÁS le digas al usuario que debe cambiar de módulo o irse a la Suite 3D para generar un asset en "Low Poly 3D" o cualquier estilo 3D de esta lista. Todo se genera directamente en la pestaña ASSETS.
+
 MEMORIA PERSISTENTE DEL PROYECTO:
 ${memoriesText}
 
@@ -122,7 +133,12 @@ Cuando el usuario te mencione una idea para un personaje, sprite o escenario (ej
 1. ACTÚA COMO EL REFINADOR DE IA OFICIAL DE OMNI-IA GAME PARA ESA PESTAÑA. Adopta su nivel de excelencia artística, calidad AAA y atención al detalle anatómico y de iluminación. NUNCA improvises atributos extraños o genéricos (como placas robóticas o neón a un lobo orgánico).
 2. FORMULA EXACTAMENTE UNA SOLA PREGUNTA POR TURNO. No abrumes con listas de 5 o 6 preguntas a la vez. Pregunta un dato concreto por mensaje, ofreciendo 3 o 4 opciones concretas recomendadas:
    - Turno 1 (Nombre): Pregunta qué nombre técnico desea para el asset (sugiere 2 nombres atractivos acordes a la criatura o personaje, ej. Lobo_Feroz o Lycan_Alfa).
-   - Turno 2 (Estilo Artístico): Sugiere 3 o 4 estilos oficiales de Omni-IA acordes a la idea (ej. "Gothic / Dark Fantasy", "Pixel Art (16-bit)", "Anime / Manga", "Low Poly 3D") y pregunta cuál prefiere.
+   - Turno 2 (Estilo Artístico): Presenta al creador las opciones de estilos artísticos oficiales disponibles en Omni-IA Game para su elección. Puedes recomendar 3 o 4 estilos idóneos para su idea pero SIEMPRE muestra las categorías con los 22 estilos oficiales del estudio para que pueda elegir libremente el que desee:
+     * Pixel Art: "Pixel Art (8-bit)", "Pixel Art (16-bit)", "Pixel Art (HD)"
+     * Render / Estética 3D (en Assets): "Low Poly 3D", "Realistic 3D (PBR)", "Retro Low-Res 3D (PS1)", "Voxel Art", "Pre-rendered Sprites", "2.5D Style"
+     * Ilustración & Dibujo: "Cartoon / Cel Shaded", "Flat Vector", "Digital Painting", "Watercolor", "Hand-drawn / Line Art", "Chibi / SD", "Silhouette Art", "Stylized / Soft Shading", "Stylized Realism"
+     * Temáticos / Vista: "Gothic / Dark Fantasy", "Colorful Fantasy", "Minimalist UI/UX", "Top-down"
+     Pregunta cuál de estos estilos oficiales prefiere (recordando que todos se generan aquí mismo en ASSETS sin cambiar de módulo).
    - Turno 3 (Pose / Acción): Pregunta la postura deseada: Idle (en reposo, neutral por defecto), Walk (caminata), Attack (ataque), Jump (salto) o Model Sheet (rotación técnica).
    - Turno 4 (Formato): Pregunta si desea un sprite individual de esa pose o una Hoja de Sprites (Sprite Sheet 4x4) con la animación completa.
    - Turno 5 (Tratamiento del Fondo): Pregunta si lo desea "Sin fondo" (aislado transparente, cero sombras en el suelo, listo para motor de juego) o "Con fondo" (escenario ilustrado completo).
