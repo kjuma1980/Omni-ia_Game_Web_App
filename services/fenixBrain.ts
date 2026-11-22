@@ -129,20 +129,27 @@ MODO DE ASESORÍA ACTUAL: ${config.wizardMode !== false ? '🧙 PASO A PASO INTE
 
 ${config.wizardMode !== false ? `
 PROTOCOLO OBLIGATORIO DE GUÍA PASO A PASO (UNA SOLA PREGUNTA A LA VEZ POR TURNO):
+¡REGLA FUNDAMENTAL DE TURNO ÚNICO - PROHIBIDO GENERAR TEMARIOS, LISTAS DE PASOS O PREGUNTAS MÚLTIPLES!:
+- JAMÁS escribas un listado, temario o índice con pasos a seguir (ej. NUNCA escribas "Paso 1: ..., Paso 2: ..., Paso 3: ...").
+- Tu respuesta debe contener ÚNICAMENTE LA PREGUNTA DEL TURNO ACTUAL y esperar la respuesta del usuario.
+- NUNCA formules más de una pregunta por mensaje.
+- Si estás al inicio (Turno 1), felicita la idea, sugiere 2 nombres técnicos atractivos para el asset, pregunta cuál prefiere (o si propone otro) y DETÉN tu respuesta inmediatamente.
+- NO avances a los siguientes turnos hasta que el usuario te haya respondido el turno en curso.
+
 Cuando el usuario te mencione una idea para un personaje, sprite o escenario (ej. "quiero un hombre lobo", "un caballero", "un calabozo"):
 1. ACTÚA COMO EL REFINADOR DE IA OFICIAL DE OMNI-IA GAME PARA ESA PESTAÑA. Adopta su nivel de excelencia artística, calidad AAA y atención al detalle anatómico y de iluminación. NUNCA improvises atributos extraños o genéricos (como placas robóticas o neón a un lobo orgánico).
-2. FORMULA EXACTAMENTE UNA SOLA PREGUNTA POR TURNO. No abrumes con listas de 5 o 6 preguntas a la vez. Pregunta un dato concreto por mensaje, ofreciendo 3 o 4 opciones concretas recomendadas:
-   - Turno 1 (Nombre): Pregunta qué nombre técnico desea para el asset (sugiere 2 nombres atractivos acordes a la criatura o personaje, ej. Lobo_Feroz o Lycan_Alfa).
+2. FORMULA EXACTAMENTE UNA SOLA PREGUNTA POR TURNO (NUNCA MÁS DE UNA). Pregunta un dato concreto por mensaje, ofreciendo 3 o 4 opciones concretas recomendadas:
+   - Turno 1 (Nombre): Pregunta qué nombre técnico desea para el asset (sugiere 2 nombres atractivos acordes a la criatura o personaje, ej. Lobo_Feroz o Lycan_Alfa). DETÉN TU RESPUESTA AQUÍ.
    - Turno 2 (Estilo Artístico): Presenta al creador las opciones de estilos artísticos oficiales disponibles en Omni-IA Game para su elección. Puedes recomendar 3 o 4 estilos idóneos para su idea pero SIEMPRE muestra las categorías con los 22 estilos oficiales del estudio para que pueda elegir libremente el que desee:
      * Pixel Art: "Pixel Art (8-bit)", "Pixel Art (16-bit)", "Pixel Art (HD)"
      * Render / Estética 3D (en Assets): "Low Poly 3D", "Realistic 3D (PBR)", "Retro Low-Res 3D (PS1)", "Voxel Art", "Pre-rendered Sprites", "2.5D Style"
      * Ilustración & Dibujo: "Cartoon / Cel Shaded", "Flat Vector", "Digital Painting", "Watercolor", "Hand-drawn / Line Art", "Chibi / SD", "Silhouette Art", "Stylized / Soft Shading", "Stylized Realism"
      * Temáticos / Vista: "Gothic / Dark Fantasy", "Colorful Fantasy", "Minimalist UI/UX", "Top-down"
-     Pregunta cuál de estos estilos oficiales prefiere (recordando que todos se generan aquí mismo en ASSETS sin cambiar de módulo).
-   - Turno 3 (Pose / Acción): Pregunta la postura deseada: Idle (en reposo, neutral por defecto), Walk (caminata), Attack (ataque), Jump (salto) o Model Sheet (rotación técnica).
-   - Turno 4 (Formato): Pregunta si desea un sprite individual de esa pose o una Hoja de Sprites (Sprite Sheet 4x4) con la animación completa.
-   - Turno 5 (Tratamiento del Fondo): Pregunta si lo desea "Sin fondo" (aislado transparente, cero sombras en el suelo, listo para motor de juego) o "Con fondo" (escenario ilustrado completo).
-   - Turno 6 (Resolución / Referencia): Pregunta si desea resolución estándar (512x512) o alta (1024x1024), y si tiene alguna imagen de referencia previa para mantener consistencia.
+     Pregunta cuál de estos estilos oficiales prefiere (recordando que todos se generan aquí mismo en ASSETS sin cambiar de módulo). DETÉN TU RESPUESTA AQUÍ.
+   - Turno 3 (Pose / Acción): Pregunta la postura deseada: Idle (en reposo, neutral por defecto), Walk (caminata), Attack (ataque), Jump (salto) o Model Sheet (rotación técnica). DETÉN TU RESPUESTA AQUÍ.
+   - Turno 4 (Formato): Pregunta si desea un sprite individual de esa pose o una Hoja de Sprites (Sprite Sheet 4x4) con la animación completa. DETÉN TU RESPUESTA AQUÍ.
+   - Turno 5 (Tratamiento del Fondo): Pregunta si lo desea "Sin fondo" (aislado transparente, cero sombras en el suelo, listo para motor de juego) o "Con fondo" (escenario ilustrado completo). DETÉN TU RESPUESTA AQUÍ.
+   - Turno 6 (Resolución / Referencia): Pregunta si desea resolución estándar (512x512) o alta (1024x1024), y si tiene alguna imagen de referencia previa para mantener consistencia. DETÉN TU RESPUESTA AQUÍ.
    - Turno 7 (Entrega y Ejecución): Una vez recopilados los datos, construye el prompt maestro con las directivas oficiales de Omni-IA e invoca 'omni_craft_sprite_prompt' (o 'omni_create_sprite' si el usuario pidió crearlo directamente). Esto mostrará en el chat la tarjeta interactiva con el botón [🎨 GENERAR EN EL ESTUDIO].
 * Si el usuario ya te proporciona varios de estos datos en su mensaje inicial, reconoce los datos dados y pregunta directamente el siguiente dato faltante (siempre UNO a la vez).
 ` : `
@@ -229,7 +236,13 @@ export const generateFenixResponse = async (
           model: chosenModel,
           messages: formattedMessages,
           temperature: 0.7,
-          max_tokens: 2048
+          presence_penalty: 0.5,
+          frequency_penalty: 0.5,
+          max_tokens: 2048,
+          options: {
+            repeat_penalty: 1.18,
+            temperature: 0.7
+          }
         });
         rawResponse = data.choices?.[0]?.message?.content || 'No se obtuvo respuesta de Ollama.';
         // Eliminar posibles bloques de razonamiento interno (<think>...</think>)
@@ -243,6 +256,8 @@ export const generateFenixResponse = async (
         const data = await enviarJsonLocal(url, {
           messages: formattedMessages,
           temperature: 0.7,
+          presence_penalty: 0.5,
+          frequency_penalty: 0.5,
           max_tokens: 2048
         });
         rawResponse = data.choices?.[0]?.message?.content || 'No se obtuvo respuesta de llama-server.';
@@ -289,7 +304,9 @@ export const generateFenixResponse = async (
           body: JSON.stringify({
             model: 'gpt-4o',
             messages: formattedMessages,
-            temperature: 0.7
+            temperature: 0.7,
+            presence_penalty: 0.5,
+            frequency_penalty: 0.5
           })
         });
         if (!res.ok) throw new Error(`OpenAI HTTP ${res.status}`);
@@ -314,6 +331,8 @@ export const generateFenixResponse = async (
             model,
             messages: formattedMessages,
             temperature: 0.7,
+            presence_penalty: 0.5,
+            frequency_penalty: 0.5,
             max_tokens: 2048
           })
         });
@@ -341,6 +360,8 @@ export const generateFenixResponse = async (
             model,
             messages: formattedMessages,
             temperature: 0.7,
+            presence_penalty: 0.5,
+            frequency_penalty: 0.5,
             max_tokens: 2048
           })
         });

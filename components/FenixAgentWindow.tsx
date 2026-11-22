@@ -18,6 +18,7 @@ import {
   MicOff, 
   Volume2, 
   VolumeX, 
+  Square,
   Minus, 
   X, 
   Settings, 
@@ -187,6 +188,7 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioPlayTokenRef = useRef(0);
 
   // Cargar mensajes previos desde FenixAgentDB
   useEffect(() => {
@@ -249,24 +251,47 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
     });
   };
 
-  // Detener cualquier audio o síntesis de voz en curso
+  // Detener cualquier audio o síntesis de voz en curso inmediatamente
   const stopSpeaking = () => {
+    // Incrementar token para invalidar cualquier petición TTS en vuelo
+    audioPlayTokenRef.current++;
     if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
     }
     if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
+      try {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+        currentAudioRef.current.src = '';
+      } catch {}
       currentAudioRef.current = null;
     }
     setIsSpeaking(false);
   };
 
+  // Alternar y mutear voz al instante
+  const handleToggleVoice = () => {
+    const nextVal = !config.voiceEnabled;
+    if (!nextVal) {
+      stopSpeaking();
+    }
+    onUpdateConfig({ voiceEnabled: nextVal });
+    saveFenixConfig({ voiceEnabled: nextVal });
+  };
+
   // Síntesis de voz Web Speech (Navegador - Cero GPU)
-  const fallbackBrowserSpeech = (cleanSpeech: string, activeConfig: FenixAgentConfig) => {
+  const fallbackBrowserSpeech = (cleanSpeech: string, activeConfig: FenixAgentConfig, token?: number) => {
+    if (token !== undefined && audioPlayTokenRef.current !== token) return;
     if (typeof window === 'undefined' || !window.speechSynthesis) {
       setIsSpeaking(false);
       return;
     }
+    try {
+      window.speechSynthesis.cancel();
+    } catch {}
+
     const utterance = new SpeechSynthesisUtterance(cleanSpeech);
     utterance.lang = 'es-ES';
     utterance.rate = activeConfig.voiceSpeed || 1.0;
@@ -284,7 +309,14 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
       if (esVoice) utterance.voice = esVoice;
     }
 
-    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onstart = () => {
+      if (token !== undefined && audioPlayTokenRef.current !== token) {
+        try { window.speechSynthesis.cancel(); } catch {}
+        setIsSpeaking(false);
+        return;
+      }
+      setIsSpeaking(true);
+    };
     utterance.onend = () => {
       setIsSpeaking(false);
       onSpeechFinished();
@@ -314,9 +346,17 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
 
     stopSpeaking();
 
-    const cleanSpeech = cleanSpeechForTTS(text);
+    const currentToken = ++audioPlayTokenRef.current;
+    let cleanSpeech = cleanSpeechForTTS(text);
 
     if (!cleanSpeech) return;
+
+    // Protección anti-desbordamiento: Si el texto excede 750 caracteres, truncar en la última frase completa
+    if (cleanSpeech.length > 750) {
+      const truncated = cleanSpeech.slice(0, 750);
+      const lastDot = Math.max(truncated.lastIndexOf('.'), truncated.lastIndexOf('?'), truncated.lastIndexOf('!'));
+      cleanSpeech = lastDot > 200 ? truncated.slice(0, lastDot + 1) : truncated + '...';
+    }
 
     const engine = activeConfig.ttsEngine || 'browser';
 
@@ -324,10 +364,13 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
     if (engine === 'edge-tts' || engine === 'piper') {
       try {
         const alive = await isTtsServerAlive(engine);
+        if (audioPlayTokenRef.current !== currentToken) return;
+
         if (!alive) {
           const started = await ensureTtsServerRunning(engine);
+          if (audioPlayTokenRef.current !== currentToken) return;
           if (!started) {
-            fallbackBrowserSpeech(cleanSpeech, activeConfig);
+            fallbackBrowserSpeech(cleanSpeech, activeConfig, currentToken);
             return;
           }
         }
@@ -337,18 +380,28 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
           voice: activeConfig.edgeVoice || 'es-ES-AlvaroNeural'
         };
         const res = await enviarJsonLocal('http://127.0.0.1:5000/api/tts', payload);
+        if (audioPlayTokenRef.current !== currentToken) return;
+
         if (res && res.audio) {
           const mime = res.format === 'wav' ? 'audio/wav' : 'audio/mp3';
           const audio = new Audio(`data:${mime};base64,${res.audio}`);
           currentAudioRef.current = audio;
           audio.playbackRate = activeConfig.voiceSpeed || 1.0;
-          audio.onplay = () => setIsSpeaking(true);
+          audio.onplay = () => {
+            if (audioPlayTokenRef.current !== currentToken) {
+              try { audio.pause(); } catch {}
+              return;
+            }
+            setIsSpeaking(true);
+          };
           audio.onended = () => {
             onSpeechFinished();
           };
           audio.onerror = () => {
             currentAudioRef.current = null;
-            fallbackBrowserSpeech(cleanSpeech, activeConfig);
+            if (audioPlayTokenRef.current === currentToken) {
+              fallbackBrowserSpeech(cleanSpeech, activeConfig, currentToken);
+            }
           };
           await audio.play();
           return;
@@ -360,7 +413,9 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
     }
 
     // Por defecto o Fallback: Voz del Navegador / Sistema
-    fallbackBrowserSpeech(cleanSpeech, activeConfig);
+    if (audioPlayTokenRef.current === currentToken) {
+      fallbackBrowserSpeech(cleanSpeech, activeConfig, currentToken);
+    }
   };
 
   // Speech-To-Text (STT) y Conversación por Voz
@@ -593,11 +648,16 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
                 className="w-full h-full object-cover"
               />
             </div>
-            {/* Animación Lip Sync (Onda de voz) */}
+            {/* Animación Lip Sync (Onda de voz) y botón rápido para callar */}
             {isSpeaking && (
-              <div className="absolute -bottom-1 -right-1 bg-amber-500 text-slate-950 p-1 rounded-full animate-bounce shadow-md">
-                <Volume2 className="w-3 h-3" />
-              </div>
+              <button
+                type="button"
+                onClick={stopSpeaking}
+                className="absolute -bottom-1 -right-1 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full animate-bounce shadow-md cursor-pointer transition-transform hover:scale-110"
+                title="Voz activa (clic para silenciar / parar)"
+              >
+                <Square className="w-2.5 h-2.5 fill-current" />
+              </button>
             )}
           </div>
 
@@ -656,11 +716,28 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
             {config.wizardMode !== false ? '🧙 Paso a Paso' : '⚡ Rápido'}
           </button>
 
-          {/* Control de voz rápido */}
+          {/* Botón de Parar Voz de emergencia (Visible mientras habla) */}
+          {isSpeaking && (
+            <button
+              type="button"
+              onClick={stopSpeaking}
+              className="px-2 py-0.5 bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold rounded-md shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse flex items-center gap-1 transition-all"
+              title="Detener voz del agente inmediatamente"
+            >
+              <Square className="w-2.5 h-2.5 fill-current" />
+              <span>PARAR</span>
+            </button>
+          )}
+
+          {/* Control de voz rápido (Mute / Activar con parada instantánea) */}
           <button
-            onClick={() => onUpdateConfig({ voiceEnabled: !config.voiceEnabled })}
-            className={`p-1.5 rounded-lg transition-colors ${config.voiceEnabled ? 'text-amber-400 hover:bg-amber-950/50' : 'text-slate-500 hover:bg-slate-800'}`}
-            title={config.voiceEnabled ? 'Silenciar voz del agente' : 'Activar voz del agente'}
+            onClick={handleToggleVoice}
+            className={`p-1.5 rounded-lg transition-colors ${
+              config.voiceEnabled 
+                ? 'text-amber-400 hover:bg-amber-950/50' 
+                : 'text-red-400 bg-red-950/30 border border-red-500/30 hover:bg-red-900/40'
+            }`}
+            title={config.voiceEnabled ? 'Silenciar voz del agente (Mute)' : 'Activar voz del agente'}
           >
             {config.voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
@@ -947,6 +1024,19 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
             }
           >
             {isListening ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+          </button>
+        )}
+
+        {/* Botón de Parar Voz en barra inferior */}
+        {isSpeaking && (
+          <button
+            type="button"
+            onClick={stopSpeaking}
+            className="px-2.5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-red-950/60 animate-pulse transition-all flex-shrink-0"
+            title="Parar voz del agente inmediatamente"
+          >
+            <Square className="w-3.5 h-3.5 fill-current" />
+            <span className="hidden sm:inline">PARAR</span>
           </button>
         )}
 
