@@ -90,6 +90,25 @@ export interface OmniMcpTool {
  */
 export const OMNI_MCP_TOOLS: OmniMcpTool[] = [
   {
+    name: 'omni_start_interactive_wizard',
+    description: 'Abre el Asistente Interactivo en pantalla con controles visuales directos (inputs, menús desplegables y botones táctiles) para guiar al creador un paso a la vez en cualquier pestaña del estudio.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tab: {
+          type: 'string',
+          description: 'Pestaña del estudio',
+          enum: ['ASSETS', 'MUNDOS', 'ANIMACION', 'NARRATIVA', 'NPCS', 'SCRIPTS', 'AUDIO', 'SUITE3D']
+        },
+        initialIdea: {
+          type: 'string',
+          description: 'Idea o concepto inicial del usuario (ej. "hombre lobo", "castillo gótico")'
+        }
+      },
+      required: ['tab']
+    }
+  },
+  {
     name: 'omni_create_sprite',
     description: 'Genera directamente un sprite 2D en segundo plano usando el motor de IA activo (ComfyUI local o Cloud) y devuelve la imagen renderizada (en base64) para previsualizar y guardar en el proyecto.',
     inputSchema: {
@@ -435,6 +454,22 @@ export const executeOmniMcpTool = async (
           recentMemories: memories.slice(-5)
         },
         message: `Resumen del proyecto "${context.projectName || 'Omni IA'}" obtenido exitosamente.`
+      };
+    }
+
+    case 'omni_start_interactive_wizard': {
+      const tab = (args.tab || 'ASSETS').toUpperCase();
+      return {
+        success: true,
+        result: {
+          tab,
+          initialIdea: args.initialIdea || '',
+          openWizard: {
+            tab,
+            initialValues: args.initialIdea ? { characterName: args.initialIdea, worldName: args.initialIdea } : undefined
+          }
+        },
+        message: `Asistente interactivo abierto para el módulo ${tab}. Utiliza los controles en pantalla para completar cada paso.`
       };
     }
 

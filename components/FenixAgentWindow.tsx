@@ -52,6 +52,8 @@ import {
 import { generateFenixResponse } from '../services/fenixBrain';
 import { enviarJsonLocal } from '../services/localService';
 import { isTtsServerAlive, ensureTtsServerRunning } from '../services/ttsService';
+import { FenixInteractiveWizard } from './FenixInteractiveWizard';
+import { compileWizardOutput } from '../constants/wizardSchemas';
 
 interface FenixAgentWindowProps {
   config: FenixAgentConfig;
@@ -144,6 +146,10 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
   const [continuousChat, setContinuousChat] = useState<boolean>(false);
   const [dictationOnly, setDictationOnly] = useState<boolean>(false);
   const [savedAssetIds, setSavedAssetIds] = useState<Set<string>>(new Set());
+  const [activeWizard, setActiveWizard] = useState<{
+    tab: string;
+    initialValues?: Record<string, any>;
+  } | null>(null);
   const continuousChatRef = useRef(false);
   const dictationOnlyRef = useRef(false);
   const transcriptBufferRef = useRef('');
@@ -505,6 +511,36 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
     setMessages(newHistory);
     await saveFenixMessage(userMsg);
 
+    // Detección automática de intención de creación paso a paso interactiva
+    const isPasoAPasoIntent = /(paso\s*a\s*paso|crear\s*(un\s*)?(personaje|sprite|mundo|escenario|script|npc|audio|modelo|animacion)|quiero\s*(crear|un|una)|diseñar\s*(un|una)?)/i.test(text);
+
+    if (isPasoAPasoIntent && config.wizardMode !== false) {
+      // Extraer concepto para sugerir nombre técnico
+      const cleanIdea = text
+        .replace(/quiero\s*(crear|un|una)?|crear\s*(un|una)?|por\s*favor|diseñar\s*(un|una)?|paso\s*a\s*paso/gi, '')
+        .trim();
+      let suggested = 'Personaje';
+      if (cleanIdea.length > 2) {
+        suggested = cleanIdea.slice(0, 30).trim().replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]/g, '_');
+      }
+
+      const asstMsg: FenixChatMessage = {
+        id: `asst_${Date.now()}`,
+        role: 'assistant',
+        content: `¡Excelente idea! He activado el **Asistente Interactivo** justo aquí abajo con controles directos en pantalla.\n\nVamos a definir cada opción paso a paso mediante los botones táctiles y selectores oficiales de Omni-IA Game:`,
+        timestamp: Date.now() + 1,
+        emotion: 'excited'
+      };
+
+      setMessages([...newHistory, asstMsg]);
+      await saveFenixMessage(asstMsg);
+      setActiveWizard({
+        tab: projectContext.currentTab || 'ASSETS',
+        initialValues: { characterName: suggested, worldName: suggested, animName: suggested, meshName: suggested }
+      });
+      return;
+    }
+
     setIsLoading(true);
     setCurrentEmotion('thinking');
 
@@ -529,6 +565,16 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
         emotion: response.emotion,
         toolCalls: response.toolCalls,
       };
+
+      // Si la respuesta incluye apertura de wizard interactivo
+      if (response.toolCalls) {
+        for (const tc of response.toolCalls) {
+          const wizardData = tc.result?.result?.openWizard || tc.result?.openWizard;
+          if (tc.name === 'omni_start_interactive_wizard' && wizardData) {
+            setActiveWizard(wizardData);
+          }
+        }
+      }
 
       const updatedHistory = [...newHistory, assistantMsg];
 
@@ -694,26 +740,24 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
 
         {/* CONTROLES SUPERIORES */}
         <div className="flex items-center gap-1.5">
-          {/* Toggle Modo Paso a Paso / Modo Rápido */}
+          {/* Toggle Modo Paso a Paso / Asistente Interactivo */}
           <button
             type="button"
             onClick={() => {
-              const nextVal = config.wizardMode === false;
-              onUpdateConfig({ wizardMode: nextVal });
-              saveFenixConfig({ wizardMode: nextVal });
+              if (activeWizard) {
+                setActiveWizard(null);
+              } else {
+                setActiveWizard({ tab: projectContext.currentTab || 'ASSETS' });
+              }
             }}
             className={`px-2 py-0.5 text-[10px] font-bold rounded-md flex items-center gap-1 transition-all ${
-              config.wizardMode !== false
-                ? 'bg-amber-500/25 text-amber-300 border border-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.25)] hover:bg-amber-500/35'
-                : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-slate-200 hover:bg-slate-700'
+              activeWizard
+                ? 'bg-amber-400 text-slate-950 font-black shadow-[0_0_12px_rgba(245,158,11,0.6)] animate-pulse'
+                : 'bg-amber-500/25 text-amber-300 border border-amber-500/60 shadow-[0_0_8px_rgba(245,158,11,0.25)] hover:bg-amber-500/35'
             }`}
-            title={
-              config.wizardMode !== false
-                ? 'Modo Paso a Paso Activo (Fénix guía 1 pregunta a la vez). Clic para cambiar a Modo Rápido.'
-                : 'Modo Rápido Activo (Genera directo en 1 turno). Clic para activar Paso a Paso.'
-            }
+            title="Abrir o cerrar el Asistente Interactivo con controles táctiles en pantalla"
           >
-            {config.wizardMode !== false ? '🧙 Paso a Paso' : '⚡ Rápido'}
+            {activeWizard ? '🧙 Cerrar Asistente' : '🧙 Paso a Paso'}
           </button>
 
           {/* Botón de Parar Voz de emergencia (Visible mientras habla) */}
@@ -924,6 +968,40 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
           );
         })}
 
+        {/* ASISTENTE INTERACTIVO PASO A PASO (WIZARD MULTIMODAL) */}
+        {activeWizard && (
+          <FenixInteractiveWizard
+            currentTab={activeWizard.tab || projectContext.currentTab || 'ASSETS'}
+            initialValues={activeWizard.initialValues}
+            onFinish={async (output) => {
+              if (onSendPromptToStudio) {
+                onSendPromptToStudio(
+                  output.prompt,
+                  output.negativePrompt,
+                  output.style,
+                  output.action || 'Idle',
+                  output.autoRemoveBackground !== false,
+                  output.suggestedName,
+                  output.autoRemoveBackground ? 'white' : 'transparent'
+                );
+              }
+
+              const finishMsg: FenixChatMessage = {
+                id: `asst_${Date.now()}`,
+                role: 'assistant',
+                content: `✨ ¡Listo! He configurado tu asset **${output.suggestedName}** con estilo **${output.style || 'oficial'}** y postura **${output.action || 'Idle'}** directamente en el estudio.\n\nEl prompt maestro con iluminación difusa y exclusiones negativas ya está cargado en el panel. ¡Haz clic en el botón Generar para crearlo!`,
+                timestamp: Date.now(),
+                emotion: 'celebrating'
+              };
+
+              setMessages(prev => [...prev, finishMsg]);
+              await saveFenixMessage(finishMsg);
+              setActiveWizard(null);
+            }}
+            onCancel={() => setActiveWizard(null)}
+          />
+        )}
+
         {/* LOADING INDICATOR */}
         {isLoading && (
           <div className="flex items-center gap-2 p-3 bg-slate-900/80 border border-amber-500/30 rounded-2xl w-fit rounded-bl-none text-amber-400 text-xs animate-pulse">
@@ -937,6 +1015,12 @@ export const FenixAgentWindow: React.FC<FenixAgentWindowProps> = ({
 
       {/* ACCIONES RÁPIDAS (PILLS) */}
       <div className="px-3 py-1.5 bg-slate-900/40 border-t border-slate-800/80 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        <button
+          onClick={() => setActiveWizard({ tab: projectContext.currentTab || 'ASSETS' })}
+          className="whitespace-nowrap px-2.5 py-1 bg-gradient-to-r from-amber-500/30 to-amber-600/30 hover:from-amber-500/40 hover:to-amber-600/40 text-amber-300 text-[10px] font-bold rounded-full border border-amber-500/60 transition-all flex items-center gap-1 shadow-sm"
+        >
+          <Sparkles className="w-3 h-3 text-amber-400" /> 🧙 Asistente Interactivo
+        </button>
         <button
           onClick={() => handleSendMessage('¿Cómo planificamos la creación de un nuevo videojuego completo en Omni-IA Game?')}
           className="whitespace-nowrap px-2.5 py-1 bg-slate-800/80 hover:bg-amber-950/40 hover:text-amber-300 text-slate-300 text-[10px] font-medium rounded-full border border-slate-700/60 transition-colors flex items-center gap-1"

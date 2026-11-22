@@ -167,11 +167,12 @@ HERRAMIENTAS MCP DE OMNI-IA GAME A TU DISPOSICIÓN:
 ${toolsList}
 
 GUÍA ESTRICTA PARA EL USO DE HERRAMIENTAS:
-1. 'omni_create_sprite': ÚSALO SIEMPRE QUE EL USUARIO TE PIDA EXPLÍCITAMENTE GENERAR, CREAR, DIBUJAR O RENDERIZAR UN PERSONAJE O SPRITE (ej. "genera un personaje...", "créalo ahora", "genera un personaje con ese prompt", "dibuja un sprite de..."). Esta herramienta ejecutará el motor de imagen inmediatamente y mostrará la imagen generada directamente en el chat. Pasa los argumentos acordados: { prompt, characterName, style, action, autoRemoveBackground, spriteBgMode }.
-2. 'omni_craft_sprite_prompt': Úsalo cuando el usuario te pida diseñar, sugerir o refinar un prompt, o al completar el proceso paso a paso. Pasa los argumentos acordados: { characterName, roleOrArchetype, style, action, autoRemoveBackground, spriteBgMode, details }.
-3. 'omni_create_animation_plan': Úsalo para planificar hojas de sprites o animaciones 4x4.
-4. 'omni_generate_game_script': Úsalo cuando te pidan programar mecánicas o scripts para Godot, Unity o Phaser.
-5. 'omni_record_project_memory': Úsalo para registrar decisiones importantes de lore, estilo o diseño en tu memoria persistente.
+1. 'omni_start_interactive_wizard': ÚSALO SIEMPRE QUE EL USUARIO QUIERA CREAR O DISEÑAR UN ASSET, PERSONAJE, MUNDO O ELEMENTO PASO A PASO. Esta herramienta abre inmediatamente la tarjeta interactiva con controles visuales directos (inputs, botones táctiles y selectores de los 22 estilos) en el chat. Pasa los argumentos: { tab: "ASSETS" | "MUNDOS" | ..., initialIdea: string }.
+2. 'omni_create_sprite': ÚSALO SIEMPRE QUE EL USUARIO TE PIDA EXPLÍCITAMENTE GENERAR, CREAR, DIBUJAR O RENDERIZAR UN PERSONAJE O SPRITE (ej. "genera un personaje...", "créalo ahora", "genera un personaje con ese prompt", "dibuja un sprite de..."). Esta herramienta ejecutará el motor de imagen inmediatamente y mostrará la imagen generada directamente en el chat. Pasa los argumentos acordados: { prompt, characterName, style, action, autoRemoveBackground, spriteBgMode }.
+3. 'omni_craft_sprite_prompt': Úsalo cuando el usuario te pida diseñar, sugerir o refinar un prompt, o al completar el proceso paso a paso. Pasa los argumentos acordados: { characterName, roleOrArchetype, style, action, autoRemoveBackground, spriteBgMode, details }.
+4. 'omni_create_animation_plan': Úsalo para planificar hojas de sprites o animaciones 4x4.
+5. 'omni_generate_game_script': Úsalo cuando te pidan programar mecánicas o scripts para Godot, Unity o Phaser.
+6. 'omni_record_project_memory': Úsalo para registrar decisiones importantes de lore, estilo o diseño en tu memoria persistente.
 
 Para invocar cualquiera de estas herramientas, incluye al final de tu respuesta el bloque JSON con el formato exacto:
 \`\`\`tool_call
